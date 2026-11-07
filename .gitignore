@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+playwright-report/
+test-results/
+research/canva/capture-*.json
+research/canva/*.err
+research/canva/*.png
+tools/rea/.git/
+tools/rea/node_modules/
+tools/rea/dist/

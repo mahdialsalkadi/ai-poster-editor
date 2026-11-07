@@ -1,0 +1,14 @@
+{
+  "browser": {
+    "mode": "launch",
+    "executable_path": "/home/mahdi/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome"
+  },
+  "start_url": { "url": "https://www.canva.com/design/play?category=tAFBBNL-eFc" },
+  "actions": [
+    { "step_id": "close-login", "action": "click", "locator": { "kind": "role", "role": "button", "name": "Close" }, "timeout_ms": 15000 },
+    { "step_id": "file-menu", "action": "click", "locator": { "kind": "role", "role": "menuitem", "name": "File" }, "timeout_ms": 10000 },
+    { "step_id": "download", "action": "click", "locator": { "kind": "role", "role": "menuitem", "name": "Download" }, "timeout_ms": 10000 },
+    { "step_id": "settle", "action": "wait_for_timeout", "duration_ms": 2500 }
+  ],
+  "capture": { "at_end": ["url", "accessibility"] }
+}

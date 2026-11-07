@@ -1,0 +1,68 @@
+[
+  {
+    "package": "@fontsource/poppins",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "poppins.txt"
+  },
+  {
+    "package": "@fontsource/montserrat",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "montserrat.txt"
+  },
+  {
+    "package": "@fontsource/playfair-display",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "playfair-display.txt"
+  },
+  {
+    "package": "@fontsource/bebas-neue",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "bebas-neue.txt"
+  },
+  {
+    "package": "@fontsource/inter",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "inter.txt"
+  },
+  {
+    "package": "@fontsource/lobster",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "lobster.txt"
+  },
+  {
+    "package": "@fontsource/cairo",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "cairo.txt"
+  },
+  {
+    "package": "@fontsource/tajawal",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "tajawal.txt"
+  },
+  {
+    "package": "@fontsource/noto-kufi-arabic",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "noto-kufi-arabic.txt"
+  },
+  {
+    "package": "@fontsource/amiri",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "amiri.txt"
+  },
+  {
+    "package": "@fontsource/ibm-plex-sans-arabic",
+    "version": "5.3.0",
+    "license": "OFL-1.1",
+    "file": "ibm-plex-sans-arabic.txt"
+  }
+]

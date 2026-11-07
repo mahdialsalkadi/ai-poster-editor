@@ -1,0 +1,29 @@
+{
+  "name": "@poster/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "css-tree": "^3.1.0",
+    "parse5": "^7.2.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/css-tree": "^2.3.10",
+    "@types/node": "^22.10.7"
+  }
+}
