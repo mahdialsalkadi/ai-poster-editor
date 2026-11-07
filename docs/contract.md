@@ -24,8 +24,10 @@ Design HTML document.
 </div>
 ```
 
-The `.artboard` element is required. It may be nested inside a full HTML
-document; the parser finds the first element with class `artboard`.
+The `.artboard` element is required, and the input must be a Design HTML
+**fragment**: a full HTML document is rejected because `<head>` metadata such as
+`<meta>` or `<link>` is on the banned-tag list. The parser finds the first
+element with class `artboard` inside that fragment.
 
 | Attribute | Required | Meaning |
 | --- | --- | --- |
@@ -249,7 +251,9 @@ Unknown tags are dropped with an `SVG_LIMIT` warning.
 `stroke-opacity`, `stroke-width`, `stroke-linecap`, `stroke-linejoin`,
 `stroke-dasharray`, `stroke-dashoffset`, `d`, `x`, `y`, `x1`, `y1`, `x2`, `y2`,
 `cx`, `cy`, `r`, `rx`, `ry`, `width`, `height`, `points`, `offset`, `opacity`,
-`transform`, `id`, `fx`, `fy`, `fr`.
+`transform`, `id`, `fx`, `fy`, `fr`, `font-family`, `font-size`, `text-anchor`.
+The three text attributes are accepted for fidelity only; `<text>` itself is
+forbidden, so they are inert in v1.
 
 `href`, `xlink:href`, `style`, and every `on*` attribute are rejected. Unknown
 attributes are dropped with a warning. `id` must match
@@ -258,8 +262,10 @@ attributes are dropped with a warning. `id` must match
 ### 6.3 Paint and references
 
 - `fill`/`stroke` accept a color, `none`, or `url(#localId)`.
-- `url(#id)` must resolve to an `id` in the same SVG layer. External URLs are
-  rejected.
+- `url(#id)` must name an `id` declared in the same SVG layer. An unresolved
+  reference is **not** fatal: the paint attribute is dropped with an `SVG_LIMIT`
+  warning and the element falls back to its default paint (black fill, no
+  stroke). External URLs are rejected.
 - `d` and `points` are limited to SVG path/number characters and a maximum
   length.
 - Text content is allowed only inside `title`/`desc`; other text is dropped with
@@ -272,8 +278,11 @@ the same design must serialize to the same bytes.
 
 Rules:
 
-1. **Colors** become lowercase `#rrggbb` or `#rrggbbaa`. Named colors, `rgb()`,
-   `rgba()`, `hsl()`, and `hsla()` are accepted at parse time and converted.
+1. **Colors** become lowercase `#rrggbb` or `#rrggbbaa`. Eight keywords
+   (`transparent`, `black`, `white`, `red`, `green`, `blue`, `gray`, `grey`),
+   `rgb()`, `rgba()`, `hsl()`, and `hsla()` are accepted at parse time and converted.
+   Every other CSS keyword (e.g. `rebeccapurple`) is dropped with
+   `UNSUPPORTED_VALUE` and the fill falls back to transparent black.
 2. **Numbers** are rounded to two decimals with a stable epsilon; `-0` becomes
    `0`. Angles are normalized to `[0, 360)`.
 3. **Geometry** is clamped to the limits. `width`/`height` are at least 1.
@@ -318,6 +327,12 @@ All limits live in `packages/core/src/limits.ts`.
 | Asset pixels | 40 MP |
 | Total asset pixels | 80 MP |
 | Export | 40 MP, 40 MiB, 15 s, queue 20, concurrency 2 |
+| AI request | 512 KiB body, 128 KiB model output, 60 layers per generation |
+| AI call | 60 s timeout, 1 retry, 16,000 output tokens |
+| AI volume | 5 generations/min/IP (20/hour/session), 10 edits/min/IP |
+| Export/upload volume | 10 exports/min/IP, 20 uploads/min/IP |
+| History | 100 undo steps |
+| Snapshots | 20 per project |
 
 Exceeding a hard limit throws `LimitExceededError` (or a `DesignError` with
 `LIMIT_EXCEEDED`). Values that can be safely clamped are clamped and produce a
@@ -333,8 +348,10 @@ Rejected with `SecurityViolationError`:
   `use`, `image`;
 - every `on*` event attribute;
 - `href`, `xlink:href`, `srcset`, `action`, `formaction`, `poster`;
-- any `src` that is not an `asset:` reference;
-- CSS `url(...)`, `@import`, `expression(...)`, `javascript:`;
+- any `src` that is not an `asset:` reference, including protocol-relative
+  `//host/path` and `data:`/`blob:` URLs;
+- CSS `url(...)`, `@import`, `expression(...)`, `javascript:` in any spelling,
+  including escaped forms (`\75rl(`, `u\72l(`) and mixed case (`URL(`);
 - CSS `behavior`, `-moz-binding`;
 - SVG scripts, external references, event attributes, `href`, `style`;
 - duplicate layer ids;
@@ -348,6 +365,9 @@ renderer must still sanitize/validate before rendering; it should render from
 ## 10. Warnings
 
 Warnings are non-fatal. Each has `{ code, message, path, layerId?, severity }`.
+Duplicate layer ids are fatal (`DUPLICATE_ID`), not warnings. The table lists the
+codes the v1 core actually emits; `ASSET_UNRESOLVED` is reserved for the export
+worker in milestone 6 and is not emitted yet.
 
 | Code | Meaning |
 | --- | --- |
@@ -356,19 +376,13 @@ Warnings are non-fatal. Each has `{ code, message, path, layerId?, severity }`.
 | `PERCENTAGE_DROPPED` | percentage used where px is required |
 | `FONT_FALLBACK` | unknown font replaced |
 | `FONT_SCRIPT_MISMATCH` | font lacks Arabic coverage |
-| `DUPLICATE_ID` | duplicate id (fatal at document level) |
-| `LAYER_LIMIT` | layer limit warning |
-| `TEXT_LIMIT` | text limit warning |
 | `SVG_LIMIT` | SVG tag/attribute/node issue |
 | `GRADIENT_LIMIT` | too many stops, truncated |
 | `NUMBER_CLAMPED` | numeric value clamped |
-| `COLOR_NORMALIZED` | color converted to canonical form |
 | `MISSING_ATTRIBUTE` | required metadata absent, default used |
 | `UNKNOWN_TAG_DROPPED` | unsupported HTML/inline tag dropped |
 | `RTL_DIRECTION_INFERRED` | Arabic detected, `dir="rtl"` inferred |
-| `LEGACY_SCHEMA_DEFAULTED` | old schema upgraded with defaults |
 | `MERGE_*` | merge-specific outcomes |
-| `ASSET_UNRESOLVED` | asset id not found in the asset store |
 
 ## 11. Merge contract
 
@@ -418,8 +432,9 @@ Every non-2xx response uses the error envelope:
 
 `schemaVersion` is `1`. A breaking change to the document shape, canonical form,
 or security boundary requires a new version and a migration function. Additive
-warnings and optional metadata do not. The parser rejects unknown schema
-versions with `UNSUPPORTED_FEATURE`.
+warnings and optional metadata do not. Design HTML carries no version field;
+the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
+`schemaVersion` is not `1` with `UNSUPPORTED_FEATURE`.
 
 ## 14. Reference implementation
 
@@ -430,4 +445,12 @@ versions with `UNSUPPORTED_FEATURE`.
 - `packages/core/src/svg.ts` — SVG allow-list
 - `packages/core/src/schema.ts` — runtime Zod schema
 - `packages/core/src/merge.ts` — AI patch merge
-- `packages/core/test/core.test.ts` — round-trip, security, limits, merge tests
+- `packages/core/src/merge-scoped.ts` — selection-scoped AI merge
+- `packages/core/src/css-guard.ts` — CSS escape decoding and value guards
+- `packages/core/src/text.ts` — canonical inline text
+- `packages/core/src/fonts.ts` — font allow-list and script fallback
+- `packages/core/src/color.ts` — color normalization
+- `packages/core/src/numbers.ts` — quantization and angle normalization
+- `packages/core/src/limits.ts` — every limit above
+- `packages/core/test/` — `core`, `security`, `limits`, `properties` (fast-check),
+  `golden`, `merge-scoped`, `svg-casing` and `perf` suites
