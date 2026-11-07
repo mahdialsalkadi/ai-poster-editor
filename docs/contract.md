@@ -405,6 +405,42 @@ AI edits are patches, not full replacements.
 
 The result is canonicalized again. Invalid patch input throws before merging.
 
+### 11.1 Selection-scoped edits
+
+`mergeScopedEdit(baseDoc, aiOutputHtml, selectedLayerIds)` is the path the AI
+editor uses. For a scoped edit the model never receives the whole document: it
+receives only the selected layers plus the artboard size, and it must answer
+with a full `.artboard` wrapper carrying the same `data-width` and `data-height`
+and containing only the layers it returns. That wrapper is what makes the
+answer parseable by `parseDesignHtml` before any merge happens.
+
+Rules:
+
+- The AI output is parsed and validated first. A security violation, a limit
+  breach or an invalid document throws before the base document is touched.
+- Unselected layers keep their content, geometry and z-order. A returned layer
+  outside the selection is ignored with `MERGE_IGNORED_UNSELECTED`.
+- A returned layer whose `data-id` matches a selected layer replaces it in
+  place, so it keeps its index and its paint order.
+- A selected layer missing from the output is kept. Scoped edits never delete
+  layers.
+- A returned layer with an unknown id is a new layer. It is inserted directly
+  above the highest selected layer, in output order, and reports
+  `MERGE_NEW_LAYER`. When the selection is empty, new layers are appended at
+  the end.
+- A type change on an existing id is refused with `MERGE_TYPE_CHANGE_IGNORED`.
+- A changed `width` or `height` is refused with
+  `MERGE_ARTBOARD_CHANGE_IGNORED`; the background always comes from the base
+  document.
+- New ids are re-minted (`<id>_2`, `<id>_3`, ...) on collision. The parser
+  already rejects duplicate ids inside one output, so this guard is defensive.
+- Parse warnings are carried through, and the merged document is canonicalized
+  again before it is returned.
+
+`mergeDesignDoc` remains available for whole-design patches and for the
+`/api/design/merge` route. `POST /api/ai/edit` will expose the scoped path in
+milestone 5.
+
 ## 12. API boundary
 
 The contracts package defines request/response schemas and error envelopes:
