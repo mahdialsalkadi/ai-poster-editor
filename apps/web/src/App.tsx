@@ -541,6 +541,14 @@ export function App() {
         setModal(null);
         return;
       }
+      if ((event.key === 'Enter' || event.key === 'F2') && selection.length === 1) {
+        const candidate = doc.layers.find((layer) => layer.id === selection[0]);
+        if (candidate?.type === 'text' && !candidate.locked) {
+          event.preventDefault();
+          setEditingId(candidate.id);
+          return;
+        }
+      }
       if ((event.key === 'Delete' || event.key === 'Backspace') && selection.length > 0) {
         event.preventDefault();
         deleteSelection();
@@ -563,7 +571,7 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [history, selection, deleteSelection, duplicateSelection]);
+  }, [history, selection, deleteSelection, duplicateSelection, doc]);
 
   return (
     <div className="app" dir="rtl">

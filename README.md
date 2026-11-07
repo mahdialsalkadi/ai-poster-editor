@@ -7,7 +7,7 @@ language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
-**Milestones 1–3** are complete and gated. The shared core is the foundation:
+**Milestones 1–4** are complete and gated. The shared core is the foundation:
 
 - pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
   `apps/server`;
@@ -27,7 +27,13 @@ language, and the invariants are enforced in `packages/core`.
 `apps/web` now boots into a working editor shell. The canvas renders the
 canonical document, and the layers panel, marquee-free selection, direct
 manipulation (move, resize, rotate) and inline text entry all write back to the
-same `DesignDoc`. Gestures are committed as a single undo step, arrow keys and
+same `DesignDoc`. Text is edited on canvas with a double click, `Enter` or `F2`,
+committed with `Ctrl+Enter` or blur, and cancelled with `Escape`; the cap of
+10,000 codepoints is enforced there too, and clearing a text field is treated as
+a cancel rather than an invisible layer. The properties panel edits typography
+(family, size, weight, spacing, alignment, direction, transform, italic,
+underline, shadow, colour), fills, borders, corners, image fit and crop,
+layer order, alignment and artboard size and background. Gestures are committed as a single undo step, arrow keys and
 `Ctrl+Z`/`Ctrl+Shift+Z` are wired, and dragging snaps to artboard and layer
 edges and centers with visible guide lines. Designs persist to `localStorage`
 and can be imported from Design HTML.
@@ -135,7 +141,7 @@ until the visual-regression tests in milestone 6 exist.
 | 1 | `packages/core` contract, parser, serializer, merge, tests | done |
 | 2 | Static rendering, artboard viewport, layers panel, selection | done |
 | 3 | Moveable transforms, snapping, undo/redo | done |
-| 4 | Inline text editing, properties panel | pending |
+| 4 | Inline text editing, properties panel | done |
 | 5 | AI provider, prompts, snapshots, daily spend cap | pending |
 | 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | pending |
 | 7 | Gradient editor, templates, shortcuts, documentation | pending |

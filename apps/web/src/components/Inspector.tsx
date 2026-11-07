@@ -613,6 +613,12 @@ function TextSection({
             }
           />
         </Field>
+        {layer.content.some((node) => node.kind === 'span') ? (
+          <p className="panel-hint">
+            هذا النص يحتوي تنسيقات داخلية (عريض أو مائل أو لون). تحرير المحتوى أو التحرير المباشر
+            يحوّل النص إلى نمط واحد.
+          </p>
+        ) : null}
         <Button icon="text" onClick={() => onStartEditText(layer.id)} full>
           تحرير مباشر على اللوحة
         </Button>

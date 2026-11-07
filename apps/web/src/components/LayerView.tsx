@@ -10,8 +10,16 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import type { ImageLayer, Layer, ShapeLayer, SvgLayer, SvgNode, TextLayer } from '@poster/core';
-import { inlineToPlain } from '../editor/text.js';
+import {
+  LIMITS,
+  type ImageLayer,
+  type Layer,
+  type ShapeLayer,
+  type SvgLayer,
+  type SvgNode,
+  type TextLayer,
+} from '@poster/core';
+import { inlineToPlain, textCodepointLength } from '../editor/text.js';
 import { scopeSvgNodes, svgAttrToProps } from '../editor/svg.js';
 import { borderToCss, fillToCss, fontFamilyCss, shadowToCss } from '../editor/render.js';
 import { Icon } from './icons.js';
@@ -202,6 +210,12 @@ function InlineTextEditor({
 
   const commit = () => {
     if (cancelled.current) return;
+    // Empty text would leave an invisible layer that still takes space.
+    // Treat clearing the field as a cancel and keep the previous content.
+    if (text.trim().length === 0) {
+      onCancel();
+      return;
+    }
     onCommit(layer.id, text);
   };
 
@@ -213,7 +227,10 @@ function InlineTextEditor({
       dir={layer.dir}
       aria-label="Edit text"
       spellCheck={false}
-      onChange={(event) => setText(event.target.value)}
+      onChange={(event) => {
+        const next = event.target.value;
+        if (textCodepointLength(next) <= LIMITS.text.maxCodepointsPerLayer) setText(next);
+      }}
       onBlur={commit}
       onPointerDown={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
