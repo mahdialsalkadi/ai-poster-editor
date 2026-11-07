@@ -539,7 +539,8 @@ bytes are `INVALID_DOC`, and a disabled worker is `UNSUPPORTED_FEATURE`.
 > **Milestone 5 — not implemented yet.** Only `AI_PROVIDER=local` works today:
 > it returns the deterministic `local-template-v1` design and never calls a
 > model. `POST /api/ai/edit` returns `UNSUPPORTED_FEATURE`. The prompt files in
-> `prompts/` exist, but they do not yet add the untrusted-data wrapper below.
+> `prompts/` already carry the untrusted-data rules below; the provider that
+> consumes them lands in this milestone.
 
 **Provider boundary.** The server talks to one `AiProvider` interface
 (`generateDesign`, `editDesign`) selected by `AI_PROVIDER`. Provider keys stay
