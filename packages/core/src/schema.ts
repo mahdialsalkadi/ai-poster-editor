@@ -186,7 +186,7 @@ export function validateDesignDoc(input: unknown): DesignDoc {
       })),
     });
   }
-  return canonicalizeDoc(result.data as DesignDoc);
+  return canonicalizeDoc(result.data);
 }
 
 export function isDesignDoc(input: unknown): input is DesignDoc {

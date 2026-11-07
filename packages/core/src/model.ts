@@ -51,7 +51,7 @@ export type Shadow = {
   y: number;
   blur: number;
   /** box-shadow only. */
-  spread?: number;
+  spread?: number | undefined;
   color: Color;
 };
 
@@ -74,10 +74,10 @@ export type InlineNode =
   | {
       kind: 'span';
       text: string;
-      bold?: boolean;
-      italic?: boolean;
-      underline?: boolean;
-      color?: Color;
+      bold?: boolean | undefined;
+      italic?: boolean | undefined;
+      underline?: boolean | undefined;
+      color?: Color | undefined;
     };
 
 export type TextStyle = {
@@ -91,22 +91,22 @@ export type TextStyle = {
   lineHeight: number;
   letterSpacing: number;
   textTransform: TextTransform;
-  shadow?: Shadow;
+  shadow?: Shadow | undefined;
 };
 
 export type ShapeStyle = {
   fill: Fill;
-  border?: Border;
+  border?: Border | undefined;
   radius: number;
-  shadow?: Shadow;
+  shadow?: Shadow | undefined;
 };
 
 export type ImageStyle = {
   fit: ObjectFit;
   position: { x: number; y: number };
   radius: number;
-  border?: Border;
-  shadow?: Shadow;
+  border?: Border | undefined;
+  shadow?: Shadow | undefined;
 };
 
 export type SvgTag =
@@ -166,15 +166,15 @@ export type ImageLayer = LayerBase & {
   type: 'image';
   height: number;
   src: string;
-  prompt?: string;
-  alt?: string;
+  prompt?: string | undefined;
+  alt?: string | undefined;
   style: ImageStyle;
 };
 
 export type SvgLayer = LayerBase & {
   type: 'svg';
   height: number;
-  viewBox?: string;
+  viewBox?: string | undefined;
   nodes: SvgNode[];
 };
 
@@ -224,6 +224,6 @@ export type Warning = {
   message: string;
   /** A JSON-pointer-like path, e.g. `layers[2].style.fontFamily`. */
   path: string;
-  layerId?: string;
+  layerId?: string | undefined;
   severity: WarningSeverity;
 };
