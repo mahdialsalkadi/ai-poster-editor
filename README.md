@@ -7,6 +7,10 @@ language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
+[![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/mahdialsalkadi/ai-poster-editor)
+[![Milestone 7](https://img.shields.io/badge/Milestone-7-complete-blue)](https://github.com/mahdialsalkadi/ai-poster-editor)
+[![License](https://img.shields.io/badge/License-TBD-orange)](LICENSE)
+
 **Milestones 1–7** are complete and gated. The shared core is the foundation:
 
 - pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
@@ -174,7 +178,140 @@ All code, copy, icons and visual identity in this repository are original. No
 code, asset, icon, template or branding from any other design product is
 included. See [`docs/adr/0001-clean-room-canva-parity.md`](docs/adr/0001-clean-room-canva-parity.md).
 
-## License
+## Getting started
+
+The canonical document is the single source of truth. Parse it, edit it, patch it
+with AI, and export it — the editor, the server and the model never disagree.
+
+```bash
+# 1. Install
+pnpm install
+
+# 2. Chromium for Playwright-based export tests
+pnpm --filter @poster/server exec playwright install chromium
+
+# 3. Quick health check
+pnpm --filter @poster/core test
+pnpm -r typecheck
+pnpm lint
+
+# 4. Start the API (copy .env.example → .env first)
+cp .env.example .env
+pnpm --filter @poster/server dev -- --port 3001
+
+# 5. Start the editor (proxies API calls to :3001)
+pnpm --filter @poster/web dev
+```
+
+The editor boots at http://127.0.0.1:5173 and the API at http://127.0.0.1:3001.
+
+## Contributing a new template
+
+New templates live in `apps/web/src/sample.ts` as functions that return a
+`DesignDoc` at 1080×1350. Each template is verified by
+`apps/web/src/sample.test.ts`: the canonicalizer must round-trip the document,
+and all fields must be well-formed (clamped stops, sorted colors, sorted stops,
+valid fonts, sane sizes). Add the factory to `TEMPLATES` and run the web test
+suite before pushing.
+
+## Repository layout
+
+```
+packages/
+  core/        Design HTML parser, serializer, canonicalizer, schema, merge
+  contracts/   Shared API request/response and error envelopes
+apps/
+  web/         Vite + React editor shell (milestones 2–7)
+  server/      Fastify API: AI generation and isolated export (milestones 5–7)
+prompts/       System prompts for the Design HTML generator and editor
+docs/          Design HTML contract and architecture decision records
+screenshots/   Visual verification captures for milestone 6 and 7
+```
+
+## Design HTML
+
+```html
+<div class="artboard" data-width="1080px" data-height="1350px" style="background:#0f172a">
+  <div
+    data-id="headline"
+    data-layer="Headline"
+    data-type="text"
+    dir="rtl"
+    style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#ffffff;text-align:right;line-height:1.25;letter-spacing:0px"
+  >عنوان رئيسي</div>
+</div>
+```
+
+```ts
+import { parseDesignHtml, serializeDesignDoc } from '@poster/core';
+
+const { doc, warnings } = parseDesignHtml(html);
+const canonicalHtml = serializeDesignDoc(doc);
+```
+
+## Contract highlights
+
+- **Canonical round trip:** `parse(serialize(doc))` deep-equals `doc` for
+  canonical documents, and the second serialization is byte-identical.
+- **Limits:** 200 KiB, 200 layers, 10k codepoints per text layer, 2k SVG nodes,
+  40 MP exports. All limits live in `packages/core/src/limits.ts`.
+- **Security:** parse5 + allow-lists; `asset:` image scheme; no scripts, event
+  handlers, external references, or `innerHTML` of untrusted HTML.
+- **Scoped AI merge:** only selected layers may change; missing selected layers
+  are preserved; new layers are inserted above the highest selected layer;
+  artboard size and background are immutable.
+- **Gradients:** stops are clamped to `[0,100]`, sorted ascending, and can be
+  reversed from the fill inspector in one click.
+- **RTL:** Arabic text is inferred as RTL when `dir` is missing; Latin-only fonts
+  fall back to Cairo; letter-spacing on Arabic is reported.
+
+Full details: [`docs/contract.md`](docs/contract.md).
+
+## Editor shortcuts
+
+| Action | Shortcut |
+| --- | --- |
+| Save now | `Ctrl/Cmd + S` |
+| Open export | `Ctrl/Cmd + E` |
+| Undo / redo | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z` |
+| Duplicate selection | `Ctrl/Cmd + D` |
+| Zoom in / out / fit | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
+| Edit text on canvas | `Enter` or `F2` |
+| Nudge / nudge 10px | arrows / `Shift` + arrows |
+| Delete selection | `Delete` |
+| Shortcut sheet | `?` |
+| Clear selection / close dialog | `Esc` |
+
+## Tests
+
+`@poster/core` currently runs 151 tests across 10 files, including the golden
+files, the security corpus, limits, untrusted-data wrapping and fast-check
+properties. The web app adds 25 tests (snapping, gradients, templates).
+
+Measured on the development machine with `pnpm --filter @poster/core test`
+(`test/perf.test.ts`), parsing a 200-layer / 56.4 KiB document:
+
+```
+p50 = 18.61 ms   p95 = 56.59 ms   min = 13.34 ms   max = 109.42 ms
+```
+
+The spec's "1–3 ms" figure was not reproduced and should be treated as
+unverified. The export path is not claimed to be pixel-identical to the editor
+either: milestone 6 verifies formats, dimensions and self-containment, not visual equality.
+
+## Milestones
+
+| Milestone | Scope | Status |
+| --- | --- | --- |
+| 1 | `packages/core` contract, parser, serializer, merge, tests | done |
+| 2 | Static rendering, artboard viewport, layers panel, selection | done |
+| 3 | Moveable transforms, snapping, undo/redo | done |
+| 4 | Inline text editing, properties panel | done |
+| 5 | AI provider, prompts, snapshots, daily spend cap | done |
+| 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | done |
+| 7 | Gradient normalization, template gallery, shortcuts, documentation | done |
+
+All milestones are on the `main` branch: https://github.com/mahdialsalkadi/ai-poster-editor.
 
 TBD. Bundled fonts are Google Fonts under the SIL Open Font License; their
 license files ship with the web build.
