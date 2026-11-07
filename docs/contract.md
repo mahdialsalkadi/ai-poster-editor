@@ -451,7 +451,10 @@ The contracts package defines request/response schemas and error envelopes:
 - `POST /api/ai/generate` — prompt -> Design HTML
 - `POST /api/ai/edit` — instruction + selection -> patch -> merge
 - `POST /api/assets` — image upload -> `asset:<id>`
-- `POST /api/export` — Design HTML -> PNG/JPEG/PDF
+- `POST /api/export` — `{ doc, assets }` -> PNG/JPEG at 1x/2x/3x, PDF at
+  artboard size, or standalone HTML (milestone 6; returns
+  `UNSUPPORTED_FEATURE` today)
+- `GET /api/export/limits` — the export limits below
 
 Every non-2xx response uses the error envelope:
 
@@ -465,6 +468,71 @@ Every non-2xx response uses the error envelope:
   }
 }
 ```
+
+### 12.1 Export contract
+
+> **Milestone 6 — not implemented yet.** `packages/contracts/src/export.ts`
+> still holds the M0 placeholder (`designHtml`, `scale` 0.1..4, no HTML
+> output); this section is the target the export worker must satisfy, and the
+> placeholder schema is replaced rather than extended. Today the route parses
+> its body for diagnostics and then throws `UNSUPPORTED_FEATURE`.
+
+**Input.** The client sends the canonical `DesignDoc`, never Design HTML: the
+editor already holds the document, and a serialize/reparse cycle would let a
+lossy round-trip change the design on the way to the renderer. Alongside the
+document the client sends **only the image bytes the document references** —
+a document with 3 images on a 400-layer artboard uploads 3 files, not 400
+layers of HTML and not the asset library.
+
+The request is `multipart/form-data`:
+
+- `options` — `{ format: 'png' | 'jpeg' | 'pdf' | 'html', scale: 1 | 2 | 3,
+  quality?, idempotencyKey? }`; `scale` is ignored for `pdf` and `html`.
+- `doc` — the `DesignDoc` JSON.
+- one binary part per referenced asset, named by its `asset:` id.
+
+A referenced asset with no part fails `ASSET_UNRESOLVED`; a part for an
+unreferenced id is ignored. The document is canonicalized and validated
+before any asset byte is read. Repeated requests with the same
+`idempotencyKey` return the stored result instead of rendering again.
+
+**Asset re-validation.** Supplied bytes are never trusted. For each asset the
+server sniffs the real type with `file-type` (`image/png`, `image/jpeg` or
+`image/webp` only; the declared MIME type is ignored), compares the header
+dimensions and pixel count with the asset limit, and decodes and re-encodes
+the image with `sharp`. A failure is `INVALID_DOC` with `path: assets.<id>`.
+Only the re-encoded buffer reaches the renderer, so a polyglot file or a
+decompression bomb is rejected before rendering starts.
+
+**Serialization.** `serializeForExport(doc, assets)` produces one
+self-contained HTML document: hidden layers are omitted, every `asset:<id>`
+becomes an inline `data:` URI of the re-encoded bytes, and the allowed fonts
+are embedded as `@font-face` rules with inline woff2 data URIs. The result
+has no external reference of any kind and is the only thing the renderer
+receives — never the editor DOM, never the asset URLs.
+
+**Rendering.** Playwright renders in an isolated context: strict CSP
+(`default-src 'none'`, inline styles/fonts/images only), no network, no
+`--no-sandbox` override, one fresh context per request, and the worker process
+is killed after `LIMITS.export.timeoutMs`. The page is the serialized HTML
+above; the renderer waits for `document.fonts.ready` before capturing.
+
+**Output.**
+
+- `png` / `jpeg`: exactly artboard size x `scale` in integer pixels, so 1x, 2x
+  and 3x are reproducible. `jpeg` flattens onto the artboard background and
+  honours `quality` (default 0.92).
+- `pdf`: one page whose size equals the artboard size in points, no margins
+  and no scaling; the page is rendered at 2x and placed at 1x so text stays
+  sharp.
+- `html`: the `serializeForExport` document itself, served as
+  `text/html; charset=utf-8` for download. It is a self-contained copy, not a
+  re-importable design.
+
+**Limits and errors** (§8): 40 MP of output, 40 MiB response, 15 s, queue 20,
+concurrency 2. Oversize output is `LIMIT_EXCEEDED`, a worker crash or timeout
+is `EXPORT_FAILED`, a missing asset is `ASSET_UNRESOLVED`, malformed asset
+bytes are `INVALID_DOC`, and a disabled worker is `UNSUPPORTED_FEATURE`.
 
 ## 13. Versioning
 
