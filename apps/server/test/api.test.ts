@@ -116,12 +116,27 @@ describe('API', () => {
   });
 
   it('validates before rejecting export', async () => {
+    const validated = await app.inject({
+      method: 'POST',
+      url: '/api/design/validate',
+      payload: { designHtml: validHtml },
+    });
+    const doc = validated.json().data.doc;
     const response = await app.inject({
       method: 'POST',
       url: '/api/export',
-      payload: { designHtml: validHtml, format: 'png' },
+      payload: { options: { format: 'png', scale: 2 }, doc, assets: [] },
     });
     expect(response.statusCode).toBe(422);
     expect(response.json().error.code).toBe('UNSUPPORTED_FEATURE');
+  });
+
+  it('advertises the export formats, scales and asset cap', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/export/limits' });
+    expect(response.statusCode).toBe(200);
+    const limits = response.json().data;
+    expect(limits.formats).toEqual(['png', 'jpeg', 'pdf', 'html']);
+    expect(limits.scales).toEqual([1, 2, 3]);
+    expect(limits.maxAssets).toBe(20);
   });
 });
