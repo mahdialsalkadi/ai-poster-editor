@@ -9,7 +9,6 @@ import {
   parseDesignHtml,
   serializeDesignDoc,
   validateDesignDoc,
-  type DesignDoc,
 } from '@poster/core';
 import { requestIdOf } from '../errors.js';
 
@@ -31,7 +30,7 @@ export async function designRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/merge', async (request) => {
     const body = mergeDesignRequestSchema.parse(request.body);
-    const result = mergeDesignDoc(body.base as DesignDoc, body.patch as DesignDoc, {
+    const result = mergeDesignDoc(body.base, body.patch, {
       ...(body.selectedLayerIds ? { selectedLayerIds: body.selectedLayerIds } : {}),
       allowNewLayers: body.allowNewLayers,
       allowArtboardChanges: body.allowArtboardChanges,
