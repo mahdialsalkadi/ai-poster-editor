@@ -111,7 +111,7 @@ describe('API', () => {
     expect(response.json().error.code).toBe('UNSUPPORTED_FEATURE');
   });
 
-  it('validates before rejecting export', async () => {
+  it('rejects a JSON export body and requires multipart form data', async () => {
     const validated = await app.inject({
       method: 'POST',
       url: '/api/design/validate',
@@ -124,7 +124,7 @@ describe('API', () => {
       payload: { options: { format: 'png', scale: 2 }, doc, assets: [] },
     });
     expect(response.statusCode).toBe(422);
-    expect(response.json().error.code).toBe('UNSUPPORTED_FEATURE');
+    expect(response.json().error.code).toBe('INVALID_DOC');
   });
 
   it('advertises the export formats, scales and asset cap', async () => {

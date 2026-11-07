@@ -266,7 +266,7 @@ export function LeftRail({
           })}
         </div>
         <div className="rail-bottom">
-          <span className="rail-version">M5</span>
+          <span className="rail-version">M6</span>
         </div>
       </nav>
 
@@ -377,7 +377,7 @@ export function LeftRail({
                 </Button>
                 <p className="panel-hint">
                   PNG أو JPEG أو WebP، حتى 10 ميغابايت و{LIMITS.assets.maxPerDocument} صورة لكل
-                  تصميم. الصور تبقى في الذاكرة لهذه الجلسة فقط.
+                  تصميم. تُحفظ الصور محليًا وتبقى بعد إعادة تحميل الصفحة.
                 </p>
                 {uploadBusy ? <Spinner size={18} /> : null}
                 {assets.length === 0 ? (

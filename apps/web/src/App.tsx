@@ -15,6 +15,7 @@ import {
 import { Canvas } from './components/Canvas.js';
 import { IconButton } from './components/controls.js';
 import { DocPreview } from './components/DocPreview.js';
+import { ExportDialog } from './components/ExportDialog.js';
 import { Inspector } from './components/Inspector.js';
 import { LeftRail, type PanelId } from './components/LeftRail.js';
 import { Toasts, type ToastItem, type ToastTone } from './components/Toasts.js';
@@ -28,6 +29,7 @@ import {
   type AssetEntry,
 } from './editor/assets.js';
 import { useDocHistory } from './editor/history.js';
+import { deleteAssetRecord, loadAssetRecords, saveAssetRecord } from './editor/storage.js';
 import {
   ELEMENT_LABELS,
   addLayer,
@@ -262,7 +264,7 @@ export function App() {
   const [showGrid, setShowGrid] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
-  const [modal, setModal] = useState<'preview' | 'help' | null>(null);
+  const [modal, setModal] = useState<'preview' | 'help' | 'export' | null>(null);
   const [prompt, setPrompt] = useState('');
   const [language, setLanguage] = useState<'auto' | 'ar' | 'en'>('auto');
   const [style, setStyle] = useState('');
@@ -321,6 +323,26 @@ export function App() {
     },
     [],
   );
+
+  // Restores the asset library from IndexedDB so `asset:` layers survive a reload.
+  useEffect(() => {
+    let cancelled = false;
+    void loadAssetRecords().then((restored) => {
+      if (cancelled) {
+        restored.forEach(revokeAsset);
+        return;
+      }
+      if (restored.length === 0) return;
+      setAssets((current) => {
+        const known = new Set(current.map((item) => item.id));
+        restored.filter((item) => known.has(item.id)).forEach(revokeAsset);
+        return [...restored.filter((item) => !known.has(item.id)), ...current];
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const deleteSelection = useCallback(() => {
     if (selection.length === 0) return;
@@ -386,7 +408,9 @@ export function App() {
       const added: AssetEntry[] = [];
       try {
         for (const file of Array.from(files)) {
-          added.push(await createAssetFromFile(file, assets.length + added.length));
+          const entry = await createAssetFromFile(file, assets.length + added.length);
+          await saveAssetRecord(entry, file);
+          added.push(entry);
         }
         setAssets((current) => [...current, ...added]);
         notify('success', `أُضيفت ${added.length} صورة`);
@@ -586,7 +610,8 @@ export function App() {
         lastSavedAt={lastSavedAt}
         onSave={saveNow}
         onImport={() => importRef.current?.click()}
-        onExport={copyHtml}
+        onCopyHtml={copyHtml}
+        onExport={() => setModal('export')}
         onPreview={() => setModal('preview')}
         onHelp={() => setModal('help')}
         onToggleAi={() => setPanel((current) => (current === 'ai' ? null : 'ai'))}
@@ -615,6 +640,7 @@ export function App() {
           uploadBusy={uploadBusy}
           onAddImage={addImage}
           onRemoveAsset={(asset) => {
+            void deleteAssetRecord(asset.id);
             revokeAsset(asset);
             setAssets((current) => current.filter((item) => item.id !== asset.id));
           }}
@@ -755,6 +781,10 @@ export function App() {
           event.target.value = '';
         }}
       />
+
+      {modal === 'export' ? (
+        <ExportDialog doc={doc} assets={assets} name={name} onClose={() => setModal(null)} />
+      ) : null}
 
       {modal === 'preview' ? (
         <div className="modal" role="dialog" aria-modal="true" aria-label="معاينة التصميم">

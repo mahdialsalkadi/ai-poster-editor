@@ -471,11 +471,11 @@ Every non-2xx response uses the error envelope:
 
 ### 12.1 Export contract
 
-> **Milestone 6 — not implemented yet.** `packages/contracts/src/export.ts`
-> still holds the M0 placeholder (`designHtml`, `scale` 0.1..4, no HTML
-> output); this section is the target the export worker must satisfy, and the
-> placeholder schema is replaced rather than extended. Today the route parses
-> its body for diagnostics and then throws `UNSUPPORTED_FEATURE`.
+> **Milestone 6 — implemented.** `packages/contracts/src/export.ts`
+> holds the final request schema (four formats, scale 1/2/3, assets and an
+> idempotency key). `POST /api/export` accepts the multipart request below
+> through `@fastify/multipart`, validates the document before reading asset
+> bytes, renders it and returns the bytes with `x-export-*` metadata headers.
 
 **Input.** The client sends the canonical `DesignDoc`, never Design HTML: the
 editor already holds the document, and a serialize/reparse cycle would let a

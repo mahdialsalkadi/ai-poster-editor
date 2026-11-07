@@ -15,6 +15,7 @@ export type TopBarProps = {
   lastSavedAt: number | null;
   onSave: () => void;
   onImport: () => void;
+  onCopyHtml: () => void;
   onExport: () => void;
   onPreview: () => void;
   onHelp: () => void;
@@ -100,6 +101,7 @@ export function TopBar({
   lastSavedAt,
   onSave,
   onImport,
+  onCopyHtml,
   onExport,
   onPreview,
   onHelp,
@@ -134,7 +136,7 @@ export function TopBar({
         </div>
         <div className="topbar-group">
           <IconButton icon="import" label="استيراد HTML" onClick={onImport} />
-          <IconButton icon="copy" label="نسخ Design HTML" onClick={onExport} />
+          <IconButton icon="copy" label="نسخ Design HTML" onClick={onCopyHtml} />
           <IconButton icon="play" label="معاينة التصميم" onClick={onPreview} />
           <IconButton icon="more" label="اختصارات لوحة المفاتيح" onClick={onHelp} />
         </div>
@@ -147,9 +149,18 @@ export function TopBar({
           {aiBusy ? <Spinner size={15} /> : <Icon name="sparkles" size={17} />}
           <span>المساعد</span>
         </button>
-        <button type="button" className="button button--primary" onClick={onSave}>
+        <button type="button" className="button" onClick={onSave}>
           <Icon name="save" size={16} />
           <span>حفظ</span>
+        </button>
+        <button
+          type="button"
+          className="button button--primary"
+          onClick={onExport}
+          title="تصدير PNG أو JPG أو PDF أو HTML"
+        >
+          <Icon name="download" size={16} />
+          <span>تصدير</span>
         </button>
       </div>
     </header>

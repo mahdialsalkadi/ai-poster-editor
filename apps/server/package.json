@@ -13,9 +13,13 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",
+    "@fastify/multipart": "10.0.0",
     "@poster/contracts": "workspace:*",
     "@poster/core": "workspace:*",
     "fastify": "^5.2.1",
+    "file-type": "^22.3.0",
+    "playwright": "^1.65.0",
+    "sharp": "^0.35.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {

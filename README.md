@@ -7,7 +7,7 @@ language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
-**Milestones 1–5** are complete and gated. The shared core is the foundation:
+**Milestones 1–6** are complete and gated. The shared core is the foundation:
 
 - pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
   `apps/server`;
@@ -44,7 +44,7 @@ editing merges a patch with `mergeScopedEdit` and snapshots the previous
 document, invalid output is retried once with the validator error, and each
 call reserves its worst-case cost against `AI_DAILY_SPEND_CAP_USD` before the
 provider is contacted. With no provider configured the routes answer
-`UNSUPPORTED_FEATURE`; `/api/export` lands in milestone 6.
+`UNSUPPORTED_FEATURE`. Export runs off the same document: the browser posts the canonical doc plus only the referenced image bytes as `multipart/form-data`, and Playwright renders a self-contained HTML copy in an isolated, JavaScript-free context at 1x/2x/3x as PNG or JPEG, as a PDF page sized to the artboard, or as the HTML file itself. Hidden layers are omitted, fonts and images are inlined, output is bounded by 40 MP / 40 MiB / 15 s with a queue of 20 and concurrency 2, and uploaded images persist in IndexedDB so `asset:` layers survive a reload.
 
 ## Requirements
 
@@ -59,12 +59,13 @@ every other dependency stays under the default policy.
 
 ```bash
 pnpm install
+pnpm --filter @poster/server exec playwright install chromium
 pnpm --filter @poster/core test
 pnpm -r typecheck
 pnpm lint
 ```
 
-Run the API (M0 surface only):
+Run the API:
 
 ```bash
 cp .env.example .env
@@ -78,7 +79,7 @@ packages/
   core/        Design HTML parser, serializer, canonicalizer, schema, merge
   contracts/   Shared API request/response and error envelopes
 apps/
-  web/         Vite + React editor shell (milestones 2–3)
+  web/         Vite + React editor shell (milestones 2–6)
   server/      Fastify API: AI generation and isolated export (milestones 5–6)
 prompts/       System prompts for the Design HTML generator and editor
 docs/          Design HTML contract and architecture decision records
@@ -135,8 +136,8 @@ p50 = 18.61 ms   p95 = 56.59 ms   min = 13.34 ms   max = 109.42 ms
 ```
 
 The spec's "1–3 ms" figure was not reproduced and should be treated as
-unverified; the export path is not claimed to be pixel-identical to the editor
-until the visual-regression tests in milestone 6 exist.
+unverified. The export path is not claimed to be pixel-identical to the editor
+either: milestone 6 verifies formats, dimensions and self-containment, not visual equality.
 
 ## Milestones
 
@@ -147,7 +148,7 @@ until the visual-regression tests in milestone 6 exist.
 | 3 | Moveable transforms, snapping, undo/redo | done |
 | 4 | Inline text editing, properties panel | done |
 | 5 | AI provider, prompts, snapshots, daily spend cap | done |
-| 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | pending |
+| 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | done |
 | 7 | Gradient editor, templates, shortcuts, documentation | pending |
 
 ## Original work
