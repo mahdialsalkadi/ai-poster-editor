@@ -84,7 +84,7 @@ attributes are not part of the contract.
 | `border` | `<width>px <solid\|dashed\|dotted> <color>` | shape/image |
 | `border-radius` | single px value | shape/image |
 | `box-shadow` | `x y blur [spread] color` | shape/image; one shadow only |
-| `text-shadow` | `x y blur color` | text; one shadow only |
+| `text-shadow` | `x y blur color` | text; one shadow only, a fourth length is dropped with a warning |
 
 Percentages are not allowed for geometry or font size. They are dropped with a
 `PERCENTAGE_DROPPED` warning. `display`, `float`, margins, padding, `z-index`,
@@ -142,7 +142,7 @@ trimmed. `br` at the start/end and consecutive `br` are collapsed.
 | `line-height` | unitless number > 0, or `normal` | 1.2 |
 | `letter-spacing` | px, -100..1000 | 0 |
 | `text-transform` | `none`, `uppercase`, `lowercase`, `capitalize` | none |
-| `text-shadow` | one shadow | none |
+| `text-shadow` | one shadow, no spread | none |
 
 `dir` is `ltr` or `rtl`. If omitted and the text contains Arabic, the parser
 infers `rtl` and emits `RTL_DIRECTION_INFERRED`. An explicit `dir` is preserved
@@ -157,9 +157,10 @@ text is accepted but warns because it can break cursive joining.
 Latin: Poppins, Montserrat, Playfair Display, Bebas Neue, Inter, Lobster.
 Arabic: Cairo, Tajawal, Noto Kufi Arabic, Amiri, IBM Plex Sans Arabic.
 
-All are self-hosted Google Fonts under the SIL Open Font License. Font stacks
-are reduced to the first allowed family; unknown families fall back with a
-warning.
+All are self-hosted Google Fonts under the SIL Open Font License. Only the first
+family in a stack is considered, because Design HTML names one font and never
+cascades: an unknown first family falls back to `Inter` (LTR) or `Cairo` (RTL)
+with `FONT_FALLBACK`.
 
 ## 4. Shape layers
 
@@ -179,7 +180,8 @@ warning.
 - Stops: 2..6; each stop is a color with optional `%` position. Missing
   positions are distributed between neighbours; explicit stops are sorted by
   position.
-- `border`: width > 0, style solid/dashed/dotted, color.
+- `border`: width > 0, style solid/dashed/dotted, color. All three styles are
+  canonical and round-trip byte-identically.
 - `border-radius`: one px value.
 - `box-shadow`: x, y, blur (>=0), optional spread, color. `inset` is rejected
   with a warning.

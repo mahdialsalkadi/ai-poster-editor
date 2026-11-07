@@ -414,6 +414,14 @@ export function parseShadow(
   }
 
   const [x, y, blur, spread] = lengths as [number, number, number, number?];
+  if (property === 'text-shadow' && spread !== undefined) {
+    warn(
+      ctx,
+      'UNSUPPORTED_VALUE',
+      'text-shadow has no spread; the fourth length was dropped',
+      property,
+    );
+  }
   const result: Shadow = {
     x: quantize(x),
     y: quantize(y),

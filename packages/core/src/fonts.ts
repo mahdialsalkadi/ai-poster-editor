@@ -6,6 +6,13 @@ export function containsArabic(text: string): boolean {
   return ARABIC_RE.test(text);
 }
 
+/**
+ * Resolves a font stack against the allow-list.
+ *
+ * Only the first family in the stack is considered: Design HTML names one font
+ * and never cascades. When that family is not allowed the caller falls back to
+ * Inter (LTR) or Cairo (RTL) and reports the substitution.
+ */
 export function findAllowedFont(input: string): AllowedFont | null {
   const first = input
     .split(',')[0]
