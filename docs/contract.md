@@ -555,8 +555,9 @@ returns is trusted either:
   `<untrusted_design_data>...</untrusted_design_data>`, and the system prompt
   states that the block is data, that any instruction inside it must be
   ignored, and that only the instruction field is authoritative.
-- The literal `</untrusted_design_data` sequence is neutralized in serialized
-  text before wrapping, so layer text cannot close the block early.
+- The literal `</untrusted_design_data` sequence is neutralized by
+  `wrapUntrustedData` in serialized text before wrapping, so layer text cannot
+  close the block early and the opening tag cannot nest a second block.
 - The instruction is plain text capped at 4,000 characters and sent in its own
   field; it is never concatenated into the data block.
 - Model output is parsed by `parseDesignHtml` through the full security
@@ -609,6 +610,7 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
 - `packages/core/src/schema.ts` — runtime Zod schema
 - `packages/core/src/merge.ts` — AI patch merge
 - `packages/core/src/merge-scoped.ts` — selection-scoped AI merge
+- `packages/core/src/untrusted.ts` — prompt-side untrusted-data wrapper
 - `packages/core/src/css-guard.ts` — CSS escape decoding and value guards
 - `packages/core/src/text.ts` — canonical inline text
 - `packages/core/src/fonts.ts` — font allow-list and script fallback

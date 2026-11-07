@@ -15,3 +15,4 @@ export * from './merge.js';
 export * from './merge-scoped.js';
 export * from './css-guard.js';
 export * from './text.js';
+export * from './untrusted.js';
