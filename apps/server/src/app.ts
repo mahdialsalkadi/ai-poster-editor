@@ -49,7 +49,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     data: {
       status: 'ok',
       version: '0.1.0',
-      milestone: 'M6',
+      milestone: 'M7',
       limits: {
         designBytes: LIMITS.document.maxBytes,
         layers: LIMITS.document.maxLayers,

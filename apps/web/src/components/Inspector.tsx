@@ -18,6 +18,7 @@ import {
   type TextTransform,
 } from '@poster/core';
 import type { AssetEntry } from '../editor/assets.js';
+import { insertStop, normalizeStops, reverseGradient } from '../editor/fills.js';
 import type { UpdateOptions } from '../editor/history.js';
 import {
   estimatedLayerHeight,
@@ -112,7 +113,7 @@ function FillEditor({
     const stops = fill.stops.map((stop, stopIndex) =>
       stopIndex === index ? { ...stop, ...patch } : stop,
     );
-    onChange({ ...fill, stops });
+    onChange({ ...fill, stops: normalizeStops(stops) });
   };
 
   const removeStop = (index: number) => {
@@ -190,20 +191,16 @@ function FillEditor({
               />
             </div>
           ))}
-          {fill.stops.length < LIMITS.gradient.maxStops ? (
-            <Button
-              icon="plus"
-              onClick={() => {
-                const last = fill.stops[fill.stops.length - 1];
-                onChange({
-                  ...fill,
-                  stops: [...fill.stops, { color: last?.color ?? '#ffffff', pos: 100 }],
-                });
-              }}
-            >
-              إضافة لون
+          <div className="gradient-actions">
+            <Button icon="backward" onClick={() => onChange(reverseGradient(fill))}>
+              عكس التدرج
             </Button>
-          ) : null}
+            {fill.stops.length < LIMITS.gradient.maxStops ? (
+              <Button icon="plus" onClick={() => onChange({ ...fill, stops: insertStop(fill.stops) })}>
+                إضافة لون
+              </Button>
+            ) : null}
+          </div>
         </div>
       )}
     </div>

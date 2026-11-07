@@ -7,7 +7,7 @@ language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
-**Milestones 1–6** are complete and gated. The shared core is the foundation:
+**Milestones 1–7** are complete and gated. The shared core is the foundation:
 
 - pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
   `apps/server`;
@@ -46,6 +46,8 @@ call reserves its worst-case cost against `AI_DAILY_SPEND_CAP_USD` before the
 provider is contacted. With no provider configured the routes answer
 `UNSUPPORTED_FEATURE`. Export runs off the same document: the browser posts the canonical doc plus only the referenced image bytes as `multipart/form-data`, and Playwright renders a self-contained HTML copy in an isolated, JavaScript-free context at 1x/2x/3x as PNG or JPEG, as a PDF page sized to the artboard, or as the HTML file itself. Hidden layers are omitted, fonts and images are inlined, output is bounded by 40 MP / 40 MiB / 15 s with a queue of 20 and concurrency 2, and uploaded images persist in IndexedDB so `asset:` layers survive a reload.
 
+Milestone 7 completes the editor surface: gradient stops are clamped and sorted to the canonical order (and can be reversed in one click), the gallery ships five original 1080×1350 layouts, and the shortcut map covers save, export, duplicate, undo/redo, zoom, fit and the help sheet.
+
 ## Requirements
 
 - Node.js >= 22 (verified on 26.13.0)
@@ -79,7 +81,7 @@ packages/
   core/        Design HTML parser, serializer, canonicalizer, schema, merge
   contracts/   Shared API request/response and error envelopes
 apps/
-  web/         Vite + React editor shell (milestones 2–6)
+  web/         Vite + React editor shell (milestones 2–7)
   server/      Fastify API: AI generation and isolated export (milestones 5–6)
 prompts/       System prompts for the Design HTML generator and editor
 docs/          Design HTML contract and architecture decision records
@@ -122,6 +124,21 @@ const canonicalHtml = serializeDesignDoc(doc);
 
 Full details: [`docs/contract.md`](docs/contract.md).
 
+## Editor shortcuts
+
+| Action | Shortcut |
+| --- | --- |
+| Save now | `Ctrl/Cmd + S` |
+| Open export | `Ctrl/Cmd + E` |
+| Undo / redo | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z` |
+| Duplicate selection | `Ctrl/Cmd + D` |
+| Zoom in / out / fit | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
+| Edit text on canvas | `Enter` or `F2` |
+| Nudge / nudge 10px | arrows / `Shift` + arrows |
+| Delete selection | `Delete` |
+| Shortcut sheet | `?` |
+| Clear selection / close dialog | `Esc` |
+
 ## Tests
 
 `@poster/core` currently runs 151 tests across 10 files, including the golden
@@ -149,7 +166,7 @@ either: milestone 6 verifies formats, dimensions and self-containment, not visua
 | 4 | Inline text editing, properties panel | done |
 | 5 | AI provider, prompts, snapshots, daily spend cap | done |
 | 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | done |
-| 7 | Gradient editor, templates, shortcuts, documentation | pending |
+| 7 | Gradient normalization, template gallery, shortcuts, documentation | done |
 
 ## Original work
 

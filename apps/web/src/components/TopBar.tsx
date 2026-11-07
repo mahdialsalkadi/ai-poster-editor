@@ -149,7 +149,7 @@ export function TopBar({
           {aiBusy ? <Spinner size={15} /> : <Icon name="sparkles" size={17} />}
           <span>المساعد</span>
         </button>
-        <button type="button" className="button" onClick={onSave}>
+        <button type="button" className="button" onClick={onSave} title="حفظ (Ctrl+S)">
           <Icon name="save" size={16} />
           <span>حفظ</span>
         </button>
@@ -157,7 +157,7 @@ export function TopBar({
           type="button"
           className="button button--primary"
           onClick={onExport}
-          title="تصدير PNG أو JPG أو PDF أو HTML"
+          title="تصدير PNG أو JPG أو PDF أو HTML (Ctrl+E)"
         >
           <Icon name="download" size={16} />
           <span>تصدير</span>

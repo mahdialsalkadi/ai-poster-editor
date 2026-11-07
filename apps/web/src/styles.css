@@ -1526,6 +1526,17 @@ button:disabled {
   gap: 6px;
 }
 
+.gradient-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.gradient-actions .button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11px;
+}
+
 .muted-value {
   color: var(--text-dim);
   font-size: 11px;

@@ -544,6 +544,21 @@ export function App() {
         duplicateSelection();
         return;
       }
+      if (mod && key === 's') {
+        event.preventDefault();
+        saveNow();
+        return;
+      }
+      if (mod && key === 'e') {
+        event.preventDefault();
+        setModal('export');
+        return;
+      }
+      if (event.key === '?') {
+        event.preventDefault();
+        setModal('help');
+        return;
+      }
       if (mod && (event.key === '=' || event.key === '+')) {
         event.preventDefault();
         setZoom((current) => Math.min(2, current * 1.1));
@@ -595,7 +610,7 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [history, selection, deleteSelection, duplicateSelection, doc]);
+  }, [history, selection, deleteSelection, duplicateSelection, doc, saveNow]);
 
   return (
     <div className="app" dir="rtl">
@@ -840,6 +855,18 @@ export function App() {
                 <li>
                   <span>إلغاء التحديد</span>
                   <kbd>Esc</kbd>
+                </li>
+                <li>
+                  <span>حفظ الآن</span>
+                  <kbd>Ctrl</kbd> <kbd>S</kbd>
+                </li>
+                <li>
+                  <span>فتح التصدير</span>
+                  <kbd>Ctrl</kbd> <kbd>E</kbd>
+                </li>
+                <li>
+                  <span>لوحة الاختصارات</span>
+                  <kbd>?</kbd>
                 </li>
               </ul>
             </div>
