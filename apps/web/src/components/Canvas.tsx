@@ -145,7 +145,9 @@ export function Canvas({
 
     const measure = () => {
       const rect = stage.getBoundingClientRect();
-      const padding = 104;
+      // Keep the artboard visible on narrow stages instead of shrinking it to
+      // a sliver: the breathing room scales with the smaller stage dimension.
+      const padding = Math.min(104, Math.max(24, Math.round(Math.min(rect.width, rect.height) * 0.12)));
       const fit = Math.min(
         (rect.width - padding) / doc.width,
         (rect.height - padding) / doc.height,
@@ -551,7 +553,9 @@ export function Canvas({
           style={{
             width: doc.width,
             height: doc.height,
-            transform: `scale(${scale})`,
+            // CSS zoom scales the layout box too, so the unscaled artboard cannot
+            // push the stage into horizontal overflow and drag it off-centre.
+            zoom: scale,
             background: fillToCss(doc.background),
           }}
           onPointerDown={(event) => {

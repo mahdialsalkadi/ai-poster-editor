@@ -79,6 +79,7 @@ button:disabled {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
   background:
     radial-gradient(1200px 600px at 80% -10%, rgba(56, 189, 248, 0.07), transparent 60%),
     var(--bg);
@@ -947,7 +948,6 @@ button:disabled {
 
 .artboard {
   position: relative;
-  transform-origin: top left;
   overflow: hidden;
 }
 
@@ -1824,6 +1824,47 @@ kbd {
   left: 0;
   right: 0;
   height: 1px;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 60px;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .brand-text {
+    display: none;
+  }
+
+  .topbar-brand {
+    min-width: 0;
+  }
+
+  .topbar-title {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  .doc-title {
+    max-width: 100%;
+  }
+
+  .topbar-actions {
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+  }
+
+  .panel {
+    width: 280px;
+    flex-basis: 280px;
+  }
+
+  .stage {
+    padding: 16px;
+  }
 }
 
 @media (max-width: 1080px) {
