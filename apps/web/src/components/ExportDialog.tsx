@@ -21,6 +21,12 @@ const FORMATS: { value: ExportFormat; label: string; title: string }[] = [
 
 const SCALES: ExportScale[] = [1, 2, 3];
 
+function createKey(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `export-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export type ExportDialogProps = {
   doc: DesignDoc;
   assets: readonly AssetEntry[];
@@ -35,11 +41,15 @@ export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<ExportOutput | null>(null);
-  const idempotencyKey = useRef(
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `export-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
-  );
+  const idempotencyKey = useRef(createKey());
+
+  // A key identifies one exact request: changing an option must not replay an
+  // earlier export from the server cache.
+  const resetOutput = () => {
+    idempotencyKey.current = createKey();
+    setOutput(null);
+    setError(null);
+  };
 
   const raster = format === 'png' || format === 'jpeg';
   const factor = raster ? scale : 1;
@@ -93,8 +103,7 @@ export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) 
               value={format}
               onChange={(next) => {
                 setFormat(next);
-                setOutput(null);
-                setError(null);
+                resetOutput();
               }}
               options={FORMATS}
               ariaLabel="صيغة التصدير"
@@ -109,8 +118,7 @@ export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) 
               value={String(scale) as '1' | '2' | '3'}
               onChange={(next) => {
                 setScale(Number(next) as ExportScale);
-                setOutput(null);
-                setError(null);
+                resetOutput();
               }}
               options={SCALES.map((value) => ({
                 value: String(value) as '1' | '2' | '3',
@@ -123,7 +131,16 @@ export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) 
 
           {format === 'jpeg' ? (
             <Field label="الجودة">
-              <Slider value={quality} onChange={setQuality} min={40} max={100} ariaLabel="جودة JPEG" />
+              <Slider
+                value={quality}
+                onChange={(value) => {
+                  setQuality(value);
+                  resetOutput();
+                }}
+                min={40}
+                max={100}
+                ariaLabel="جودة JPEG"
+              />
             </Field>
           ) : null}
 
