@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  importDesignDocument,
   parseDesignHtml,
   serializeDesignDoc,
   validateDesignDoc,
@@ -23,7 +24,9 @@ import { TopBar, type SaveState } from './components/TopBar.js';
 import { WarningsBar } from './components/WarningsBar.js';
 import { editDesign, generateDesign, type AiUsage } from './editor/api.js';
 import {
+  createAssetFromBase64,
   createAssetFromFile,
+  createAssetId,
   fitAssetIntoArtboard,
   revokeAsset,
   type AssetEntry,
@@ -108,6 +111,22 @@ const SVG_ELEMENTS: Record<'star' | 'check' | 'arrow', SvgNode[]> = {
 
 function layerHeight(layer: Layer): number {
   return 'height' in layer ? layer.height : estimatedLayerHeight(layer);
+}
+
+/**
+ * Imported images get a fresh local id so two imports never share one stored
+ * blob; the layer refs follow the remapped ids.
+ */
+function remapImportedAssets(doc: DesignDoc, idMap: ReadonlyMap<string, string>): DesignDoc {
+  if (idMap.size === 0) return doc;
+  return {
+    ...doc,
+    layers: doc.layers.map((layer) => {
+      if (layer.type !== 'image' || !layer.src.startsWith('asset:')) return layer;
+      const mapped = idMap.get(layer.src.slice('asset:'.length));
+      return mapped ? { ...layer, src: `asset:${mapped}` } : layer;
+    }),
+  };
 }
 
 function textLayerFor(doc: DesignDoc, preset: TextPreset, index: number): TextLayer {
@@ -507,18 +526,34 @@ export function App() {
 
   const handleImportFile = useCallback(
     async (file: File) => {
+      const added: AssetEntry[] = [];
       try {
-        const parsed = parseDesignHtml(await file.text());
-        history.reset(parsed.doc);
-        setWarnings(parsed.warnings);
+        const imported = importDesignDocument(await file.text());
+        const idMap = new Map<string, string>();
+        for (const asset of imported.assets) {
+          const id = createAssetId();
+          const { entry, file: blob } = await createAssetFromBase64(
+            asset.base64,
+            asset.mimeType,
+            id,
+            assets.length + added.length,
+          );
+          await saveAssetRecord(entry, blob);
+          idMap.set(asset.id, id);
+          added.push(entry);
+        }
+        history.reset(remapImportedAssets(imported.doc, idMap));
+        if (added.length > 0) setAssets((current) => [...current, ...added]);
+        setWarnings(imported.warnings);
         setSelection([]);
         setEditingId(null);
         notify('success', `تم استيراد ${file.name}`);
       } catch (cause) {
+        added.forEach(revokeAsset);
         notify('error', cause instanceof Error ? cause.message : 'تعذر استيراد الملف');
       }
     },
-    [history, notify],
+    [assets.length, history, notify],
   );
 
   useEffect(() => {

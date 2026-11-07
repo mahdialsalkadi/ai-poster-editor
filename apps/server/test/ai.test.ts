@@ -1,6 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { DesignError, parseDesignHtml, type DesignDoc } from '@poster/core';
+import {
+  DesignError,
+  parseDesignHtml,
+  serializeDesignDoc,
+  validateDesignDoc,
+  type DesignDoc,
+} from '@poster/core';
 import { AiService, type AiServiceOptions } from '../src/ai/service.js';
 import { DailySpendLedger } from '../src/ai/spend.js';
 import { SlidingWindowLimiter } from '../src/ai/rate-limit.js';
@@ -34,6 +41,17 @@ const generateInput = {
   height: 800,
   language: 'ar' as const,
 };
+
+const fixture = (name: string): string =>
+  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
+
+const cannedOutput = fixture('ai-canned-output.html');
+const rejectedOutput = fixture('ai-rejected-output.html');
+const canonicalOutput = fixture('ai-canonical-output.html').trim();
+
+const editBaseHtml = fixture('ai-edit-base.html');
+const editPatchHtml = fixture('ai-edit-patch.html');
+const editMergedHtml = fixture('ai-edit-merged.html').trim();
 
 const editInput = {
   designHtml: baseHtml,
@@ -82,6 +100,39 @@ describe('AI service', () => {
     expect(result.usage.costUsd).toBeCloseTo(0.00045, 6);
   });
 
+  it('turns a canned model response into the golden canonical document', async () => {
+    const { service, calls } = serviceWith([cannedOutput]);
+    const result = await service.generate(
+      { prompt: 'ملصق معرض فني في الرياض', width: 1080, height: 1350, language: 'ar' },
+      context,
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(result.warnings).toEqual([]);
+    expect(result.designHtml).toBe(canonicalOutput);
+
+    // The accepted output is a fixpoint: parsing and canonicalizing it again
+    // cannot change a byte.
+    const reparsed = parseDesignHtml(result.designHtml);
+    expect(reparsed.warnings).toEqual([]);
+    expect(serializeDesignDoc(validateDesignDoc(reparsed.doc))).toBe(canonicalOutput);
+  });
+
+  it('retries the canned rejected output with the validator note', async () => {
+    const { service, calls } = serviceWith([rejectedOutput, cannedOutput]);
+    const result = await service.generate(
+      { prompt: 'ملصق معرض فني في الرياض', width: 1080, height: 1350, language: 'ar' },
+      context,
+    );
+
+    expect(calls).toHaveLength(2);
+    const retryNote = calls[1]?.at(-1)?.content ?? '';
+    expect(retryNote).toContain('Your previous attempt was rejected by the validator:');
+    expect(retryNote).toContain('Forbidden HTML tag: script');
+    expect(retryNote).toContain('Return only valid Design HTML.');
+    expect(result.designHtml).toBe(canonicalOutput);
+  });
+
   it('retries once with the validator error and recovers', async () => {
     const { service, calls } = serviceWith([
       '<div class="artboard" data-width="600px" data-height="800px"><script>alert(1)</script></div>',
@@ -123,6 +174,35 @@ describe('AI service', () => {
       code: 'SPEND_CAP_EXCEEDED',
     });
     expect(calls).toHaveLength(0);
+  });
+
+  it('applies a canned patch into the golden merged document', async () => {
+    const { service, calls } = serviceWith([editPatchHtml]);
+    const result = await service.edit(
+      {
+        designHtml: editBaseHtml,
+        instruction: 'اجعل العنوان أقصر وباللون البرتقالي',
+        selectedLayerIds: ['title'],
+        allowNewLayers: false,
+      },
+      context,
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(result.warnings).toEqual([]);
+    expect(result.designHtml).toBe(editMergedHtml);
+
+    // The merged document is a fixpoint, and the unselected layer survives
+    // exactly as it was in the base document.
+    const reparsed = parseDesignHtml(result.designHtml);
+    expect(reparsed.warnings).toEqual([]);
+    expect(serializeDesignDoc(validateDesignDoc(reparsed.doc))).toBe(editMergedHtml);
+    expect(reparsed.doc.layers.map((layer) => layer.id)).toEqual(['title', 'card']);
+    expect(textColor(reparsed.doc, 'title')).toBe('#fb923c');
+    expect(textColor(reparsed.doc, 'card')).toBeUndefined();
+
+    const snapshot = service.getSnapshot(result.snapshotId);
+    expect(snapshot ? textColor(snapshot.doc, 'title') : undefined).toBe('#ffffff');
   });
 
   it('applies a scoped edit and snapshots the previous document', async () => {

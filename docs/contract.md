@@ -526,8 +526,11 @@ above; the renderer waits for `document.fonts.ready` before capturing.
   and no scaling; the page is rendered at 2x and placed at 1x so text stays
   sharp.
 - `html`: the `serializeForExport` document itself, served as
-  `text/html; charset=utf-8` for download. It is a self-contained copy, not a
-  re-importable design.
+  `text/html; charset=utf-8` for download. It is a self-contained copy, not
+  Design HTML: `parseDesignHtml` still only accepts fragments. The editor's
+  import goes through `importDesignDocument`, which rebuilds a fragment from
+  the `.artboard` subtree (including the exported `.artboard` stylesheet rule)
+  and turns inlined `data:` images back into `asset:` references.
 
 **Limits and errors** (§8): 40 MP of output, 40 MiB response, 15 s, queue 20,
 concurrency 2. Oversize output is `LIMIT_EXCEEDED`, a worker crash or timeout

@@ -8,6 +8,7 @@ export * from './fonts.js';
 export * from './style.js';
 export * from './svg.js';
 export * from './parse.js';
+export * from './import.js';
 export * from './serialize.js';
 export * from './canonicalize.js';
 export * from './schema.js';

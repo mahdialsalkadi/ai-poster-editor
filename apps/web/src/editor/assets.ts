@@ -82,6 +82,7 @@ function loadImageSize(url: string): Promise<{ width: number; height: number }> 
 export async function createAssetFromFile(
   file: File,
   existingCount: number,
+  forcedId?: string,
 ): Promise<AssetEntry> {
   const error = validateAssetFile(file, existingCount);
   if (error) throw error;
@@ -106,7 +107,7 @@ export async function createAssetFromFile(
     }
 
     return {
-      id: createAssetId(),
+      id: forcedId ?? createAssetId(),
       name: file.name.replace(/\.[^.]+$/, '').slice(0, 80) || 'صورة',
       url,
       width: size.width,
@@ -120,6 +121,35 @@ export async function createAssetFromFile(
     if (cause instanceof AssetError) throw cause;
     throw new AssetError('DECODE_FAILED', 'تعذر فك ترميز الصورة');
   }
+}
+
+function base64ToBytes(base64: string): ArrayBuffer {
+  const binary = window.atob(base64);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return buffer;
+}
+
+/**
+ * Rebuilds an image the HTML importer found inlined in an exported document.
+ * It goes through the same MIME, size and dimension checks as an upload.
+ */
+export async function createAssetFromBase64(
+  base64: string,
+  mimeType: string,
+  id: string,
+  existingCount: number,
+): Promise<{ entry: AssetEntry; file: File }> {
+  let bytes: ArrayBuffer;
+  try {
+    bytes = base64ToBytes(base64);
+  } catch {
+    throw new AssetError('DECODE_FAILED', 'تعذر فك ترميز الصورة المستوردة');
+  }
+  const extension = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/webp' ? 'webp' : 'png';
+  const file = new File([bytes], `${id}.${extension}`, { type: mimeType });
+  return { entry: await createAssetFromFile(file, existingCount, id), file };
 }
 
 export function revokeAsset(asset: AssetEntry): void {

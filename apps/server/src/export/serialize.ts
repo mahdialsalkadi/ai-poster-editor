@@ -96,7 +96,7 @@ function shapeHtml(layer: ShapeLayer): string {
   ]
     .filter(Boolean)
     .join(';');
-  return `<div style="${style}"></div>`;
+  return `<div${layerAttrs(layer)} style="${style}"></div>`;
 }
 
 function imageHtml(layer: ImageLayer, assets: ExportAssets): string {
@@ -115,7 +115,9 @@ function imageHtml(layer: ImageLayer, assets: ExportAssets): string {
   ]
     .filter(Boolean)
     .join(';');
-  return `<img src="${asset.dataUri}" alt="${escapeHtml(layer.alt ?? layer.name)}" style="${style}">`;
+  return `<img${layerAttrs(layer)} src="${asset.dataUri}" alt="${escapeHtml(
+    layer.alt ?? layer.name,
+  )}" style="${style}">`;
 }
 
 function svgNodeHtml(node: SvgNode): string {
@@ -133,16 +135,28 @@ function svgHtml(layer: SvgLayer): string {
     .filter(Boolean)
     .join(';');
   const viewBox = layer.viewBox ? ` viewBox="${escapeHtml(layer.viewBox)}"` : '';
-  return `<svg${viewBox} preserveAspectRatio="xMidYMid meet" style="${style}">${layer.nodes
+  return `<svg${layerAttrs(layer)}${viewBox} preserveAspectRatio="xMidYMid meet" style="${style}">${layer.nodes
     .map(svgNodeHtml)
     .join('')}</svg>`;
 }
 
+/**
+ * The design envelope travels with the export so a re-import keeps layer ids,
+ * names and the image prompt instead of re-inventing them.
+ */
+function layerAttrs(layer: Layer): string {
+  const prompt =
+    layer.type === 'image' && layer.prompt ? ` data-prompt="${escapeHtml(layer.prompt)}"` : '';
+  return ` data-id="${escapeHtml(layer.id)}" data-layer="${escapeHtml(
+    layer.name,
+  )}" data-type="${layer.type}"${prompt}`;
+}
+
 function layerHtml(layer: Layer, assets: ExportAssets): string {
   if (layer.type === 'text') {
-    return `<div dir="${layer.dir}" style="${boxCss(layer)}${textCss(layer)}">${inlineHtml(
-      layer.content,
-    )}</div>`;
+    return `<div${layerAttrs(layer)} dir="${layer.dir}" style="${boxCss(layer)}${textCss(
+      layer,
+    )}">${inlineHtml(layer.content)}</div>`;
   }
   if (layer.type === 'shape') return shapeHtml(layer);
   if (layer.type === 'image') return imageHtml(layer, assets);
