@@ -82,7 +82,7 @@ describe('API', () => {
     expect(parseDesignHtml(designHtml).doc).toEqual(doc);
   });
 
-  it('generates a valid local design', async () => {
+  it('rejects generation until a provider is configured', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/ai/generate',
@@ -93,12 +93,8 @@ describe('API', () => {
         language: 'ar',
       },
     });
-    expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body.data.usage.model).toBe('local-template-v1');
-    const parsed = parseDesignHtml(body.data.designHtml);
-    expect(parsed.doc.layers.length).toBeGreaterThan(3);
-    expect(parsed.doc.layers[1]?.type).toBe('text');
+    expect(response.statusCode).toBe(422);
+    expect(response.json().error.code).toBe('UNSUPPORTED_FEATURE');
   });
 
   it('rejects AI edit until a provider is configured', async () => {
