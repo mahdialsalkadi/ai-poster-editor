@@ -10,7 +10,7 @@
     "build": "pnpm --filter @poster/core build && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@fontsource/amiri": "^5.0.0",

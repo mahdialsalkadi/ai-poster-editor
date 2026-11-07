@@ -4,7 +4,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
+
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import {

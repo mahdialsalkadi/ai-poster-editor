@@ -4,3 +4,9 @@ packages:
 
 allowBuilds:
   esbuild: true
+
+# caniuse-lite ships daily data-only releases used by browserslist; it is a
+# build-time data package with no install scripts, so it is exempt from the
+# minimum release age policy that pnpm applies to everything else.
+minimumReleaseAgeExclude:
+  - caniuse-lite
