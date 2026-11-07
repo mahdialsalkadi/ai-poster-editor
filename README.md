@@ -7,7 +7,7 @@ language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
-**Milestone 1 — shared core (`packages/core`)** is complete and gated:
+**Milestones 1–3** are complete and gated. The shared core is the foundation:
 
 - pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
   `apps/server`;
@@ -24,9 +24,17 @@ language, and the invariants are enforced in `packages/core`.
 - golden files for three sample designs (`packages/core/test/fixtures/golden`);
 - a measured parse benchmark (see Tests).
 
-Everything after the core is still an `M0` scaffold and says so at runtime:
-`apps/web` has no entry point yet, and `/api/export`, `/api/assets` and
-`/api/ai/edit` answer `UNSUPPORTED_FEATURE`. Milestones 2–7 implement them.
+`apps/web` now boots into a working editor shell. The canvas renders the
+canonical document, and the layers panel, marquee-free selection, direct
+manipulation (move, resize, rotate) and inline text entry all write back to the
+same `DesignDoc`. Gestures are committed as a single undo step, arrow keys and
+`Ctrl+Z`/`Ctrl+Shift+Z` are wired, and dragging snaps to artboard and layer
+edges and centers with visible guide lines. Designs persist to `localStorage`
+and can be imported from Design HTML.
+
+The deterministic local design generator was removed: `/api/ai/generate` and
+`/api/ai/edit` answer `UNSUPPORTED_FEATURE` until the provider lands in
+milestone 5, and `/api/export` lands in milestone 6.
 
 ## Requirements
 
@@ -60,7 +68,7 @@ packages/
   core/        Design HTML parser, serializer, canonicalizer, schema, merge
   contracts/   Shared API request/response and error envelopes
 apps/
-  web/         Vite + React editor shell (milestone 2)
+  web/         Vite + React editor shell (milestones 2–3)
   server/      Fastify API: AI generation and isolated export (milestones 5–6)
 prompts/       System prompts for the Design HTML generator and editor
 docs/          Design HTML contract and architecture decision records
@@ -105,8 +113,9 @@ Full details: [`docs/contract.md`](docs/contract.md).
 
 ## Tests
 
-`@poster/core` currently runs 134 tests across 7 files, including the golden
-files, the security corpus, limits and fast-check properties.
+`@poster/core` currently runs 151 tests across 10 files, including the golden
+files, the security corpus, limits, untrusted-data wrapping and fast-check
+properties.
 
 Measured on the development machine with `pnpm --filter @poster/core test`
 (`test/perf.test.ts`), parsing a 200-layer / 56.4 KiB document:
@@ -124,8 +133,8 @@ until the visual-regression tests in milestone 6 exist.
 | Milestone | Scope | Status |
 | --- | --- | --- |
 | 1 | `packages/core` contract, parser, serializer, merge, tests | done |
-| 2 | Static rendering, artboard viewport, layers panel, selection | pending |
-| 3 | Moveable transforms, snapping, undo/redo | pending |
+| 2 | Static rendering, artboard viewport, layers panel, selection | done |
+| 3 | Moveable transforms, snapping, undo/redo | done |
 | 4 | Inline text editing, properties panel | pending |
 | 5 | AI provider, prompts, snapshots, daily spend cap | pending |
 | 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | pending |

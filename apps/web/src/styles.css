@@ -1806,6 +1806,26 @@ kbd {
   }
 }
 
+.snap-guide {
+  position: absolute;
+  z-index: 3;
+  background: #ff5c8a;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(255, 92, 138, 0.55);
+}
+
+.snap-guide--x {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.snap-guide--y {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
 @media (max-width: 1080px) {
   .inspector {
     display: none;

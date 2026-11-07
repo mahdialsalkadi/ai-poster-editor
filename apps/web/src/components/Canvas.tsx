@@ -16,8 +16,17 @@ import {
 import type { UpdateOptions } from '../editor/history.js';
 import { estimatedLayerHeight, replaceTextContent, updateLayers } from '../editor/layers.js';
 import { fillToCss } from '../editor/render.js';
+import {
+  collectSnapTargets,
+  snapBounds,
+  snapEdge,
+  type SnapLine,
+  type SnapTargets,
+} from '../editor/snap.js';
 import { plainToInline } from '../editor/text.js';
 import { LayerView, type Handle } from './LayerView.js';
+
+type StartBox = { left: number; top: number; width: number; height: number };
 
 type MoveSession = {
   kind: 'move';
@@ -27,7 +36,9 @@ type MoveSession = {
   scale: number;
   before: DesignDoc;
   ids: string[];
-  starts: Map<string, { left: number; top: number }>;
+  starts: Map<string, StartBox>;
+  targets: SnapTargets;
+  threshold: number;
 };
 
 type ResizeSession = {
@@ -41,6 +52,8 @@ type ResizeSession = {
   id: string;
   isText: boolean;
   start: { left: number; top: number; width: number; height: number; rotation: number };
+  targets: SnapTargets;
+  threshold: number;
 };
 
 type RotateSession = {
@@ -55,6 +68,34 @@ type RotateSession = {
 };
 
 type Session = MoveSession | ResizeSession | RotateSession;
+
+/** Snap radius in screen pixels, converted to document units per gesture. */
+const SNAP_THRESHOLD = 6;
+const SHIFT_STEP = 10;
+
+function movedBounds(starts: Map<string, StartBox>, dx: number, dy: number): StartBox {
+  let minLeft = Number.POSITIVE_INFINITY;
+  let minTop = Number.POSITIVE_INFINITY;
+  let maxRight = Number.NEGATIVE_INFINITY;
+  let maxBottom = Number.NEGATIVE_INFINITY;
+
+  starts.forEach((box) => {
+    minLeft = Math.min(minLeft, box.left);
+    minTop = Math.min(minTop, box.top);
+    maxRight = Math.max(maxRight, box.left + box.width);
+    maxBottom = Math.max(maxBottom, box.top + box.height);
+  });
+
+  if (!Number.isFinite(minLeft) || !Number.isFinite(minTop)) {
+    return { left: 0, top: 0, width: 0, height: 0 };
+  }
+  return {
+    left: minLeft + dx,
+    top: minTop + dy,
+    width: maxRight - minLeft,
+    height: maxBottom - minTop,
+  };
+}
 
 export type CanvasProps = {
   doc: DesignDoc;
@@ -91,6 +132,7 @@ export function Canvas({
   const sessionRef = useRef<Session | null>(null);
   const [textHeights, setTextHeights] = useState<Record<string, number>>({});
   const [fontTick, setFontTick] = useState(0);
+  const [guides, setGuides] = useState<SnapLine[]>([]);
 
   const registerRef = useCallback((id: string, element: HTMLDivElement | null) => {
     if (element) layerRefs.current.set(id, element);
@@ -165,6 +207,7 @@ export function Canvas({
   const beginSession = useCallback(
     (session: Session) => {
       sessionRef.current = session;
+      setGuides([]);
       document.body.classList.add('is-dragging');
 
       function cleanup(revert: boolean) {
@@ -174,6 +217,7 @@ export function Canvas({
         window.removeEventListener('pointerup', onUp);
         window.removeEventListener('pointercancel', onCancel);
         document.body.classList.remove('is-dragging');
+        setGuides([]);
         if (!current) return;
         if (revert) onUpdate(() => current.before, { history: false });
         else onCommit(current.before);
@@ -187,14 +231,32 @@ export function Canvas({
         if (current.kind === 'move') {
           const dx = (event.clientX - current.startX) / current.scale;
           const dy = (event.clientY - current.startY) / current.scale;
-          const snap = event.shiftKey ? 10 : 1;
+          let offsetX = dx;
+          let offsetY = dy;
+          let nextGuides: SnapLine[] = [];
+
+          if (event.shiftKey) {
+            offsetX = Math.round(dx / SHIFT_STEP) * SHIFT_STEP;
+            offsetY = Math.round(dy / SHIFT_STEP) * SHIFT_STEP;
+          } else {
+            const snapped = snapBounds(
+              movedBounds(current.starts, dx, dy),
+              current.targets,
+              current.threshold,
+            );
+            offsetX += snapped.dx;
+            offsetY += snapped.dy;
+            nextGuides = snapped.guides;
+          }
+
+          setGuides(nextGuides);
           onUpdate(
             (currentDoc) =>
               updateLayers(currentDoc, current.ids, (layer) => {
                 const start = current.starts.get(layer.id);
                 if (!start) return layer;
-                const left = Math.round((start.left + dx) / snap) * snap;
-                const top = Math.round((start.top + dy) / snap) * snap;
+                const left = quantize(start.left + offsetX);
+                const top = quantize(start.top + offsetY);
                 if (left === layer.left && top === layer.top) return layer;
                 return { ...layer, left, top };
               }),
@@ -240,18 +302,61 @@ export function Canvas({
           const newRotated = rotate(newAnchorX, newAnchorY);
           const centerX = oldCenterX + oldRotated.x - newRotated.x;
           const centerY = oldCenterY + oldRotated.y - newRotated.y;
-          const nextLeft = quantize(centerX - nextWidth / 2);
-          const nextTop = quantize(centerY - nextHeight / 2);
-          const nextW = quantize(nextWidth);
-          const nextH = quantize(nextHeight);
+          let nextLeft = quantize(centerX - nextWidth / 2);
+          let nextTop = quantize(centerY - nextHeight / 2);
+          let nextW = quantize(nextWidth);
+          let nextH = quantize(nextHeight);
 
+          // Snapping only applies to unrotated layers: the handles move along
+          // the artboard axes, which keeps the anchored edge fixed.
+          const nextGuides: SnapLine[] = [];
+          if (rotation === 0) {
+            if (current.handle.includes('w')) {
+              const hit = snapEdge(current.targets.xs, nextLeft, current.threshold);
+              if (hit !== null) {
+                nextW = quantize(Math.min(10_000, Math.max(1, nextW + (nextLeft - hit))));
+                nextLeft = hit;
+                nextGuides.push({ axis: 'x', position: hit });
+              }
+            } else if (current.handle.includes('e')) {
+              const hit = snapEdge(current.targets.xs, nextLeft + nextW, current.threshold);
+              if (hit !== null) {
+                nextW = quantize(Math.min(10_000, Math.max(1, hit - nextLeft)));
+                nextGuides.push({ axis: 'x', position: hit });
+              }
+            }
+            if (!current.isText) {
+              if (current.handle.includes('n')) {
+                const hit = snapEdge(current.targets.ys, nextTop, current.threshold);
+                if (hit !== null) {
+                  nextH = quantize(Math.min(10_000, Math.max(1, nextH + (nextTop - hit))));
+                  nextTop = hit;
+                  nextGuides.push({ axis: 'y', position: hit });
+                }
+              } else if (current.handle.includes('s')) {
+                const hit = snapEdge(current.targets.ys, nextTop + nextH, current.threshold);
+                if (hit !== null) {
+                  nextH = quantize(Math.min(10_000, Math.max(1, hit - nextTop)));
+                  nextGuides.push({ axis: 'y', position: hit });
+                }
+              }
+            }
+          }
+
+          setGuides(nextGuides);
           onUpdate(
             (currentDoc) =>
               updateLayers(currentDoc, [current.id], (layer) => {
                 if (layer.type === 'text') {
                   return { ...layer, left: nextLeft, top: nextTop, width: nextW };
                 }
-                return { ...layer, left: nextLeft, top: nextTop, width: nextW, height: nextH };
+                return {
+                  ...layer,
+                  left: nextLeft,
+                  top: nextTop,
+                  width: nextW,
+                  height: nextH,
+                };
               }),
             { history: false },
           );
@@ -291,10 +396,13 @@ export function Canvas({
 
   const startMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>, layer: Layer, ids: string[]) => {
-      const starts = new Map<string, { left: number; top: number }>();
+      const starts = new Map<string, StartBox>();
       for (const id of ids) {
         const item = doc.layers.find((candidate) => candidate.id === id);
-        if (item) starts.set(id, { left: item.left, top: item.top });
+        if (!item) continue;
+        const height =
+          'height' in item ? item.height : textHeights[item.id] ?? estimatedLayerHeight(item);
+        starts.set(id, { left: item.left, top: item.top, width: item.width, height });
       }
       beginSession({
         kind: 'move',
@@ -305,9 +413,11 @@ export function Canvas({
         before: doc,
         ids: [...starts.keys()],
         starts,
+        targets: collectSnapTargets(doc, ids),
+        threshold: SNAP_THRESHOLD / scale,
       });
     },
-    [beginSession, doc, scale],
+    [beginSession, doc, scale, textHeights],
   );
 
   const handleLayerPointerDown = useCallback(
@@ -367,6 +477,8 @@ export function Canvas({
           height,
           rotation: layer.rotation,
         },
+        targets: collectSnapTargets(doc, [layer.id]),
+        threshold: SNAP_THRESHOLD / scale,
       });
     },
     [beginSession, doc, scale, textHeights],
@@ -462,6 +574,14 @@ export function Canvas({
               onTextCommit={handleTextCommit}
               onTextCancel={handleTextCancel}
               registerRef={registerRef}
+            />
+          ))}
+          {guides.map((guide) => (
+            <div
+              key={`${guide.axis}-${guide.position}`}
+              className={`snap-guide snap-guide--${guide.axis}`}
+              style={guide.axis === 'x' ? { left: guide.position } : { top: guide.position }}
+              aria-hidden="true"
             />
           ))}
           {showGrid && scale >= 0.28 ? (
