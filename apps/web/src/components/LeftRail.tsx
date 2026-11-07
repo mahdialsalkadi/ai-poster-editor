@@ -266,7 +266,7 @@ export function LeftRail({
           })}
         </div>
         <div className="rail-bottom">
-          <span className="rail-version">M4</span>
+          <span className="rail-version">M5</span>
         </div>
       </nav>
 

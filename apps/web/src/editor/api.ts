@@ -127,6 +127,8 @@ export type GeneratedDesign = {
   usage: AiUsage;
 };
 
+export type EditedDesign = GeneratedDesign & { snapshotId: string };
+
 export type GenerateDesignInput = {
   prompt: string;
   width: number;
@@ -153,7 +155,7 @@ export function editDesign(
   input: EditDesignInput,
   signal?: AbortSignal,
 ): Promise<ApiResult<GeneratedDesign>> {
-  return postJson<GeneratedDesign>(ROUTES.edit, input, signal);
+  return postJson<EditedDesign>(ROUTES.edit, input, signal);
 }
 
 export type Health = {

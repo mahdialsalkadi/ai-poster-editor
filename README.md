@@ -7,7 +7,7 @@ language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
-**Milestones 1–4** are complete and gated. The shared core is the foundation:
+**Milestones 1–5** are complete and gated. The shared core is the foundation:
 
 - pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
   `apps/server`;
@@ -38,9 +38,13 @@ layer order, alignment and artboard size and background. Gestures are committed 
 edges and centers with visible guide lines. Designs persist to `localStorage`
 and can be imported from Design HTML.
 
-The deterministic local design generator was removed: `/api/ai/generate` and
-`/api/ai/edit` answer `UNSUPPORTED_FEATURE` until the provider lands in
-milestone 5, and `/api/export` lands in milestone 6.
+AI runs through one OpenAI-compatible provider (`AI_PROVIDER`, `AI_MODEL`,
+`AI_API_KEY`): generation returns canonical Design HTML, selection-scoped
+editing merges a patch with `mergeScopedEdit` and snapshots the previous
+document, invalid output is retried once with the validator error, and each
+call reserves its worst-case cost against `AI_DAILY_SPEND_CAP_USD` before the
+provider is contacted. With no provider configured the routes answer
+`UNSUPPORTED_FEATURE`; `/api/export` lands in milestone 6.
 
 ## Requirements
 
@@ -142,7 +146,7 @@ until the visual-regression tests in milestone 6 exist.
 | 2 | Static rendering, artboard viewport, layers panel, selection | done |
 | 3 | Moveable transforms, snapping, undo/redo | done |
 | 4 | Inline text editing, properties panel | done |
-| 5 | AI provider, prompts, snapshots, daily spend cap | pending |
+| 5 | AI provider, prompts, snapshots, daily spend cap | done |
 | 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | pending |
 | 7 | Gradient editor, templates, shortcuts, documentation | pending |
 

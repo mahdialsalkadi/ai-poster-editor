@@ -536,15 +536,17 @@ bytes are `INVALID_DOC`, and a disabled worker is `UNSUPPORTED_FEATURE`.
 
 ### 12.2 AI contract
 
-> **Milestone 5 — not implemented yet.** Only `AI_PROVIDER=local` works today:
-> it returns the deterministic `local-template-v1` design and never calls a
-> model. `POST /api/ai/edit` returns `UNSUPPORTED_FEATURE`. The prompt files in
-> `prompts/` already carry the untrusted-data rules below; the provider that
-> consumes them lands in this milestone.
+> **Milestone 5 — implemented.** `AI_PROVIDER` selects an OpenAI-compatible
+> chat-completions endpoint (`AI_MODEL`, `AI_BASE_URL`, `AI_API_KEY`); with no
+> provider configured the routes answer `UNSUPPORTED_FEATURE`. The prompt files
+> in `prompts/` are the system prompts. `POST /api/ai/generate` returns
+> canonical Design HTML, `POST /api/ai/edit` returns the merged document plus
+> `snapshotId`, and `GET /api/ai/snapshots/:id` reads a snapshot back through
+> `validateDesignDoc`.
 
 **Provider boundary.** The server talks to one `AiProvider` interface
 (`generateDesign`, `editDesign`) selected by `AI_PROVIDER`. Provider keys stay
-in the server environment (`OPENAI_API_KEY`) and never reach the browser, the
+in the server environment (`AI_API_KEY`) and never reach the browser, the
 prompt, a log line or an error message. `usage.model` always names the model
 that actually ran, so a local template is never reported as a hosted model.
 

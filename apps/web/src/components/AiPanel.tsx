@@ -42,7 +42,7 @@ export function AiPanel({
         <Icon name="sparkles" size={18} />
         <div>
           <strong>توليد تصميم كامل</strong>
-          <p>اكتب وصفاً قصيراً. مزوّد LLM يُضاف في المرحلة الخامسة؛ حتى ذلك الحين يعيد الخادم رفضاً واضحاً.</p>
+          <p>اكتب وصفاً قصيراً. يعمل المزوّد عندما يضبط الخادم AI_PROVIDER وAI_MODEL وAI_API_KEY.</p>
         </div>
       </div>
 
