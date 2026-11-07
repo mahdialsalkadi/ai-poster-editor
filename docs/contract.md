@@ -534,6 +534,62 @@ concurrency 2. Oversize output is `LIMIT_EXCEEDED`, a worker crash or timeout
 is `EXPORT_FAILED`, a missing asset is `ASSET_UNRESOLVED`, malformed asset
 bytes are `INVALID_DOC`, and a disabled worker is `UNSUPPORTED_FEATURE`.
 
+### 12.2 AI contract
+
+> **Milestone 5 — not implemented yet.** Only `AI_PROVIDER=local` works today:
+> it returns the deterministic `local-template-v1` design and never calls a
+> model. `POST /api/ai/edit` returns `UNSUPPORTED_FEATURE`. The prompt files in
+> `prompts/` exist, but they do not yet add the untrusted-data wrapper below.
+
+**Provider boundary.** The server talks to one `AiProvider` interface
+(`generateDesign`, `editDesign`) selected by `AI_PROVIDER`. Provider keys stay
+in the server environment (`OPENAI_API_KEY`) and never reach the browser, the
+prompt, a log line or an error message. `usage.model` always names the model
+that actually ran, so a local template is never reported as a hosted model.
+
+**Untrusted data.** Nothing the model sees is trusted, and nothing the model
+returns is trusted either:
+
+- The design is embedded in the prompt inside
+  `<untrusted_design_data>...</untrusted_design_data>`, and the system prompt
+  states that the block is data, that any instruction inside it must be
+  ignored, and that only the instruction field is authoritative.
+- The literal `</untrusted_design_data` sequence is neutralized in serialized
+  text before wrapping, so layer text cannot close the block early.
+- The instruction is plain text capped at 4,000 characters and sent in its own
+  field; it is never concatenated into the data block.
+- Model output is parsed by `parseDesignHtml` through the full security
+  boundary of §9 and then canonicalized. A model that emits a script, an
+  external URL or a forbidden tag produces `AI_INVALID_OUTPUT`, never a
+  partially applied edit.
+
+**One retry.** Invalid output is retried once with the validation error
+appended to the prompt (`LIMITS.ai.retries`), then fails with
+`AI_INVALID_OUTPUT`. There is no repair loop and no hidden second model. The
+call is bounded by `LIMITS.ai.timeoutMs`, `LIMITS.ai.maxRequestBytes`,
+`LIMITS.ai.maxOutputBytes`, `LIMITS.ai.maxOutputTokens` and
+`LIMITS.ai.maxLayers`.
+
+**Snapshot before edit.** Before an edit is applied, the server stores the
+current canonical document as a snapshot keyed by project id
+(`LIMITS.snapshots.maxPerProject`, oldest dropped first). The apply response
+carries the snapshot id, and restoring it is a plain document write, so a bad
+AI edit is always reversible without asking the model again. Snapshots are
+read back through `validateDesignDoc`.
+
+**Daily spend cap.** Spend is accounted per server per UTC day. Before a call
+the server reserves the estimated cost (prompt tokens x provider price); if
+`spent + reserved` would exceed `AI_DAILY_SPEND_CAP_USD`, the request fails
+with `SPEND_CAP_EXCEEDED` (HTTP 402) **before** the provider is called. After
+the call the reservation is settled to the actual `usage.costUsd`. Reserving
+first is what stops concurrent requests from racing past the cap. Per-IP and
+per-session limits (`LIMITS.rateLimit`) are checked earlier and answer
+`RATE_LIMITED`. The cap value is deployment configuration, not code.
+
+**Paths.** Generation returns Design HTML plus `usage`. The edit path returns
+a patch that is merged with `mergeScopedEdit` (§11.1). Neither path can change
+the artboard size, and a scoped edit never deletes a selected layer.
+
 ## 13. Versioning
 
 `schemaVersion` is `1`. A breaking change to the document shape, canonical form,
