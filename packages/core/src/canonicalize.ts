@@ -2,6 +2,7 @@ import { normalizeColor } from './color.js';
 import { DesignError } from './errors.js';
 import { containsArabic, fallbackFont, findAllowedFont, isArabicFont } from './fonts.js';
 import { LIMITS } from './limits.js';
+import { canonicalInlineText } from './text.js';
 import type {
   Border,
   DesignDoc,
@@ -120,7 +121,7 @@ function canonicalTextLayer(layer: TextLayer): TextLayer {
     ...canonicalBase(layer),
     type: 'text',
     dir: layer.dir,
-    content: canonicalInline(layer.content, 'content'),
+    content: canonicalInlineText(canonicalInline(layer.content, 'content')),
     style: canonicalTextStyle(layer.style, layer.dir, text),
   };
 }

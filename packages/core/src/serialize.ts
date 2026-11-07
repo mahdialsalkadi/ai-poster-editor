@@ -8,7 +8,7 @@ import type {
   Layer,
   Shadow,
   ShapeLayer,
-  SvgLayer,
+
   SvgNode,
   TextLayer,
 } from './model.js';

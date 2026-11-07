@@ -12,3 +12,6 @@ export * from './serialize.js';
 export * from './canonicalize.js';
 export * from './schema.js';
 export * from './merge.js';
+export * from './merge-scoped.js';
+export * from './css-guard.js';
+export * from './text.js';

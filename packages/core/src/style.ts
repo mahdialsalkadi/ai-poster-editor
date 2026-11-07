@@ -1,5 +1,6 @@
 import * as csstree from 'css-tree';
 import { normalizeColor } from './color.js';
+import { containsForbiddenCss } from './css-guard.js';
 import { DesignError, LimitExceededError, SecurityViolationError } from './errors.js';
 import { containsArabic, fallbackFont, findAllowedFont, isArabicFont, normalizeFontWeight } from './fonts.js';
 import { LIMITS } from './limits.js';
@@ -38,7 +39,6 @@ export type CommonGeometry = {
   opacity?: number;
 };
 
-const SECURITY_VALUE_RE = /(?:url\s*\(|@import|expression\s*\(|javascript\s*:)/i;
 const SECURITY_PROPERTY_RE = /^(?:behavior|-moz-binding)$/i;
 const DROPPED_PROPERTIES = new Set([
   'display',
@@ -89,6 +89,10 @@ export function parseDeclarations(style: string, ctx: StyleContext): Declaration
     );
   }
 
+  if (containsForbiddenCss(style)) {
+    throw new SecurityViolationError('Forbidden CSS value in style attribute', ctx.path);
+  }
+
   const declarations = new Map<string, string>();
   let ast: unknown;
   try {
@@ -125,7 +129,7 @@ export function parseDeclarations(style: string, ctx: StyleContext): Declaration
     if (SECURITY_PROPERTY_RE.test(property)) {
       throw new SecurityViolationError(`Forbidden CSS property: ${property}`, ctx.path);
     }
-    if (SECURITY_VALUE_RE.test(value)) {
+    if (containsForbiddenCss(value)) {
       throw new SecurityViolationError(`Forbidden CSS value in ${property}`, ctx.path);
     }
     if (property.startsWith('--')) {

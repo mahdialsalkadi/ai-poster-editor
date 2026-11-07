@@ -1,4 +1,5 @@
 import { normalizeColor } from './color.js';
+import { assertSafePaintValue, decodeCssEscapes } from './css-guard.js';
 import { LimitExceededError, SecurityViolationError } from './errors.js';
 import { LIMITS } from './limits.js';
 import type { SvgNode, SvgTag, Warning } from './model.js';
@@ -139,19 +140,20 @@ function validateReference(
   ctx: SvgContext,
   path: string,
 ): string | null {
-  const match = value.trim().match(LOCAL_URL_RE);
+  const trimmed = decodeCssEscapes(value).trim();
+  const match = trimmed.match(LOCAL_URL_RE);
   if (match?.[1]) {
     if (!ids.has(match[1])) {
       warn(ctx, `SVG reference does not resolve: #${match[1]}`, path);
       return null;
     }
-    return value.trim();
+    return `url(#${match[1]})`;
   }
-  if (/url\s*\(/i.test(value)) {
+  if (/url\s*\(/i.test(trimmed)) {
     throw new SecurityViolationError('Only local SVG url(#id) references are allowed', path);
   }
-  if (value.trim() === 'none') return 'none';
-  return normalizeColor(value);
+  if (trimmed === 'none') return 'none';
+  return normalizeColor(trimmed);
 }
 
 function validatePathData(value: string, ctx: SvgContext, path: string): string | null {
@@ -227,6 +229,7 @@ function parseSvgElement(
       continue;
     }
     if (canonicalName === 'fill' || canonicalName === 'stroke') {
+      assertSafePaintValue(attr.value, `${ctx.path}.${canonicalName}`);
       const value = validateReference(attr.value, ids, ctx, canonicalName);
       if (value === null) continue;
       attrs[canonicalName] = value;

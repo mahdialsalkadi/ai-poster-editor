@@ -1,74 +1,72 @@
 # AI Poster Editor
 
-An Arabic-first poster editor built around a strict **Design HTML** contract and
-an AI generation/edit pipeline. The document is the single source of truth:
-the same canonical HTML is parsed, validated, edited, stored, and exported.
-
-> **Clean-room notice:** this project is not affiliated with Canva. We study
-> public behavior for feature parity, but we do not copy Canva code, CSS,
-> templates, images, icons, fonts, copy, or trademarks. See
-> `docs/adr/0001-clean-room-canva-parity.md`.
+An Arabic-first poster editor built around a strict **Design HTML** contract.
+One canonical document is the source of truth for parsing, editing, AI patches
+and export: the editor, the server and the model all speak the same restricted
+language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
-Milestone **M0 — contract and safety** is implemented:
+**Milestone 1 — shared core (`packages/core`)** is complete and gated:
 
-- TypeScript-only pnpm monorepo;
-- `@poster/core`: model, limits, strict parse5 parser, canonical serializer,
-  CSS/SVG allow-lists, runtime Zod schema, selection-scoped merge;
-- `@poster/contracts`: API request/response and error schemas;
-- unit tests for round trip, security, limits, fonts, SVG, and merge;
-- clean-room Canva feature inventory produced with REA;
-- CI, Docker, and editor/server scaffolds.
+- pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
+  `apps/server`;
+- typed model, central limits, parse5 allow-list parser, css-tree style parser,
+  canonical serializer, canonicalizer, zod runtime schema, `mergeDesignDoc` and
+  `mergeScopedEdit`;
+- security rejections are covered by tests: escaped CSS (`\75rl(`, `u\72l(`),
+  mixed case (`URL(`), `@import`, `expression()`, `javascript:`,
+  protocol-relative `//` URLs, remote SVG paint servers, and the full banned-tag
+  corpus including `object`, `embed`, `meta`, `base`, `<use>` and
+  `<foreignObject>`;
+- fast-check property tests prove `parse(serialize(doc))` deep-equals the
+  canonical document, plus byte-stable serialization and warning-free re-parsing;
+- golden files for three sample designs (`packages/core/test/fixtures/golden`);
+- a measured parse benchmark (see Tests).
 
-The editor and AI provider are the next milestone. See
-`docs/canva-feature-parity.md` for the roadmap.
+Everything after the core is still an `M0` scaffold and says so at runtime:
+`apps/web` has no entry point yet, and `/api/export`, `/api/assets` and
+`/api/ai/edit` answer `UNSUPPORTED_FEATURE`. Milestones 2–7 implement them.
+
+## Requirements
+
+- Node.js >= 22 (verified on 26.13.0)
+- pnpm 12.16.1 (`npm i -g pnpm@12.16.1`)
+
+pnpm 12 rejects packages younger than its minimum release age. `caniuse-lite`
+publishes data-only updates daily, so it is exempted in `pnpm-workspace.yaml`;
+every other dependency stays under the default policy.
 
 ## Quick start
 
-Requirements: Node.js >= 22, pnpm 12.
-
 ```bash
 pnpm install
-pnpm test
-pnpm typecheck
-pnpm build
+pnpm --filter @poster/core test
+pnpm -r typecheck
+pnpm lint
 ```
 
-Run the API:
+Run the API (M0 surface only):
 
 ```bash
 cp .env.example .env
 pnpm --filter @poster/server dev
 ```
 
-Run the web editor:
-
-```bash
-pnpm --filter @poster/web dev
-```
-
 ## Repository layout
 
 ```
-apps/
-  server/            Fastify API: validate, serialize, merge, AI, export
-  web/               Vite + React editor shell
 packages/
-  core/              Design HTML parser, serializer, canonicalizer, limits
-  contracts/         Shared API schemas and error envelopes
-docs/
-  contract.md        Normative Design HTML contract
-  canva-feature-parity.md
-  adr/               Architecture decision records
-prompts/
-  design-html-system.md
-  design-edit-system.md
-research/canva/      Local REA scenarios (captures are gitignored)
-tools/rea/           REA submodule (MIT)
+  core/        Design HTML parser, serializer, canonicalizer, schema, merge
+  contracts/   Shared API request/response and error envelopes
+apps/
+  web/         Vite + React editor shell (milestone 2)
+  server/      Fastify API: AI generation and isolated export (milestones 5–6)
+prompts/       System prompts for the Design HTML generator and editor
+docs/          Design HTML contract and architecture decision records
 ```
 
-## Design HTML in one example
+## Design HTML
 
 ```html
 <div class="artboard" data-width="1080px" data-height="1350px" style="background:#0f172a">
@@ -77,7 +75,7 @@ tools/rea/           REA submodule (MIT)
     data-layer="Headline"
     data-type="text"
     dir="rtl"
-    style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#ffffff;text-align:center;line-height:1.25;letter-spacing:0px"
+    style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#ffffff;text-align:right;line-height:1.25;letter-spacing:0px"
   >عنوان رئيسي</div>
 </div>
 ```
@@ -89,61 +87,57 @@ const { doc, warnings } = parseDesignHtml(html);
 const canonicalHtml = serializeDesignDoc(doc);
 ```
 
-The parser rejects scripts, event handlers, external URLs, dangerous CSS/SVG,
-and anything outside the contract. It never executes or loads content.
-
 ## Contract highlights
 
-- **Canonical round trip:** `parse(serialize(doc))` is stable and byte-identical
-  on the second serialization.
+- **Canonical round trip:** `parse(serialize(doc))` deep-equals `doc` for
+  canonical documents, and the second serialization is byte-identical.
 - **Limits:** 200 KiB, 200 layers, 10k codepoints per text layer, 2k SVG nodes,
   40 MP exports. All limits live in `packages/core/src/limits.ts`.
 - **Security:** parse5 + allow-lists; `asset:` image scheme; no scripts, event
-  handlers, external references, or `innerHTML` rendering of untrusted HTML.
-- **AI merge:** patches update only selected layers; type changes, artboard
-  changes, and unselected layers are ignored with warnings.
+  handlers, external references, or `innerHTML` of untrusted HTML.
+- **Scoped AI merge:** only selected layers may change; missing selected layers
+  are preserved; new layers are inserted above the highest selected layer;
+  artboard size and background are immutable.
 - **RTL:** Arabic text is inferred as RTL when `dir` is missing; Latin-only fonts
-  fall back to Cairo; letter-spacing warns on Arabic.
+  fall back to Cairo; letter-spacing on Arabic is reported.
 
 Full details: [`docs/contract.md`](docs/contract.md).
 
-## Scripts
+## Tests
 
-| Command | Description |
-| --- | --- |
-| `pnpm test` | run all package tests |
-| `pnpm typecheck` | TypeScript project build/check |
-| `pnpm build` | build all packages and apps |
-| `pnpm lint` | ESLint |
-| `pnpm format` | Prettier |
-| `pnpm --filter @poster/core test` | core contract tests |
+`@poster/core` currently runs 134 tests across 7 files, including the golden
+files, the security corpus, limits and fast-check properties.
 
-## Environment
+Measured on the development machine with `pnpm --filter @poster/core test`
+(`test/perf.test.ts`), parsing a 200-layer / 56.4 KiB document:
 
-Copy `.env.example` to `.env`. The M0 server runs without external services.
-AI and export provider keys are optional until those features are enabled.
-
-## REA
-
-REA is vendored as a git submodule at `tools/rea` (MIT). It is used for
-lawful, passive observation of public web UI. It is not a runtime dependency
-and is not shipped in the product. If the submodule is not initialized:
-
-```bash
-git submodule update --init --recursive
+```
+p50 = 18.61 ms   p95 = 56.59 ms   min = 13.34 ms   max = 109.42 ms
 ```
 
-The scenarios under `research/canva/` can be replayed with the published CLI:
+The spec's "1–3 ms" figure was not reproduced and should be treated as
+unverified; the export path is not claimed to be pixel-identical to the editor
+until the visual-regression tests in milestone 6 exist.
 
-```bash
-npx -y rea-agents@latest capture-browser-scenario research/canva/scenario-editor-ui.json --json
-```
+## Milestones
 
-Raw captures contain third-party page content and are excluded from git. Do not
-commit them or ship them.
+| Milestone | Scope | Status |
+| --- | --- | --- |
+| 1 | `packages/core` contract, parser, serializer, merge, tests | done |
+| 2 | Static rendering, artboard viewport, layers panel, selection | pending |
+| 3 | Moveable transforms, snapping, undo/redo | pending |
+| 4 | Inline text editing, properties panel | pending |
+| 5 | AI provider, prompts, snapshots, daily spend cap | pending |
+| 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | pending |
+| 7 | Gradient editor, templates, shortcuts, documentation | pending |
+
+## Original work
+
+All code, copy, icons and visual identity in this repository are original. No
+code, asset, icon, template or branding from any other design product is
+included. See [`docs/adr/0001-clean-room-canva-parity.md`](docs/adr/0001-clean-room-canva-parity.md).
 
 ## License
 
-TBD. Fonts are distributed under the SIL Open Font License; their license files
-must be included in the web build. REA is MIT-licensed and remains a separate
-submodule.
+TBD. Bundled fonts are Google Fonts under the SIL Open Font License; their
+license files ship with the web build.

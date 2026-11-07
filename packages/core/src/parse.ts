@@ -1,5 +1,6 @@
 import * as parse5 from 'parse5';
 import { normalizeColor } from './color.js';
+import { containsForbiddenCss } from './css-guard.js';
 import { DesignError, LimitExceededError, SecurityViolationError } from './errors.js';
 import { containsArabic } from './fonts.js';
 import { LIMITS } from './limits.js';
@@ -114,7 +115,7 @@ function walkSecurity(node: HtmlNode, path = 'html'): void {
           throw new SecurityViolationError('Image src must use the asset: scheme', path);
         }
       }
-      if (name === 'style' && /(?:url\s*\(|@import|expression\s*\(|javascript\s*:)/i.test(value)) {
+      if (name === 'style' && containsForbiddenCss(value)) {
         throw new SecurityViolationError('Forbidden CSS value in style attribute', path);
       }
     }
