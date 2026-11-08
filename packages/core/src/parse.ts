@@ -4,8 +4,13 @@ import { containsForbiddenCss } from './css-guard.js';
 import { DesignError, LimitExceededError, SecurityViolationError } from './errors.js';
 import { containsArabic } from './fonts.js';
 import { LIMITS } from './limits.js';
-import type { InlineNode, Layer, ParseOutput, SvgLayer, TextLayer, Warning } from './model.js';
-import { DESIGN_DOC_VERSION } from './model.js';
+import {
+  DESIGN_DOC_VERSION,
+  type InlineNode,
+  type Layer,
+  type ParseOutput,
+  type Warning,
+} from './model.js';
 import { parsePx, quantize } from './numbers.js';
 import {
   assertAbsolutePosition,
@@ -19,12 +24,14 @@ import {
   type StyleContext,
 } from './style.js';
 import { parseSvgNodes, parseViewBox, type SvgContext } from './svg.js';
+import { canonicalInlineText } from './text.js';
 import { pushWarning } from './warnings.js';
 
+type HtmlAttr = { name: string; value: string };
 type HtmlNode = {
   nodeName: string;
   tagName?: string;
-  attrs?: Array<{ name: string; value: string }>;
+  attrs?: HtmlAttr[];
   childNodes?: HtmlNode[];
   value?: string;
 };
@@ -42,6 +49,7 @@ const BANNED_TAGS = new Set([
   'option',
   'object',
   'embed',
+  'applet',
   'meta',
   'base',
   'template',
@@ -55,6 +63,49 @@ const BANNED_TAGS = new Set([
   'image',
 ]);
 
+const TEXT_SEMANTIC_TAGS = new Set([
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'p',
+  'span',
+  'blockquote',
+  'figcaption',
+  'label',
+  'a',
+  'li',
+  'small',
+  'mark',
+  'code',
+  'pre',
+]);
+
+const ALLOWED_INLINE_TAGS = new Set([
+  'span',
+  'br',
+  'b',
+  'strong',
+  'i',
+  'em',
+  'u',
+  'ins',
+  'mark',
+  'small',
+  'code',
+  'a',
+  'label',
+  'sub',
+  'sup',
+  'q',
+  'cite',
+  'time',
+  'p',
+  'div',
+]);
+
 const URL_ATTRS = new Set([
   'href',
   'xlink:href',
@@ -64,487 +115,472 @@ const URL_ATTRS = new Set([
   'poster',
 ]);
 
-const ALLOWED_LAYER_DATA_ATTRS = new Set([
-  'data-id',
-  'data-layer',
-  'data-type',
-  'data-hidden',
-  'data-locked',
-  'data-prompt',
-]);
-
-const LAYER_ID_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 const ASSET_SRC_RE = /^asset:[A-Za-z0-9_-]{1,64}$/;
 
+function isElement(node: HtmlNode): node is HtmlNode & { tagName: string } {
+  return typeof node.tagName === 'string';
+}
+
 function getAttr(node: HtmlNode, name: string): string | undefined {
-  return node.attrs?.find((attr) => attr.name.toLowerCase() === name.toLowerCase())?.value;
+  const lower = name.toLowerCase();
+  return node.attrs?.find((attr) => attr.name.toLowerCase() === lower)?.value;
 }
 
 function hasClass(node: HtmlNode, className: string): boolean {
-  return (getAttr(node, 'class') ?? '').split(/\s+/).includes(className);
+  const raw = getAttr(node, 'class');
+  if (!raw) return false;
+  return raw
+    .trim()
+    .split(/\s+/)
+    .some((token) => token === className);
 }
 
 function textOf(node: HtmlNode): string {
   if (node.nodeName === '#text') return node.value ?? '';
+  if (!isElement(node)) return '';
+  if (node.tagName.toLowerCase() === 'br') return '\n';
   return (node.childNodes ?? []).map(textOf).join('');
 }
 
-function isElement(node: HtmlNode): node is HtmlNode & { tagName: string } {
-  return node.nodeName !== '#text' && node.nodeName !== '#comment' && Boolean(node.tagName);
-}
-
-function walkSecurity(node: HtmlNode, path = 'html'): void {
-  if (node.nodeName === '#comment') return;
+function walkSecurity(node: HtmlNode, path: string): void {
   if (isElement(node)) {
     const tag = node.tagName.toLowerCase();
+    const curPath = `${path}.${tag}`;
     if (BANNED_TAGS.has(tag)) {
-      throw new SecurityViolationError(`Forbidden HTML tag: ${node.tagName}`, path);
+      throw new SecurityViolationError(`Forbidden HTML tag: ${node.tagName}`, curPath);
     }
+
     for (const attr of node.attrs ?? []) {
-      const name = attr.name.toLowerCase();
-      const value = attr.value;
-      if (name.startsWith('on')) {
-        throw new SecurityViolationError(`Forbidden event attribute: ${attr.name}`, path);
+      const attrName = attr.name.toLowerCase();
+      const attrVal = attr.value.trim();
+      if (attrName.startsWith('on')) {
+        throw new SecurityViolationError(`Forbidden event attribute: ${attr.name}`, curPath);
       }
-      if (URL_ATTRS.has(name)) {
-        throw new SecurityViolationError(`Forbidden URL attribute: ${attr.name}`, path);
+      if (URL_ATTRS.has(attrName)) {
+        throw new SecurityViolationError(`Forbidden URL attribute: ${attr.name}`, curPath);
       }
-      if (name === 'src') {
-        const trimmed = value.trim();
+      if (attrName === 'src') {
+        const trimmed = attrVal;
         if (!ASSET_SRC_RE.test(trimmed)) {
-          throw new SecurityViolationError('Image src must use the asset: scheme', path);
+          throw new SecurityViolationError('Image src must use the asset: scheme', curPath);
         }
       }
-      if (name === 'style' && containsForbiddenCss(value)) {
-        throw new SecurityViolationError('Forbidden CSS value in style attribute', path);
+      if (attrName === 'style' && containsForbiddenCss(attrVal)) {
+        throw new SecurityViolationError('Forbidden CSS value in style attribute', curPath);
       }
     }
-    for (const child of node.childNodes ?? []) walkSecurity(child, `${path}/${tag}`);
+
+    for (const child of node.childNodes ?? []) {
+      walkSecurity(child, curPath);
+    }
     return;
   }
-  for (const child of node.childNodes ?? []) walkSecurity(child, path);
-}
 
-function findArtboard(node: HtmlNode): HtmlNode | null {
-  if (isElement(node) && hasClass(node, 'artboard')) return node;
   for (const child of node.childNodes ?? []) {
-    const found = findArtboard(child);
-    if (found) return found;
+    walkSecurity(child, path);
   }
-  return null;
 }
 
-function normalizeInlineText(text: string): string {
-  return text.replace(/\r\n?/g, '\n').replace(/[ \t\n\f\r]+/g, ' ');
+function collectArtboards(node: HtmlNode, out: Array<HtmlNode & { tagName: string }>): void {
+  if (isElement(node) && hasClass(node, 'artboard')) {
+    out.push(node);
+  }
+  for (const child of node.childNodes ?? []) {
+    collectArtboards(child, out);
+  }
 }
 
-type SpanStyle = {
+function findArtboard(root: HtmlNode): HtmlNode & { tagName: string } {
+  const found: Array<HtmlNode & { tagName: string }> = [];
+  collectArtboards(root, found);
+  if (found.length === 0) {
+    throw new DesignError('INVALID_DOC', 'Design HTML must contain a .artboard root', 'artboard');
+  }
+  if (found.length > 1) {
+    throw new DesignError('INVALID_DOC', 'Design HTML must contain exactly one .artboard', 'artboard');
+  }
+  return found[0]!;
+}
+
+type InheritedInlineFormatting = {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
   color?: string;
 };
 
-function inlineStyleToSpan(node: HtmlNode): SpanStyle {
-  const style = getAttr(node, 'style');
-  if (!style) return {};
-  const ctx: StyleContext = {
-    warnings: [],
-    path: 'inline',
-    dir: 'ltr',
-  };
-  const declarations = parseDeclarations(style, ctx);
-  const span: SpanStyle = {};
-  const weight = declarations.get('font-weight')?.trim().toLowerCase();
-  if (weight && (weight === 'bold' || Number.parseInt(weight, 10) >= 600)) {
-    span.bold = true;
-  }
-  const fontStyle = declarations.get('font-style')?.trim().toLowerCase();
-  if (fontStyle === 'italic') span.italic = true;
-  const decoration = declarations.get('text-decoration')?.trim().toLowerCase();
-  if (decoration === 'underline') span.underline = true;
-  const color = declarations.get('color');
-  if (color) {
-    const normalized = normalizeColor(color);
-    if (normalized) span.color = normalized;
-  }
-  return span;
-}
-
 function collectInlineNodes(
-  nodes: readonly HtmlNode[],
-  warnings: Warning[],
-  layerId: string,
+  parent: HtmlNode,
+  ctx: StyleContext,
+  inherited: InheritedInlineFormatting = {},
 ): InlineNode[] {
-  const result: InlineNode[] = [];
+  const nodes: InlineNode[] = [];
 
-  const pushText = (text: string): void => {
-    if (!text) return;
-    const normalized = normalizeInlineText(text);
-    const last = result[result.length - 1];
-    if (last?.kind === 'text') last.text += normalized;
-    else result.push({ kind: 'text', text: normalized });
-  };
-
-  const visit = (node: HtmlNode, inherited?: SpanStyle): void => {
-    if (node.nodeName === '#text') {
-      const text = normalizeInlineText(node.value ?? '');
-      if (inherited) {
-        if (text) result.push({ kind: 'span', text, ...inherited });
+  for (const child of parent.childNodes ?? []) {
+    if (child.nodeName === '#text') {
+      const rawText = child.value ?? '';
+      if (!rawText) continue;
+      if (inherited.bold || inherited.italic || inherited.underline || inherited.color) {
+        nodes.push({
+          kind: 'span',
+          text: rawText,
+          ...(inherited.bold ? { bold: true } : {}),
+          ...(inherited.italic ? { italic: true } : {}),
+          ...(inherited.underline ? { underline: true } : {}),
+          ...(inherited.color ? { color: inherited.color } : {}),
+        });
       } else {
-        pushText(text);
+        nodes.push({ kind: 'text', text: rawText });
       }
-      return;
+      continue;
     }
-    if (node.nodeName === '#comment') return;
-    if (!isElement(node)) return;
-    const tag = node.tagName.toLowerCase();
+
+    if (!isElement(child)) continue;
+    const tag = child.tagName.toLowerCase();
 
     if (tag === 'br') {
-      result.push({ kind: 'br' });
-      return;
+      nodes.push({ kind: 'br' });
+      continue;
     }
 
-    const nextInherited: SpanStyle | undefined =
-      tag === 'b' || tag === 'strong'
-        ? { ...inherited, bold: true }
-        : tag === 'i' || tag === 'em'
-          ? { ...inherited, italic: true }
-          : tag === 'u'
-            ? { ...inherited, underline: true }
-            : tag === 'span'
-              ? { ...inherited, ...inlineStyleToSpan(node) }
-              : inherited;
-
-    if (tag === 'span' || tag === 'b' || tag === 'strong' || tag === 'i' || tag === 'em' || tag === 'u') {
-      for (const child of node.childNodes ?? []) visit(child, nextInherited);
-      return;
+    if (!ALLOWED_INLINE_TAGS.has(tag)) {
+      pushWarning(
+        ctx.warnings,
+        'UNKNOWN_TAG_DROPPED',
+        `Unsupported inline tag <${tag}> dropped`,
+        ctx.path,
+        ctx.layerId,
+      );
+      continue;
     }
 
-    if (tag === 'p' || tag === 'div') {
-      if (result.length > 0 && result[result.length - 1]?.kind !== 'br') result.push({ kind: 'br' });
-      for (const child of node.childNodes ?? []) visit(child);
-      return;
-    }
-
-    pushWarning(
-      warnings,
-      'UNKNOWN_TAG_DROPPED',
-      `Inline tag is not supported: ${node.tagName}`,
-      `layers.${layerId}.content`,
-      layerId,
-    );
-    for (const child of node.childNodes ?? []) visit(child, inherited);
-  };
-
-  for (const node of nodes) visit(node);
-
-  const cleaned: InlineNode[] = [];
-  for (const node of result) {
-    if (node.kind === 'text') {
-      if (!node.text) continue;
-      const last = cleaned[cleaned.length - 1];
-      if (last?.kind === 'text') last.text += node.text;
-      else cleaned.push(node);
-    } else if (node.kind === 'span') {
-      if (!node.text) continue;
-      const last = cleaned[cleaned.length - 1];
-      if (last?.kind === 'span' && JSON.stringify(last) === JSON.stringify(node)) {
-        last.text += node.text;
-      } else {
-        cleaned.push(node);
+    if ((tag === 'p' || tag === 'div') && nodes.length > 0) {
+      const prev = nodes[nodes.length - 1];
+      if (prev && prev.kind !== 'br') {
+        nodes.push({ kind: 'br' });
       }
-    } else {
-      if (cleaned.length === 0 || cleaned[cleaned.length - 1]?.kind === 'br') continue;
-      cleaned.push(node);
     }
+
+    const nextInherited: InheritedInlineFormatting = { ...inherited };
+    if (tag === 'b' || tag === 'strong' || tag === 'mark') nextInherited.bold = true;
+    if (tag === 'i' || tag === 'em' || tag === 'cite' || tag === 'q') nextInherited.italic = true;
+    if (tag === 'u' || tag === 'ins') nextInherited.underline = true;
+
+    const styleAttr = getAttr(child, 'style');
+    if (styleAttr) {
+      const spanDecls = parseDeclarations(styleAttr, ctx);
+      const fw = spanDecls.get('font-weight')?.trim().toLowerCase();
+      if (fw === 'bold' || fw === 'bolder' || (fw && Number.parseInt(fw, 10) >= 600)) {
+        nextInherited.bold = true;
+      }
+      if (spanDecls.get('font-style')?.trim().toLowerCase() === 'italic') {
+        nextInherited.italic = true;
+      }
+      const td = (
+        spanDecls.get('text-decoration') ??
+        spanDecls.get('text-decoration-line') ??
+        ''
+      )
+        .trim()
+        .toLowerCase();
+      if (td.includes('underline')) {
+        nextInherited.underline = true;
+      }
+      const cRaw = spanDecls.get('color');
+      if (cRaw !== undefined) {
+        const norm = normalizeColor(cRaw);
+        if (norm) {
+          nextInherited.color = norm;
+        } else {
+          pushWarning(
+            ctx.warnings,
+            'UNSUPPORTED_VALUE',
+            `Invalid span color: ${cRaw}`,
+            ctx.path,
+            ctx.layerId,
+          );
+        }
+      }
+    }
+
+    const childNodes = collectInlineNodes(child, ctx, nextInherited);
+    nodes.push(...childNodes);
   }
 
-  if (cleaned[0]?.kind === 'text') cleaned[0].text = cleaned[0].text.replace(/^ +/, '');
-  const last = cleaned[cleaned.length - 1];
-  if (last?.kind === 'text') last.text = last.text.replace(/ +$/, '');
-  return cleaned;
+  return canonicalInlineText(nodes);
+}
+
+function inferLayerTypeFromElement(
+  node: HtmlNode & { tagName: string },
+): 'text' | 'shape' | 'image' | 'svg' {
+  const explicit = getAttr(node, 'data-type')?.trim().toLowerCase();
+  if (
+    explicit === 'text' ||
+    explicit === 'shape' ||
+    explicit === 'image' ||
+    explicit === 'svg'
+  ) {
+    return explicit;
+  }
+
+  const tag = node.tagName.toLowerCase();
+  if (tag === 'img') return 'image';
+  if (tag === 'svg') return 'svg';
+  if (tag === 'hr') return 'shape';
+  if (TEXT_SEMANTIC_TAGS.has(tag)) return 'text';
+  if (textOf(node).trim().length > 0) return 'text';
+  return 'shape';
 }
 
 function parseLayer(
-  element: HtmlNode & { tagName: string },
+  node: HtmlNode & { tagName: string },
   index: number,
+  rootDir: 'ltr' | 'rtl',
+  usedIds: Set<string>,
   warnings: Warning[],
 ): Layer {
-  const type = getAttr(element, 'data-type')?.trim().toLowerCase();
-  if (type !== 'text' && type !== 'shape' && type !== 'image' && type !== 'svg') {
-    throw new DesignError(
-      'INVALID_DOC',
-      `Layer ${index + 1} has an invalid or missing data-type`,
-      `layers[${index}]`,
-    );
+  const rawId = getAttr(node, 'data-id')?.trim() || getAttr(node, 'id')?.trim();
+  const path = `artboard.layers[${index}]`;
+  if (!rawId) {
+    pushWarning(warnings, 'MISSING_ATTRIBUTE', 'Layer is missing data-id', path);
   }
 
-  const id = getAttr(element, 'data-id')?.trim();
-  if (!id) {
-    throw new DesignError('INVALID_DOC', `Layer ${index + 1} is missing data-id`, `layers[${index}]`);
+  let id = (rawId || `layer-${index + 1}`).slice(0, LIMITS.document.maxLayerIdLength);
+  if (usedIds.has(id)) {
+    throw new DesignError('DUPLICATE_ID', `Duplicate layer id "${id}"`, path);
   }
-  if (!LAYER_ID_RE.test(id) || id.length > LIMITS.document.maxLayerIdLength) {
-    throw new DesignError('INVALID_DOC', `Invalid layer id: ${id}`, `layers[${index}].id`);
+  usedIds.add(id);
+
+  const name =
+    getAttr(node, 'data-layer')?.trim() ||
+    getAttr(node, 'data-name')?.trim() ||
+    `Layer ${index + 1}`;
+  const hidden = getAttr(node, 'data-hidden') === 'true';
+  const locked = getAttr(node, 'data-locked') === 'true';
+  const type = inferLayerTypeFromElement(node);
+
+  const plainText = type === 'text' ? textOf(node) : undefined;
+  const explicitDirAttr = getAttr(node, 'dir')?.trim().toLowerCase();
+  let dir: 'ltr' | 'rtl' =
+    explicitDirAttr === 'rtl' || explicitDirAttr === 'ltr' ? explicitDirAttr : rootDir;
+
+  const styleCtx: StyleContext = {
+    warnings,
+    path,
+    layerId: id,
+    dir,
+    ...(plainText !== undefined ? { textContent: plainText } : {}),
+  };
+
+  const declarations = parseDeclarations(getAttr(node, 'style') ?? '', styleCtx);
+  ensureNoUnknownCriticalProperties(declarations, styleCtx);
+  assertAbsolutePosition(declarations, styleCtx);
+
+  const cssDir = declarations.get('direction')?.trim().toLowerCase();
+  if (!explicitDirAttr && (cssDir === 'rtl' || cssDir === 'ltr')) {
+    dir = cssDir;
+    styleCtx.dir = dir;
   }
 
-  const nameRaw = getAttr(element, 'data-layer')?.trim();
-  const name = (nameRaw || `Layer ${index + 1}`).slice(0, LIMITS.document.maxLayerNameLength);
-  if (!nameRaw) {
-    pushWarning(
-      warnings,
-      'MISSING_ATTRIBUTE',
-      'data-layer is missing; a default name was used',
-      `layers[${index}].name`,
-      id,
-    );
-  }
-
-  for (const attr of element.attrs ?? []) {
-    if (attr.name.toLowerCase().startsWith('data-') && !ALLOWED_LAYER_DATA_ATTRS.has(attr.name.toLowerCase())) {
-      pushWarning(
-        warnings,
-        'UNSUPPORTED_PROPERTY',
-        `Unknown data attribute dropped: ${attr.name}`,
-        `layers[${index}].${attr.name}`,
-        id,
-      );
-    }
-  }
-
-  const styleRaw = getAttr(element, 'style') ?? '';
-  const dirRaw = getAttr(element, 'dir')?.trim().toLowerCase();
-  const textContent = type === 'text' ? textOf(element) : '';
-  const dir: 'ltr' | 'rtl' =
-    dirRaw === 'rtl' || dirRaw === 'ltr'
-      ? dirRaw
-      : containsArabic(textContent)
-        ? 'rtl'
-        : 'ltr';
-  if (type === 'text' && dirRaw !== 'rtl' && dirRaw !== 'ltr' && dir === 'rtl') {
+  if (type === 'text' && plainText && containsArabic(plainText) && dir !== 'rtl' && !explicitDirAttr) {
+    dir = 'rtl';
+    styleCtx.dir = 'rtl';
     pushWarning(
       warnings,
       'RTL_DIRECTION_INFERRED',
-      'Arabic text was detected; dir="rtl" was inferred',
-      `layers[${index}].dir`,
+      'Inferred RTL direction from Arabic text content',
+      path,
       id,
     );
   }
 
-  const ctx: StyleContext = {
-    warnings,
-    path: `layers[${index}].style`,
-    layerId: id,
-    dir,
-    textContent,
-  };
-  const declarations = parseDeclarations(styleRaw, ctx);
-  assertAbsolutePosition(declarations, ctx);
-  ensureNoUnknownCriticalProperties(declarations, ctx);
-  const geometry = parseCommonGeometry(declarations, ctx, type !== 'text');
-
-  const left = geometry.left;
-  const top = geometry.top;
-  const width = geometry.width;
-  if (left === undefined || top === undefined || width === undefined) {
-    throw new DesignError(
-      'INVALID_DOC',
-      `Layer ${id} requires left, top, and width in px`,
-      `layers[${index}]`,
-    );
-  }
+  const requireHeight = type !== 'text';
+  const geom = parseCommonGeometry(declarations, styleCtx, requireHeight);
 
   const base = {
     id,
     name,
-    left,
-    top,
-    width,
-    rotation: geometry.rotation ?? 0,
-    opacity: geometry.opacity ?? 1,
-    hidden: getAttr(element, 'data-hidden') === 'true',
-    locked: getAttr(element, 'data-locked') === 'true',
+    left: geom.left ?? 0,
+    top: geom.top ?? 0,
+    width: geom.width!,
+    rotation: geom.rotation ?? 0,
+    opacity: geom.opacity ?? 1,
+    hidden,
+    locked,
   };
 
   if (type === 'text') {
-    const content = collectInlineNodes(element.childNodes ?? [], warnings, id);
-    const codepoints = content.reduce(
-      (total, node) => total + (node.kind === 'br' ? 0 : [...node.text].length),
+    const content = collectInlineNodes(node, styleCtx);
+    const totalChars = content.reduce(
+      (sum, item) => sum + (item.kind === 'br' ? 1 : [...item.text].length),
       0,
     );
-    if (codepoints > LIMITS.text.maxCodepointsPerLayer) {
+    if (totalChars > LIMITS.text.maxCodepointsPerLayer) {
       throw new LimitExceededError(
-        `Text layer ${id} exceeds ${LIMITS.text.maxCodepointsPerLayer} codepoints`,
-        `layers[${index}].content`,
+        `Text layer exceeds ${LIMITS.text.maxCodepointsPerLayer} codepoints`,
+        path,
       );
     }
     if (content.length > LIMITS.text.maxInlineNodesPerLayer) {
       throw new LimitExceededError(
-        `Text layer ${id} exceeds ${LIMITS.text.maxInlineNodesPerLayer} inline nodes`,
-        `layers[${index}].content`,
+        `Text layer exceeds ${LIMITS.text.maxInlineNodesPerLayer} inline nodes`,
+        path,
       );
     }
-    const textLayer: TextLayer = {
+    const style = parseTextStyle(declarations, styleCtx);
+    return {
       ...base,
       type: 'text',
       dir,
       content,
-      style: parseTextStyle(declarations, ctx),
+      style,
     };
-    return textLayer;
-  }
-
-  const height = geometry.height;
-  if (height === undefined) {
-    throw new DesignError(
-      'INVALID_DOC',
-      `Layer ${id} requires height in px`,
-      `layers[${index}].height`,
-    );
   }
 
   if (type === 'shape') {
+    const style = parseShapeStyle(declarations, styleCtx);
     return {
       ...base,
       type: 'shape',
-      height,
-      style: parseShapeStyle(declarations, ctx),
+      height: geom.height!,
+      style,
     };
   }
 
   if (type === 'image') {
-    const src = getAttr(element, 'src')?.trim();
-    if (!src || !ASSET_SRC_RE.test(src)) {
+    const src = (getAttr(node, 'src') ?? '').trim();
+    if (!src) {
+      throw new DesignError('INVALID_DOC', 'Image layer requires a src attribute', path);
+    }
+    if (!ASSET_SRC_RE.test(src)) {
       throw new SecurityViolationError(
-        'Image layers require an asset: src',
-        `layers[${index}].src`,
+        `External or invalid image src "${src}" is not allowed; use asset:<id>`,
+        path,
       );
     }
-    const prompt = getAttr(element, 'data-prompt');
-    const alt = getAttr(element, 'alt');
+    const style = parseImageStyle(declarations, styleCtx);
+    const prompt = getAttr(node, 'data-prompt')?.trim();
+    const alt = getAttr(node, 'alt')?.trim();
     return {
       ...base,
       type: 'image',
-      height,
+      height: geom.height!,
       src,
       ...(prompt ? { prompt } : {}),
       ...(alt ? { alt } : {}),
-      style: parseImageStyle(declarations, ctx),
+      style,
     };
   }
 
-  const svgCtx: SvgContext = { warnings, path: `layers[${index}].svg`, layerId: id };
-  const viewBox = parseViewBox(getAttr(element, 'viewBox'), svgCtx);
-  const svgLayer: SvgLayer = {
+  // SVG layer
+  const svgCtx: SvgContext = {
+    warnings,
+    path,
+    layerId: id,
+  };
+  const viewBoxRaw = getAttr(node, 'viewBox') ?? getAttr(node, 'viewbox');
+  const parsedVb = parseViewBox(viewBoxRaw, svgCtx);
+  const nodes = parseSvgNodes(
+    {
+      tagName: node.tagName,
+      attrs: node.attrs ?? [],
+      childNodes: node.childNodes ?? [],
+    },
+    svgCtx,
+  );
+
+  return {
     ...base,
     type: 'svg',
-    height,
-    ...(viewBox ? { viewBox } : {}),
-    nodes: parseSvgNodes(
-      {
-        tagName: element.tagName,
-        attrs: element.attrs ?? [],
-        childNodes: element.childNodes ?? [],
-      },
-      svgCtx,
-    ),
+    height: geom.height!,
+    ...(parsedVb ? { viewBox: parsedVb } : {}),
+    nodes,
   };
-  return svgLayer;
 }
 
 export function parseDesignHtml(input: string): ParseOutput {
-  const bytes = new TextEncoder().encode(input).length;
+  const bytes = new TextEncoder().encode(input).byteLength;
   if (bytes > LIMITS.document.maxBytes) {
     throw new LimitExceededError(
       `Design HTML exceeds ${LIMITS.document.maxBytes} bytes`,
       'document',
+      { bytes, maxBytes: LIMITS.document.maxBytes },
     );
   }
 
-  const document = parse5.parse(input) as unknown as HtmlNode;
-  walkSecurity(document);
+  const root = parse5.parse(input) as unknown as HtmlNode;
+  walkSecurity(root, 'document');
 
-  const artboard = findArtboard(document);
-  if (!artboard) {
-    throw new DesignError('INVALID_DOC', 'Design HTML must contain a .artboard root', 'document');
-  }
+  const artboard = findArtboard(root);
+  const warnings: Warning[] = [];
 
-  const widthRaw = getAttr(artboard, 'data-width');
-  const heightRaw = getAttr(artboard, 'data-height');
+  const rootDirAttr = getAttr(artboard, 'dir')?.trim().toLowerCase();
+  const rootDir: 'ltr' | 'rtl' = rootDirAttr === 'rtl' ? 'rtl' : 'ltr';
+
+  const artboardStyleCtx: StyleContext = {
+    warnings,
+    path: 'artboard',
+    dir: rootDir,
+  };
+  const artboardDecls = parseDeclarations(getAttr(artboard, 'style') ?? '', artboardStyleCtx);
+
+  const widthRaw = getAttr(artboard, 'data-width') ?? artboardDecls.get('width');
+  const heightRaw = getAttr(artboard, 'data-height') ?? artboardDecls.get('height');
   const width = widthRaw ? parsePx(widthRaw) : null;
   const height = heightRaw ? parsePx(heightRaw) : null;
+
   if (width === null || height === null) {
-    throw new DesignError(
-      'INVALID_DOC',
-      'The artboard requires data-width and data-height in px',
-      'artboard',
-    );
+    throw new DesignError('INVALID_DOC', 'Artboard must specify width and height in px', 'artboard');
   }
+
   if (
     width < LIMITS.document.minArtboardSide ||
-    height < LIMITS.document.minArtboardSide ||
     width > LIMITS.document.maxArtboardSide ||
+    height < LIMITS.document.minArtboardSide ||
     height > LIMITS.document.maxArtboardSide ||
     width * height > LIMITS.document.maxArtboardPixels
   ) {
-    throw new LimitExceededError('Artboard dimensions are outside the allowed range', 'artboard');
+    throw new LimitExceededError(
+      `Artboard dimensions ${width}x${height} are outside allowed bounds`,
+      'artboard',
+    );
   }
 
-  const warnings: Warning[] = [];
-  const artboardCtx: StyleContext = {
-    warnings,
-    path: 'artboard.style',
-    dir: 'ltr',
-  };
-  const artboardDeclarations = parseDeclarations(getAttr(artboard, 'style') ?? '', artboardCtx);
-  for (const property of artboardDeclarations.keys()) {
-    if (property !== 'background' && property !== 'background-color') {
-      pushWarning(
-        warnings,
-        'UNSUPPORTED_PROPERTY',
-        `Artboard style only supports background; dropped ${property}`,
-        `artboard.style.${property}`,
-      );
-    }
-  }
-  const background = parseFill(
-    artboardDeclarations.get('background') ??
-      artboardDeclarations.get('background-color') ??
-      'transparent',
-    artboardCtx,
-    'background',
-  );
+  const bgRaw = artboardDecls.get('background') ?? artboardDecls.get('background-color');
+  const background = bgRaw
+    ? parseFill(
+        bgRaw,
+        artboardStyleCtx,
+        artboardDecls.has('background') ? 'background' : 'background-color',
+      )
+    : { kind: 'solid' as const, color: '#ffffff' };
 
-  const layers: Layer[] = [];
-  const seenIds = new Set<string>();
-  for (const child of artboard.childNodes ?? []) {
+  const elementChildren = (artboard.childNodes ?? []).filter((child): child is HtmlNode & { tagName: string } => {
     if (child.nodeName === '#text') {
-      if ((child.value ?? '').trim()) {
+      if ((child.value ?? '').trim().length > 0) {
         pushWarning(
           warnings,
           'UNKNOWN_TAG_DROPPED',
-          'Text directly inside .artboard was ignored; use a text layer',
+          'Dropped bare text node inside .artboard',
           'artboard',
         );
       }
-      continue;
+      return false;
     }
-    if (child.nodeName === '#comment') continue;
-    if (!isElement(child)) continue;
+    return isElement(child);
+  });
 
-    if (layers.length >= LIMITS.document.maxLayers) {
-      throw new LimitExceededError(
-        `Design exceeds ${LIMITS.document.maxLayers} layers`,
-        'artboard.layers',
-      );
-    }
+  if (elementChildren.length > LIMITS.document.maxLayers) {
+    throw new LimitExceededError(
+      `Document exceeds maximum of ${LIMITS.document.maxLayers} layers`,
+      'artboard',
+    );
+  }
 
-    const layer = parseLayer(child, layers.length, warnings);
-    if (seenIds.has(layer.id)) {
-      throw new DesignError('DUPLICATE_ID', `Duplicate layer id: ${layer.id}`, `layers.${layer.id}`);
-    }
-    seenIds.add(layer.id);
-    layers.push(layer);
+  const usedIds = new Set<string>();
+  const layers: Layer[] = [];
+  for (let i = 0; i < elementChildren.length; i += 1) {
+    layers.push(parseLayer(elementChildren[i]!, i, rootDir, usedIds, warnings));
   }
 
   return {
@@ -558,3 +594,5 @@ export function parseDesignHtml(input: string): ParseOutput {
     warnings,
   };
 }
+
+export const parseDocument = parseDesignHtml;
