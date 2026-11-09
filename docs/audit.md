@@ -399,3 +399,19 @@ The security findings above remain open; choosing a public target does not make
 them pass. D1 is MIT, D2 is public, and D3–D7 remain undecided. No provider,
 authentication dependency, hosting service or deployment action was selected or
 added as part of this decision.
+
+## Phase 1 execution — 9 November 2026
+
+The owner approved continuing with the remaining Phase 1 tasks. Security changes
+and public deployment remain outside this phase.
+
+### Version checkpoint
+
+`CHANGELOG.md` records the existing 0.1.0 feature set and its known security
+limitations. The local annotated `v0.1.0` tag identifies this checkpoint before
+the remaining source/configuration cleanup. MIT licensing and deployment-target
+decisions had already been committed; the tag does not retroactively precede
+those changes or claim a production-ready release. No existing tag was replaced.
+
+Verification: the tag inventory was empty, changelog formatting was checked, and
+the checkpoint contains documentation only. The tag is local and is not pushed.
