@@ -146,12 +146,14 @@ export async function saveDocument(
           }
           // Never rotate corrupt data over the last known-good backup.
           if (request.result !== undefined) {
+            let valid = false;
             try {
               readStoredDocument(request.result);
-              store.put(request.result, 'backup');
+              valid = true;
             } catch {
               /* Preserve the existing backup. */
             }
+            if (valid) store.put(request.result, 'backup');
           }
           store.put(record, 'current');
         } catch (cause) {

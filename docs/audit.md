@@ -966,3 +966,11 @@ Final review extended the same retryable-color warning to missing/invalid shadow
 colors and SVG fill, stroke and gradient stops. Valid stop colors normalize to hex.
 Four additional core tests cover these paths and named SVG stop round trips so
 unsupported SVG paint cannot silently bypass the AI retry policy.
+
+### P3 follow-up — Backup write failures
+
+Separated backup validation from its actual write so a synchronous backup-only
+quota error aborts the whole transaction instead of being mistaken for corrupt
+old data. Obscura fault injection confirmed a backup-only QuotaExceededError
+propagates and preserves the current revision. A no-op-save check confirmed an
+identical document/title neither changes the revision nor rotates the backup.
