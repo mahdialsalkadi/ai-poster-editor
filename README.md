@@ -140,11 +140,11 @@ pnpm build
 pnpm audit --prod
 ```
 
-The current test suite has **235 tests**:
+The current test suite has **238 tests**:
 
 | Package | Tests | Files | Main coverage                                                                              |
 | ------- | ----- | ----- | ------------------------------------------------------------------------------------------ |
-| Core    | 163   | 11    | Parser/security corpus, canonical round trips, merge, import, HTML goldens and performance |
+| Core    | 166   | 12    | Parser/security corpus, canonical round trips, merge, import, HTML goldens and performance |
 | Server  | 47    | 4     | Mock AI, spend refusal, basic limits, snapshots, export formats/assets and queue           |
 | Web     | 25    | 3     | Snapping, fills and templates                                                              |
 
@@ -167,9 +167,9 @@ release readiness until resolved or explicitly assessed.
 - **Spend limits:** the ledger resets on restart, is independent per server,
   reserves only one attempt despite retrying, and uses manually configured prices.
   It is not a reliable public-service spending ceiling yet.
-- **Dependency advisory:** `pnpm audit --prod` reports high-severity Zod issue
-  [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
-  No dependency upgrade is included in Phase 1.
+- **Dependencies:** Zod was upgraded to the patched 4.6.6 release; `pnpm audit --prod`
+  currently reports no known vulnerabilities. Dependency and release-age gates must
+  stay in CI as new advisories appear.
 - **Persistence:** documents use debounced `localStorage`; only image assets use
   IndexedDB. There is no backup/recovery flow or multi-tab overwrite protection.
   Server snapshots are in memory and have no editor list/restore UI.

@@ -552,3 +552,24 @@ vulnerability was not fixed or waived for public deployment.
 The badge now reflects a real successful hosted workflow. Logs are retained locally
 at `/tmp/opencode/poster-phase1-github-ci-details.log`, in addition to GitHub's run
 record. Stop for owner review before Phase 2; no deployment has been performed.
+
+## Phase 2 execution — 9 November 2026
+
+The owner selected Supabase Auth for public sign-in, browser-persisted snapshots
+(D3) and approved the Zod upgrade. Docker is installed but its daemon was not
+running and starting it requires local sudo; container verification therefore
+remains blocked until the owner starts it. No deployment is performed in this phase.
+
+### Dependency advisory remediation
+
+Zod was upgraded from 3.24.1 to the patched 4.6.6 release in core, contracts and
+server. The two Zod 4 compatibility changes were mechanical: `z.record` now takes
+explicit key and value schemas, and the envelope generic uses `z.ZodType`.
+
+Verification: `pnpm install`, `pnpm typecheck`, `pnpm build` and all **238 tests**
+passed (core 166, server 47, web 25). `pnpm audit --prod` reports **no known
+vulnerabilities**. Three new core tests cover oversized-collection rejection
+without element visitation, recursive SVG string-attribute records and rejection
+of non-string SVG attributes. Logs are
+`/tmp/opencode/poster-phase2-zod-{install,typecheck,audit,tests,build}.log` and
+`poster-phase2-zod-regressions.log`. **Dependency advisory: remediated.**

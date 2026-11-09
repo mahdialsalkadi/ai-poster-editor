@@ -144,7 +144,7 @@ const svgNodeSchema: z.ZodType<SvgNodeInput> = z.lazy(() =>
     z.object({
       kind: z.literal('element'),
       tag: svgTagSchema,
-      attrs: z.record(z.string()),
+      attrs: z.record(z.string(), z.string()),
       children: z.array(svgNodeSchema),
     }),
     z.object({ kind: z.literal('text'), text: z.string() }),

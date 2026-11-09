@@ -39,7 +39,7 @@ export const warningSchema = z.object({
 
 export type WarningPayload = z.infer<typeof warningSchema>;
 
-export const successEnvelopeSchema = <T extends z.ZodTypeAny>(data: T) =>
+export const successEnvelopeSchema = <T extends z.ZodType>(data: T) =>
   z.object({
     data,
     warnings: z.array(warningSchema).default([]),
