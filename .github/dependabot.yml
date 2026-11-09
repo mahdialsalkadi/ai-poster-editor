@@ -11,6 +11,16 @@ updates:
     open-pull-requests-limit: 5
     versioning-strategy: increase
     groups:
+      # These packages must move together: browser revisions and coverage peers
+      # are verified by the quality gates, not independently auto-bumped.
+      playwright-browser:
+        patterns:
+          - playwright
+          - '@playwright/test'
+      vitest-coverage:
+        patterns:
+          - vitest
+          - '@vitest/*'
       production-dependencies:
         dependency-type: production
       # Routine development bumps can land quickly. The TypeScript/ESLint

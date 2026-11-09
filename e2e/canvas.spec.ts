@@ -15,13 +15,11 @@ test('trusted input exercises Shift selection, marquee, layer clipboard and view
     { ...shape, id: 'two', left: 300, top: 100, width: 100, height: 80 },
     { ...arabic, top: 350 },
   ];
-  await page
-    .locator('input[type="file"][accept^=".html"]')
-    .setInputFiles({
-      name: 'interactions.html',
-      mimeType: 'text/html',
-      buffer: Buffer.from(serializeDesignDoc(doc)),
-    });
+  await page.locator('input[type="file"][accept^=".html"]').setInputFiles({
+    name: 'interactions.html',
+    mimeType: 'text/html',
+    buffer: Buffer.from(serializeDesignDoc(doc)),
+  });
   await expect(layer(page, 'one')).toBeVisible();
   await layer(page, 'one').click();
   await layer(page, 'two').click({ modifiers: ['Shift'] });

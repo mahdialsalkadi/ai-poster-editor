@@ -68,6 +68,9 @@ jobs:
           set -o pipefail
           pnpm test 2>&1 | tee /tmp/poster-test.log
 
+      - name: Enforce critical-source coverage
+        run: pnpm test:coverage
+
       # The raw log archive needs repository admin rights. Re-emitting the
       # failure summary as annotations keeps it visible to anyone reviewing the
       # run and to the public checks API.
@@ -82,6 +85,21 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Browser E2E and visual regression
+        run: pnpm test:e2e
+
+      - name: Retain quality reports and failure traces
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: quality-node-${{ matrix.node }}
+          path: |
+            coverage/
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Audit production dependencies
         run: pnpm audit --prod
