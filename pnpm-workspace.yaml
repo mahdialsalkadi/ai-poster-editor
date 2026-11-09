@@ -5,6 +5,11 @@ packages:
 allowBuilds:
   esbuild: true
 
+# Supply-chain quarantine: do not resolve a version published less than a day
+# ago. pnpm 11+ defaults to 1440, but the policy is explicit here so a pnpm
+# upgrade cannot silently weaken it.
+minimumReleaseAge: 1440
+
 # caniuse-lite ships daily data-only releases used by browserslist; it is a
 # build-time data package with no install scripts, so it is exempt from the
 # minimum release age policy that pnpm applies to everything else.

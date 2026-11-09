@@ -61,6 +61,5 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Audit production dependencies (advisory during Phase 1)
-        continue-on-error: true
+      - name: Audit production dependencies
         run: pnpm audit --prod
