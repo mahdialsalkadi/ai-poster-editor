@@ -725,6 +725,93 @@ credentials the server reports public mode and the UI shows it.
 Verification: web typecheck, build and tests pass (27 web tests including the 2 CSP
 tests); no component tests were added and no new dependency was added.
 
-**S5 verdict: implemented and tested for the editor app CSP and the web sign-in
-UI. Remaining Phase 2 work: container deployment isolation (S4/S6), reverse proxy
-TLS configuration and the blocking audit/release-age gates.**
+#### Containers and reverse proxy
+
+The deployment layer is implemented in source:
+
+- **API** (`docker/api.Dockerfile`): Node 22.23.4 bookworm-slim, frozen workspace
+  install, `pnpm --filter "@poster/server..." build`, then
+  `pnpm --filter @poster/server deploy --prod`. The runtime runs as `node` with
+  `cap_drop: ALL`, `no-new-privileges`, and the spend ledger on a named volume.
+- **Worker** (`docker/worker.Dockerfile`): same build, runtime on
+  `mcr.microsoft.com/playwright:v1.65.0-noble` as `pwuser`, with Playwright's
+  Chromium preinstalled and the sandbox enabled.
+- **Web** (`docker/web.Dockerfile`): Vite build served by nginx 1.28 on port 8080.
+- **Proxy** (`docker/nginx/poster.conf`): HTTP-to-HTTPS redirect, TLS 1.2/1.3,
+  HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`,
+  a 64 MiB body limit above the 40 MiB export limit, `/api/` to the API and
+  everything else to the web service.
+- **Compose** (`docker-compose.yml`): only the proxy publishes ports. The API is
+  on both `edge` and `worker-net`; the worker is only on `worker-net`
+  (`internal: true`, no egress) and receives no `env_file`. CPU, memory, PID and
+  `/dev/shm` limits are set; every service has a health check and bounded logs.
+  A documented `docker-compose.sandbox.yml` override exists for hosts whose
+  seccomp profile blocks the user namespaces Chromium's sandbox needs; disabling
+  the sandbox is limited to the no-egress disposable worker.
+
+Verification: `pnpm --filter "@poster/server..." build` and
+`pnpm --filter @poster/server deploy --prod` produced a bundle containing `dist`
+and the `@poster/core`/`@poster/contracts` dependencies, so the image inputs are
+sound. The full root gates pass: **269 tests** (core 166, server 76, web 27),
+lint, formatting, typecheck, build and `pnpm audit --prod` with no known
+vulnerabilities.
+
+Docker is not installed on the Windows host used for this review, so no image was
+built, `docker compose config` was not run, and container startup, the Chromium
+sandbox inside Docker, the egress-free network and proxy TLS are **not
+runtime-verified**. They stay explicit deployment-checklist items in
+`docs/security.md` (`docker compose up`, worker egress probe, TLS check).
+
+**S5 verdict: CSP, sign-in UI and the internal worker service are tested; the
+container and proxy layer is implemented and source-verified, but its runtime
+remains unverified until the checklist runs on a Docker host.**
+
+### S6 — Supply-chain and release gates
+
+`pnpm-workspace.yaml` now pins `minimumReleaseAge: 1440` explicitly (one day)
+instead of relying on the pnpm 11+ default; only the data-only `caniuse-lite`
+package is excluded. pnpm verifies the lockfile against this policy on install
+(400 entries in the recorded run). `.github/dependabot.yml` groups weekly npm
+production/development updates and GitHub Actions updates, and the CI audit step
+is now blocking (`pnpm audit --prod`) rather than advisory. A root `audit:prod`
+script runs the same check locally.
+
+`docs/security.md` is the Phase 2 threat model: topology and trust boundaries,
+assets and actors, 16 threats with controls and residual risk, accepted residual
+risks, a public-deployment checklist, and an explicit split between automated,
+manually verified and unverified controls. It documents the single-replica spend
+ledger, the missing per-user quota, the in-memory rate limits, Supabase-owned
+MFA, the browser-local snapshots and the container items that still need a
+runtime check.
+
+Verification: `pnpm install --frozen-lockfile` reported "Lockfile passes
+supply-chain policies (400 entries)"; `pnpm audit --prod` reported "No known
+vulnerabilities found"; the Dependabot and workflow YAML pass Prettier, ESLint,
+typecheck, tests (269) and build. No dependency version was changed and
+`pnpm-lock.yaml` is unchanged. The hosted Dependabot/CI behavior can only be
+confirmed after the next push.
+
+**S6 verdict: implemented and locally verified; hosted workflow/update behavior
+is pending the next push.**
+
+## Phase 2 verification — 9 November 2026
+
+Environment: Windows 11 (Git Bash), Node **26.13.0** (above the manifest's
+`>=22.23.4` floor), pnpm **12.16.1**, Playwright Chromium **1254**. This is not
+the CI matrix (Node 22 and latest) and is not a substitute for the hosted run.
+
+| Check                                                 | Result                                                                |
+| ----------------------------------------------------- | --------------------------------------------------------------------- |
+| `pnpm install --frozen-lockfile`                      | PASS; lockfile age policy verified (400 entries)                      |
+| `pnpm format:check`                                   | PASS                                                                  |
+| `pnpm lint`                                           | PASS                                                                  |
+| `pnpm typecheck`                                      | PASS                                                                  |
+| `pnpm test`                                           | PASS: core 166 / 12 files, server 76 / 9 files, web 27 / 4 files; 269 |
+| `pnpm build`                                          | PASS (Vite reports a >500 kB chunk warning)                           |
+| `pnpm audit --prod`                                   | PASS: no known vulnerabilities                                        |
+| `pnpm --filter @poster/server deploy --prod`          | PASS; `dist` plus workspace dependencies present                      |
+| `docker compose config` / image build / container run | NOT RUN: Docker is not installed on this host                         |
+
+S1–S6 are implemented. Public deployment is still **not approved**: the
+container runtime, live Supabase sign-in, a live AI provider call, two-account
+isolation and TLS must pass the deployment checklist first. D4–D7 remain open.

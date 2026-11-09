@@ -36,6 +36,14 @@ checkpoints; they do not imply approval for public deployment.
   `apps/server/src/worker.ts`) behind `POST /render` and `GET /health`, optional
   bearer token (`EXPORT_WORKER_TOKEN`) and queue; the API selects it with
   `EXPORT_WORKER_URL`.
+- Docker deployment assets: API and web images on Node 22, a renderer image on the
+  pinned Playwright 1.65.0 base, an nginx TLS reverse-proxy example, health checks,
+  CPU/memory/PID limits and a compose topology whose worker sits only on an
+  `internal: true` network. The worker receives no application secrets.
+- `docs/security.md` threat model, residual risks and a public-deployment
+  checklist.
+- Dependabot groups for npm and GitHub Actions, an explicit pnpm
+  `minimumReleaseAge: 1440` policy and a blocking `pnpm audit --prod` CI gate.
 
 ### Security
 
@@ -56,6 +64,10 @@ checkpoints; they do not imply approval for public deployment.
   to 1.65.0.
 - Upgraded Zod to patched 4.6.6; `pnpm audit --prod` reports no known
   vulnerabilities.
+- Production containers run as non-root (`node`/`pwuser`), drop all capabilities,
+  disable privilege escalation, and keep the renderer off both the public edge
+  and the internet. The proxy adds HSTS, `nosniff`, `Referrer-Policy` and
+  `frame-ancestors 'none'`, with a body limit above the export limit.
 
 ## [0.1.0] - 2026-11-09
 
