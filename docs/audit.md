@@ -355,3 +355,27 @@ Adjust the later phases to preserve working font licensing/subsets, expanded
 named colors, native PDF rendering, server tests, health/logging, Shift-select,
 plain-text editing, alignment and existing save-error handling. Prioritize the
 confirmed access, spend and cache-isolation failures before public exposure.
+
+## Licensing follow-up — 9 November 2026
+
+After the Phase 0 review, the owner selected **MIT** for **D1**. This follow-up
+implements only the Phase 1 licensing task; it does not complete Phase 1 or
+authorize deployment. The original R2 row above records the historical baseline.
+
+**R2 current verdict: remediated.** The root `LICENSE` contains the MIT terms,
+`package.json` declares `"license": "MIT"`, and the README's badge and license
+section now agree. `THIRD_PARTY_NOTICES.md` identifies all 11 font packages,
+links their unchanged upstream copyright/license files, and reproduces the
+common OFL 1.1 terms verbatim. Fonts retain OFL-1.1; they are not relicensed MIT.
+
+Verification: `pnpm exec tsx /tmp/opencode/poster-license-check.mts` passed checks
+for MIT metadata/text, README links, all 11 notices, byte-equivalent upstream
+OFL terms and built license copies. `pnpm --filter @poster/web build` passed and
+copied all 11 font notices; the checker passed again against the fresh build.
+Formatting checks passed for `package.json`, `THIRD_PARTY_NOTICES.md` and this
+audit; existing README formatting issues were not changed. The checker is a local
+scratch artifact, not a new application dependency.
+
+All other findings remain as audited. D2 (private/internal vs public deployment)
+and D3–D7 remain undecided. No release tag, dependency addition, push or deployment
+is part of this licensing change.

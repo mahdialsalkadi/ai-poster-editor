@@ -9,7 +9,7 @@ language, and the invariants are enforced in `packages/core`.
 
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/mahdialsalkadi/ai-poster-editor)
 [![Milestone 7](https://img.shields.io/badge/Milestone-7-complete-blue)](https://github.com/mahdialsalkadi/ai-poster-editor)
-[![License](https://img.shields.io/badge/License-TBD-orange)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
 **Milestones 1–7** are complete and gated. The shared core is the foundation:
 
@@ -313,5 +313,9 @@ either: milestone 6 verifies formats, dimensions and self-containment, not visua
 
 All milestones are on the `main` branch: https://github.com/mahdialsalkadi/ai-poster-editor.
 
-TBD. Bundled fonts are Google Fonts under the SIL Open Font License; their
-license files ship with the web build.
+## License
+
+Original project code is licensed under the [MIT License](LICENSE).
+Bundled fonts remain under the SIL Open Font License 1.1; their copyright
+notices and license texts ship with the web build. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for all 11 font families.
