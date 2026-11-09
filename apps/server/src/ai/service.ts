@@ -29,7 +29,13 @@ import {
   type AiProvider,
   type ProviderReply,
 } from './provider.js';
-import { DailySpendLedger, estimateCost, type Prices } from './spend.js';
+import {
+  DailySpendLedger,
+  estimateCost,
+  FileSpendStore,
+  type LedgerLogger,
+  type Prices,
+} from './spend.js';
 import { SlidingWindowLimiter } from './rate-limit.js';
 import { SnapshotStore, type Snapshot } from './snapshots.js';
 
@@ -236,49 +242,55 @@ export class AiService {
   }
 
   /**
-   * Reserves an estimate for one attempt, then validates output with at most one
-   * validation retry. Retry cost is not separately reserved yet (contract §12.2).
-   * Settlements use the provider usage accumulated before success/failure.
+   * Reserves and settles the worst-case cost of each provider attempt before it
+   * starts. A validation retry therefore reserves its own budget and cannot spend
+   * beyond the cap. Interpreted output is only applied after a successful parse.
    */
   private async attempt<T>(
     messages: AiMessage[],
     interpret: (html: string) => Attempt<T>,
   ): Promise<Attempt<T> & { usage: AiUsage }> {
-    const estimate = estimateCost(
-      { input: estimatePromptTokens(messages), output: this.maxOutputTokens },
-      this.prices,
-    );
-    const reserved = this.ledger.reserve(estimate);
     const usage = this.startUsage();
     let lastError: DesignError | null = null;
 
-    try {
-      for (let index = 0; index <= LIMITS.ai.retries; index += 1) {
-        const reply = await this.provider.complete(withRetryNote(messages, lastError?.message), {
+    for (let index = 0; index <= LIMITS.ai.retries; index += 1) {
+      const outgoing = withRetryNote(messages, lastError?.message);
+      const estimate = estimateCost(
+        { input: estimatePromptTokens(outgoing), output: this.maxOutputTokens },
+        this.prices,
+      );
+      const reserved = this.ledger.reserve(estimate);
+      let reply: ProviderReply;
+      try {
+        reply = await this.provider.complete(outgoing, {
           maxOutputTokens: this.maxOutputTokens,
           timeoutMs: this.timeoutMs,
         });
-        this.accumulate(usage, reply);
-
-        const html = extractDesignHtml(reply.text);
-        if (Buffer.byteLength(html, 'utf8') > LIMITS.ai.maxOutputBytes) {
-          lastError = new DesignError('AI_INVALID_OUTPUT', 'The AI response is too large', 'ai');
-          continue;
-        }
-
-        try {
-          const result = interpret(html);
-          this.ledger.settle(reserved, usage.cost);
-          return { ...result, usage: this.finishUsage(usage) };
-        } catch (cause) {
-          lastError = toInvalidOutput(cause);
-        }
+      } catch (error) {
+        this.ledger.settle(reserved, 0);
+        throw error;
       }
-      throw lastError ?? new DesignError('AI_INVALID_OUTPUT', 'The AI response was invalid', 'ai');
-    } catch (error) {
-      this.ledger.settle(reserved, usage.cost);
-      throw error;
+
+      this.accumulate(usage, reply);
+      this.ledger.settle(
+        reserved,
+        estimateCost({ input: reply.inputTokens, output: reply.outputTokens }, this.prices),
+        reply.model,
+      );
+
+      const html = extractDesignHtml(reply.text);
+      if (Buffer.byteLength(html, 'utf8') > LIMITS.ai.maxOutputBytes) {
+        lastError = new DesignError('AI_INVALID_OUTPUT', 'The AI response is too large', 'ai');
+        continue;
+      }
+
+      try {
+        return { ...interpret(html), usage: this.finishUsage(usage) };
+      } catch (cause) {
+        lastError = toInvalidOutput(cause);
+      }
     }
+    throw lastError ?? new DesignError('AI_INVALID_OUTPUT', 'The AI response was invalid', 'ai');
   }
 }
 
@@ -287,19 +299,64 @@ function positiveNumber(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-/** Builds the configured service, or null when the deployment has no provider. */
-export function createAiServiceFromEnv(env: NodeJS.ProcessEnv): AiService | null {
+function requiredPrice(env: NodeJS.ProcessEnv, key: string): number {
+  const raw = env[key]?.trim();
+  if (!raw) {
+    throw new Error(
+      `${key} is required when AI_PROVIDER is configured; no default price is assumed`,
+    );
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${key} must be a non-negative number`);
+  }
+  return value;
+}
+
+/**
+ * Builds the configured service, or null when the deployment has no provider or
+ * `AI_DISABLED=true`. Prices are mandatory because a default could silently
+ * under- or over-state real provider billing.
+ */
+export function createAiServiceFromEnv(
+  env: NodeJS.ProcessEnv,
+  logger?: LedgerLogger,
+): AiService | null {
+  if (env.AI_DISABLED?.trim() === 'true') return null;
   const config = providerConfigFromEnv(env);
   if (!config) return null;
 
   const cap = positiveNumber(env.AI_DAILY_SPEND_CAP_USD ?? env.AI_DAILY_BUDGET_USD, 5);
+  const ledgerPath = env.AI_SPEND_LEDGER_PATH?.trim() || '.data/ai-spend.json';
+  const ledger = new DailySpendLedger({
+    capUsd: cap > 0 ? cap : 5,
+    store: new FileSpendStore(ledgerPath),
+    ...(logger
+      ? {
+          onSettle: (info) =>
+            logger.info(
+              {
+                event: 'ai.spend.settlement',
+                day: info.day,
+                reservedUsd: info.reservedUsd,
+                actualUsd: info.actualUsd,
+                spentUsd: info.spentUsd,
+                capUsd: info.capUsd,
+                ...(info.model ? { model: info.model } : {}),
+              },
+              'AI spend settled',
+            ),
+        }
+      : {}),
+  });
+
   return new AiService({
     provider: createProvider(config),
     prices: {
-      inputPerMTok: positiveNumber(env.AI_INPUT_USD_PER_MTOK, 0.15),
-      outputPerMTok: positiveNumber(env.AI_OUTPUT_USD_PER_MTOK, 0.6),
+      inputPerMTok: requiredPrice(env, 'AI_INPUT_USD_PER_MTOK'),
+      outputPerMTok: requiredPrice(env, 'AI_OUTPUT_USD_PER_MTOK'),
     },
-    ledger: new DailySpendLedger(cap > 0 ? cap : 5),
+    ledger,
     snapshots: new SnapshotStore(),
     maxOutputTokens: config.maxOutputTokens,
     timeoutMs: config.timeoutMs,

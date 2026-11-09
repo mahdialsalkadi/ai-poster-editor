@@ -609,3 +609,26 @@ All **249 tests** (core 166, server 58, web 25), typecheck, lint, formatting and
 build pass. No new dependency was added (Node's `crypto` and `fetch` only).
 **S1 verdict: implemented and tested; the web sign-in panel and CSP are recorded in
 S5, and the Supabase project itself is not provisioned here.**
+
+### S2 — Spend accounting and kill switch
+
+The daily ledger now persists its spent total in `AI_SPEND_LEDGER_PATH` (default
+`.data/ai-spend.json`) using a temporary file plus atomic rename. Missing files
+start at zero; unreadable or corrupt files fail startup instead of silently
+resetting the budget. Reservations remain in memory and are still single-process.
+
+Each provider attempt now reserves its own worst-case estimate and settles
+immediately from the reply's usage, so a validation retry reserves a second time
+and is refused with `SPEND_CAP_EXCEEDED` before it can overspend. `AI_PROVIDER`
+without both price variables now fails startup rather than assuming prices.
+`AI_DISABLED=true` disables AI, and every settlement logs reserved, actual and
+cumulative USD plus the model. The AI routes' unavailable message names the kill
+switch.
+
+Verification: 8 new spend tests cover persistence/reload, UTC rollover, corrupt
+file refusal, per-attempt settlement logging, kill switch, required prices,
+configured construction and a retry that is blocked before the second provider
+call. All **257 tests** (core 166, server 66, web 25), typecheck and lint pass.
+`FileSpendStore` is the documented one piece of durable server state; multiple
+replicas sharing a path are not supported. **S2 verdict: implemented and tested
+for a single API replica.**

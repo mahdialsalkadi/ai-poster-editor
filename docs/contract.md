@@ -709,8 +709,12 @@ does not retain/list/restore snapshot IDs yet. Retrieval uses `validateDesignDoc
 but that is not authorization. Restart, eviction or a missing UI can prevent
 recovery; do not promise that every edit is durably reversible.
 
-**Daily spend cap.** A process-local ledger rolls over per UTC day. It reserves
-the following estimate before the first attempt:
+**Daily spend cap.** The spent total is persisted per UTC day in a small JSON file
+(`AI_SPEND_LEDGER_PATH`, default `.data/ai-spend.json`). Writes replace the file by
+atomic rename; corrupt content makes startup fail closed rather than silently
+resetting the budget. Reservations stay in memory.
+
+Before **each provider attempt** the ledger reserves:
 
 ```text
 estimatedPromptTokens × inputPrice / 1,000,000
@@ -718,17 +722,22 @@ estimatedPromptTokens × inputPrice / 1,000,000
 ```
 
 If `spent + reserved + estimate` exceeds the configured cap, it returns
-`SPEND_CAP_EXCEEDED` (HTTP 402) before calling the provider. It settles to reported
-usage afterward. However, the same reservation covers a possible second attempt;
-retry cost is not reserved separately. The prompt estimate is character-count/4,
-prices default to fixed values independent of model, missing usage becomes zero,
-and restart/multiple instances reset/multiply the ledger. This is **not a reliable
-public-service spending ceiling** until hardened. There is no `AI_DISABLED` switch
-or settlement logging yet.
+`SPEND_CAP_EXCEEDED` (HTTP 402) before that attempt is sent. The reservation is
+settled to reported usage immediately after the reply, so a validation retry
+reserves its own budget. The prompt estimate remains character-count/4; provider
+usage omitted from a reply is treated as zero. Both prices are required at startup
+when `AI_PROVIDER` is configured instead of silently defaulting. `AI_DISABLED=true`
+turns AI off. Every settlement (reserved, actual, cumulative and model) is logged.
 
-Generation checks per-IP and caller-supplied session limits; editing checks only
-its per-IP limiter. Excess returns `RATE_LIMITED` (HTTP 429). Session IDs are not
-authenticated identities and the limiter key count has no hard global bound.
+The file is the one piece of durable server state in this build. It is safe for a
+single API replica; multiple replicas sharing a path can race, and a replica with
+its own file enforces its own cap. Do not treat one process's file as a global
+billing ledger.
+
+Generation checks per-principal and per-IP limits; editing checks its per-IP
+limiter. Excess returns `RATE_LIMITED` (HTTP 429). Authenticated principals come
+from verified Supabase tokens or the API key; the limiter key count still has no
+hard global bound.
 
 **Paths.** Generation requires the model output to match the requested artboard
 size. Editing merges a model patch with `mergeScopedEdit` (§11.1), preserving the

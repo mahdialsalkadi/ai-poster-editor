@@ -18,7 +18,7 @@ function contextOf(request: FastifyRequest): AiRequestContext {
 function unavailable(): DesignError {
   return new DesignError(
     'UNSUPPORTED_FEATURE',
-    'AI is not configured on this server: set AI_PROVIDER, AI_MODEL and AI_API_KEY (docs/contract.md §12.2)',
+    'AI is disabled or not configured on this server; check AI_DISABLED, AI_PROVIDER, AI_MODEL and AI_API_KEY (docs/contract.md §12.2)',
     'ai',
   );
 }

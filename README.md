@@ -140,7 +140,7 @@ pnpm build
 pnpm audit --prod
 ```
 
-The current test suite has **238 tests**:
+The current test suite has **257 tests**:
 
 | Package | Tests | Files | Main coverage                                                                              |
 | ------- | ----- | ----- | ------------------------------------------------------------------------------------------ |
@@ -164,9 +164,9 @@ release readiness until resolved or explicitly assessed.
   limits, caller-readable snapshots, unscoped export idempotency, no app CSP and
   insufficient renderer/deployment isolation. Offline browser contexts and an
   export CSP are not a hardened worker boundary.
-- **Spend limits:** the ledger resets on restart, is independent per server,
-  reserves only one attempt despite retrying, and uses manually configured prices.
-  It is not a reliable public-service spending ceiling yet.
+- **Spend limits:** the daily total persists in one atomically written file and is
+  enforced per attempt, but it assumes a single API replica and manually configured
+  prices. Multiple replicas need a shared billing store.
 - **Dependencies:** Zod was upgraded to the patched 4.6.6 release; `pnpm audit --prod`
   currently reports no known vulnerabilities. Dependency and release-age gates must
   stay in CI as new advisories appear.

@@ -50,7 +50,8 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
     trustProxy: trustProxy(process.env.TRUST_PROXY),
   });
 
-  const ai = options.ai !== undefined ? options.ai : createAiServiceFromEnv(process.env);
+  const ai = options.ai !== undefined ? options.ai : createAiServiceFromEnv(process.env, app.log);
+  if (process.env.AI_DISABLED?.trim() === 'true') app.log.warn('AI is disabled by AI_DISABLED');
   const exportService = options.exportService ?? new ExportService();
   const auth = options.auth !== undefined ? options.auth : createAuthFromEnv(process.env);
   const guard = authGuard(auth);
