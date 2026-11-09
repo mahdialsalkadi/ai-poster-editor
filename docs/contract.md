@@ -170,7 +170,8 @@ Unknown inline elements and their contents are dropped with
 `UNKNOWN_TAG_DROPPED`, not generally unwrapped by `parseDesignHtml`.
 Whitespace is normalized: CRLF becomes LF, then runs of spaces/tabs/newlines
 collapse to one space. Leading/trailing spaces at the layer boundary are
-trimmed. `br` at the start/end and consecutive `br` are collapsed.
+trimmed. Leading/trailing `br` are removed; up to two consecutive internal `br`
+are retained, preserving one blank line. Longer runs are capped at two.
 
 ### 3.2 Text style
 

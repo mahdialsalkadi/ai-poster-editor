@@ -916,3 +916,11 @@ All 38 web tests and typecheck passed. Obscura DOM-event checks exercised marque
 copy/paste, 20px offset, undo/redo, both wheel axes and Space-drag without document
 movement. The Arabic spacing input was confirmed disabled in the rendered DOM.
 Full trusted-input E2E coverage remains Phase 4, not claimed here.
+
+### P6 — Blank text lines
+
+Shared inline canonicalization now preserves two consecutive internal breaks and
+caps longer runs at two, still trimming leading/trailing breaks. The plain-text
+editor uses that same normalizer, so Enter/paste results agree with save/reload.
+Five core regressions cover counts, styled Arabic and round trips; two web tests
+cover Arabic/English newlines and literal-HTML plain-text paste. Contract updated.

@@ -50,7 +50,7 @@ export function canonicalInlineText(nodes: readonly InlineNode[]): InlineNode[] 
   for (const node of prepared) {
     const last = merged[merged.length - 1];
     if (node.kind === 'br') {
-      if (!last || last.kind === 'br') continue;
+      if (!last || (last.kind === 'br' && merged.at(-2)?.kind === 'br')) continue;
       merged.push(node);
       continue;
     }

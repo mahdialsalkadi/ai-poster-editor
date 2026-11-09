@@ -1,4 +1,4 @@
-import { LIMITS, type InlineNode } from '@poster/core';
+import { canonicalInlineText, LIMITS, type InlineNode } from '@poster/core';
 
 /** Flattens inline content to plain text for the editor. Inline styling is not preserved. */
 export function inlineToPlain(nodes: readonly InlineNode[]): string {
@@ -20,8 +20,8 @@ export function plainToInline(text: string): InlineNode[] {
     if (line.length > 0) nodes.push({ kind: 'text', text: line });
   });
 
-  if (nodes.length === 0) nodes.push({ kind: 'text', text: '' });
-  return nodes;
+  const canonical = canonicalInlineText(nodes);
+  return canonical.length > 0 ? canonical : [{ kind: 'text', text: '' }];
 }
 
 export function textCodepointLength(text: string): number {
