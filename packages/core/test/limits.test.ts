@@ -90,6 +90,15 @@ describe('text limits', () => {
 });
 
 describe('style limits', () => {
+  it('enforces the 8 KiB style limit by UTF-8 bytes, including custom properties', () => {
+    const prefix = 'position:absolute;width:10px;height:10px;--note:';
+    const exact = prefix + 'x'.repeat(8192 - prefix.length);
+    expect(parseDesignHtml(artboard(shape('s', exact))).doc.layers).toHaveLength(1);
+    expect(() => parseDesignHtml(artboard(shape('s', exact + 'x')))).toThrow(LimitExceededError);
+    expect(() => parseDesignHtml(artboard(shape('s', prefix + 'س'.repeat(4096))))).toThrow(
+      LimitExceededError,
+    );
+  });
   it('rejects more than 64 declarations in one style attribute', () => {
     const extra = Array.from({ length: 70 }, (_, index) => `--v${index}:1`).join(';');
     const layer = `<div data-id="s" data-layer="S" data-type="shape" style="position:absolute;left:0px;top:0px;width:10px;height:10px;${extra}"></div>`;

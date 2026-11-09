@@ -255,6 +255,12 @@ export function splitTopLevel(input: string, separator = ','): string[] {
 }
 
 export function parseDeclarations(style: string, ctx: StyleContext): Declarations {
+  if (new TextEncoder().encode(style).byteLength > LIMITS.style.maxBytes) {
+    throw new LimitExceededError(
+      `Style attribute exceeds ${LIMITS.style.maxBytes} bytes`,
+      ctx.path,
+    );
+  }
   if (containsForbiddenCss(style)) {
     throw new SecurityViolationError('Forbidden CSS construct in style attribute', ctx.path);
   }

@@ -9,6 +9,46 @@ const validHtml =
   '</div>';
 
 describe('API', () => {
+  it.each(['/api/design/validate', '/api/design/serialize', '/api/design/merge'])(
+    'rate limits %s before doing expensive work',
+    async (url) => {
+      const limited = await buildServer({
+        logger: false,
+        auth: null,
+        ai: null,
+        rateLimits: { designPerMinute: 1 },
+      });
+      const doc = parseDesignHtml(validHtml).doc;
+      const payload = url.endsWith('validate')
+        ? { designHtml: validHtml }
+        : url.endsWith('serialize')
+          ? { doc }
+          : { base: doc, patch: doc };
+      try {
+        expect((await limited.inject({ method: 'POST', url, payload })).statusCode).toBe(200);
+        const response = await limited.inject({ method: 'POST', url, payload });
+        expect(response.statusCode).toBe(429);
+        expect(response.json().error.code).toBe('RATE_LIMITED');
+      } finally {
+        await limited.close();
+      }
+    },
+  );
+
+  it('rejects UTF-8 oversized documents and style attributes at the design API', async () => {
+    for (const designHtml of [
+      'س'.repeat(102_401),
+      validHtml.replace('font-size:64px', '--note:' + 'x'.repeat(8193)),
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/design/validate',
+        payload: { designHtml },
+      });
+      expect([413, 422]).toContain(response.statusCode);
+      expect(['LIMIT_EXCEEDED', 'INVALID_DOC']).toContain(response.json().error.code);
+    }
+  });
   let app: FastifyInstance;
 
   beforeAll(async () => {

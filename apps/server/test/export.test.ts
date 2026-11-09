@@ -355,7 +355,7 @@ describe('render queue', () => {
     const second = queue.run(async () => 'second');
 
     await expect(queue.run(async () => 'third')).rejects.toMatchObject({
-      code: 'LIMIT_EXCEEDED',
+      code: 'RATE_LIMITED',
     });
 
     release?.();

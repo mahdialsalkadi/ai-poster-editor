@@ -16,20 +16,18 @@ export class RenderQueue {
   async run<T>(task: () => Promise<T>): Promise<T> {
     if (this.active >= this.concurrency) {
       if (this.waiting.length >= this.maxWaiting) {
-        throw new DesignError('LIMIT_EXCEEDED', 'The export queue is full', 'export');
+        throw new DesignError('RATE_LIMITED', 'The export queue is full', 'export');
       }
       await new Promise<void>((resolve) => {
         this.waiting.push(resolve);
       });
-    }
-
-    this.active += 1;
+    } else this.active += 1;
     try {
       return await task();
     } finally {
-      this.active -= 1;
       const next = this.waiting.shift();
       if (next) next();
+      else this.active -= 1;
     }
   }
 }

@@ -1,6 +1,6 @@
 import { DesignError, LIMITS, canonicalizeDoc } from '@poster/core';
 import type { ExportFormat, ExportRequest } from '@poster/contracts';
-import { prepareAsset, referencedAssetIds, type PreparedAsset } from './assets.js';
+import { prepareAssets, referencedAssetIds } from './assets.js';
 import { RenderQueue } from './queue.js';
 import { renderDesign } from './renderer.js';
 
@@ -26,12 +26,13 @@ export type ExportServiceOptions = {
   ttlMs?: number;
   now?: () => number;
   render?: typeof renderDesign;
+  queue?: RenderQueue;
 };
 
 let counter = 0;
 
 export class ExportService {
-  private readonly queue = new RenderQueue();
+  private readonly queue: RenderQueue;
   private readonly cache = new Map<string, Cached>();
   private readonly maxEntries: number;
   private readonly maxBytes: number;
@@ -41,6 +42,7 @@ export class ExportService {
   private cacheBytes = 0;
 
   constructor(options: ExportServiceOptions = {}) {
+    this.queue = options.queue ?? new RenderQueue();
     this.maxEntries = options.maxEntries ?? LIMITS.export.cacheMaxEntries;
     this.maxBytes = options.maxBytes ?? LIMITS.export.cacheMaxBytes;
     this.ttlMs = options.ttlMs ?? LIMITS.export.cacheTtlMs;
@@ -107,6 +109,17 @@ export class ExportService {
     }
 
     const referenced = referencedAssetIds(doc);
+    if (referenced.length > LIMITS.assets.maxPerDocument)
+      throw new DesignError('LIMIT_EXCEEDED', 'Too many referenced images', 'assets');
+    const expected = new Set(referenced);
+    for (const id of uploaded.keys()) {
+      if (!expected.has(id))
+        throw new DesignError(
+          'INVALID_DOC',
+          `Asset ${id} is not referenced by a visible layer`,
+          `assets.${id}`,
+        );
+    }
     for (const id of referenced) {
       if (!uploaded.has(id)) {
         throw new DesignError('ASSET_UNRESOLVED', `Asset ${id} was not uploaded`, `assets.${id}`);
@@ -120,15 +133,13 @@ export class ExportService {
       if (cached) return { ...cached.result, bytes: cached.bytes, cacheHit: true };
     }
 
-    const assets = new Map<string, PreparedAsset>();
-    for (const id of referenced) {
-      const raw = uploaded.get(id);
-      if (!raw) continue;
-      assets.set(id, await prepareAsset(id, raw));
-    }
-
     const startedAt = Date.now();
-    const rendered = await this.queue.run(() => this.render({ doc, assets, options }));
+    // Queue admission precedes header inspection/decoding, bounding both image
+    // memory and browser work rather than just the final render.
+    const rendered = await this.queue.run(async () => {
+      const assets = await prepareAssets(uploaded);
+      return this.render({ doc, assets, options });
+    });
     if (rendered.bytes.byteLength > LIMITS.export.maxResponseBytes) {
       throw new DesignError(
         'LIMIT_EXCEEDED',

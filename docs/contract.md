@@ -401,7 +401,7 @@ every constant as a working guard.
 | AI volume              | 5 generations/min/IP (20/hour/session), 10 edits/min/IP      |
 | Export/upload volume   | 10 exports/min/IP, 20 uploads/min/IP                         |
 | History                | 100 undo steps                                               |
-| Snapshots              | 20 per project                                               |
+| Snapshots              | 20 browser-local entries                                     |
 
 Enforced hard limits throw `LimitExceededError` (or a `DesignError` with
 `LIMIT_EXCEEDED`). Parser clamping may produce `NUMBER_CLAMPED`; model
@@ -409,16 +409,14 @@ canonicalization can clamp silently. Current qualifications include:
 
 - The Fastify JSON body limit is 1 MiB, not a route-specific 512 KiB AI-body
   ceiling. AI prompt/output and parsed Design HTML checks occur separately.
-- The 8 KiB style constant and 80 MP aggregate-asset constant do not have complete
-  enforcement in the reviewed paths. Per-image pixel limits do not enforce an
-  aggregate budget.
-- Export/upload per-IP rate constants are not wired to route limiters. Generation
-  and editing do have the AI limiters described in §12.2.
-- Export's 15 seconds is currently per rendering operation, not a total deadline
-  including queue wait and browser launch. Queue-full currently maps to HTTP 413,
-  not the planned 429.
-- Image side dimensions are checked after decode/re-encode, not header-only
-  before decoding. Snapshot limits are per project, not a global byte/count cap.
+- Style attributes enforce 8 KiB of UTF-8 before CSS parsing. Export preflights
+  every image header against side/per-image/aggregate pixel limits before decoding.
+- Export routes enforce principal-plus-IP rate limits. Uploads happen in the
+  browser and are revalidated on export; the standalone upload route is unsupported.
+- The worker's 15-second total deadline includes browser launch and rendering,
+  but not queue wait or asset preparation. Queue admission bounds both preparation
+  and rendering; queue-full is `RATE_LIMITED` (HTTP 429), not a size error.
+- Snapshots are browser-local with an atomic 20-entry cap, not server projects.
 
 ## 9. Security boundary
 
@@ -615,10 +613,13 @@ earlier result; clients must use a fresh key per output.
 
 **Asset re-validation.** Supplied bytes are never trusted. For each asset the
 server checks bytes, sniffs the real type with `file-type` (`image/png`,
-`image/jpeg` or `image/webp`; declared MIME is ignored), then decodes/re-encodes
-to PNG with `sharp` and an input-pixel guard. Side dimensions are checked on the
-decoded output, not with a pre-decode header check. Only re-encoded bytes reach
-the renderer, but this does not establish rejection of every polyglot or bomb.
+`image/jpeg` or `image/webp`; declared MIME is ignored), then reads `sharp`
+metadata without raster decoding. All headers must agree with the sniffed format,
+be single-frame and satisfy 8000px sides, 40 MP per image and 80 MP total before
+any document image is decoded. At most 20 referenced image assets are accepted.
+Unreferenced uploaded parts are rejected. Images are then decoded/re-encoded to
+PNG with an input-pixel guard; only those sanitized bytes reach the renderer.
+Valid image/polyglot trailers are stripped rather than forwarded as original bytes.
 Malformed/unsupported bytes fail `INVALID_DOC`; byte/dimension/pixel-limit failures
 can be `LIMIT_EXCEEDED`. Errors identify `assets.<id>`.
 
@@ -693,8 +694,8 @@ in `docs/security.md`; they are not claimed to be active when running `pnpm dev`
   state rather than assuming the download retains everything.
 
 **Limits and errors** (§8): raster output is limited to 40 MP, response bytes to
-40 MiB, with queue 20 and concurrency 2. Oversize output and queue-full currently
-use `LIMIT_EXCEEDED` (HTTP 413); rendering failure/timeout uses `EXPORT_FAILED`;
+40 MiB, with queue 20 and concurrency 2. Oversize output uses `LIMIT_EXCEEDED`
+(HTTP 413); queue-full uses `RATE_LIMITED` (HTTP 429); rendering failure/timeout uses `EXPORT_FAILED`;
 missing assets use `ASSET_UNRESOLVED`. The renderer has no deployment kill switch
 yet. Neither an end-to-end timeout nor visual equality with the editor is proven.
 

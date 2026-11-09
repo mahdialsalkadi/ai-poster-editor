@@ -103,6 +103,54 @@ describe('durable spend accounting', () => {
 });
 
 describe('AI configuration and retry reservations', () => {
+  it('does not let concurrent generation reserve past the daily cap', async () => {
+    const ledger = new DailySpendLedger({ capUsd: 100 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const provider: AiProvider = {
+      name: 'fake',
+      model: 'concurrent',
+      async complete() {
+        calls++;
+        await gate;
+        return {
+          text: generated,
+          model: 'concurrent',
+          inputTokens: 0,
+          outputTokens: 100,
+          latencyMs: 1,
+        };
+      },
+    };
+    const service = new AiService({
+      provider,
+      prices: { inputPerMTok: 0, outputPerMTok: 1_000_000 },
+      ledger,
+      maxOutputTokens: 100,
+      timeoutMs: 2000,
+    });
+    const pending = Promise.allSettled(
+      Array.from({ length: 20 }, (_, i) =>
+        service.generate(
+          { prompt: 'A gallery poster', width: 600, height: 800, language: 'ar' },
+          { ip: `203.0.113.${i + 1}`, sessionId: `session${i}`, projectId: 'p' },
+        ),
+      ),
+    );
+    expect(calls).toBe(1);
+    expect(ledger.reservedNow).toBe(100);
+    release();
+    const results = await pending;
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    for (const result of results)
+      if (result.status === 'rejected')
+        expect(result.reason).toMatchObject({ code: 'SPEND_CAP_EXCEEDED' });
+    expect(ledger.spentToday).toBe(100);
+    expect(ledger.reservedNow).toBe(0);
+  });
   it('honours the AI_DISABLED kill switch', () => {
     const path = tempLedger();
     expect(createAiServiceFromEnv({ ...providerEnv(path), AI_DISABLED: 'true' })).toBeNull();

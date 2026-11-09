@@ -1032,3 +1032,26 @@ style coverage is 72.41%, so tests must improve it before enabling the proposed
 Phase 3 hosted verification is now available: [CI run 42667028252](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42667028252)
 passed at `8a24f6c74ef2efb46e6035cf8dc04da9bbb79306`. This updates the earlier
 local-only checkpoint; it does not constitute deployment approval.
+
+### T1 — Server edge cases and resource enforcement
+
+Asset preparation now sniffs the input, reads headers only, checks single-frame
+format agreement, 8000px sides, 40 MP per asset, 80 MP aggregate and 20 assets
+before decoding any document image. Re-encoding strips metadata and active
+polyglot trailers. Empty/non-image/truncated headers fail as `INVALID_DOC`, not
+an unhandled sniffer error. Unreferenced multipart images are rejected.
+
+Queue admission now precedes asset preparation; full queues return `RATE_LIMITED`
+(HTTP 429). Slot ownership transfers directly to a waiter, preventing a newly
+arriving task from racing a resumed waiter past the concurrency bound. The core
+parser enforces style attributes' 8 KiB UTF-8 limit before CSS-tree work.
+
+Added 26 regression cases across core/server: actual oversized image header
+rejection with no `toBuffer`, controlled-header per-image/aggregate budgets with
+zero decoding, byte/count/frame/type/truncation checks, PNG polyglot stripping,
+JPEG/WebP re-encoding, Fastify queue-full 429, a real worker deadline reaching
+HTTP 500 `EXPORT_FAILED`, hidden-layer omission, queue handoff/failure recovery,
+20 concurrent AI requests sharing a cap, all three design-route rate limits and
+UTF-8 style/document limits. Targeted suites and server typecheck pass. Existing
+auth, cache TTL/byte caps, one-retry and invalid-AI-output tests are retained;
+browser snapshot caps belong to the E2E task, not nonexistent server snapshots.
