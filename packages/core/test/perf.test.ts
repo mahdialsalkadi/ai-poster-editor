@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canonicalizeDoc,
+  LIMITS,
   parseDesignHtml,
   serializeDesignDoc,
   type DesignDoc,
@@ -76,9 +77,23 @@ function percentile(sorted: readonly number[], fraction: number): number {
 }
 
 describe('parse performance at the document limit', () => {
-  it('measures parse time for a 200-layer document', () => {
-    const html = serializeDesignDoc(buildDocument());
-    expect(new TextEncoder().encode(html).length).toBeLessThan(200 * 1024);
+  it('keeps p95 below 200 ms for 200 layers and exactly 200 KiB of real content', () => {
+    const doc = buildDocument();
+    const encode = (value: string) => new TextEncoder().encode(value).byteLength;
+    const texts = doc.layers.filter((layer) => layer.type === 'text');
+    const padding = LIMITS.document.maxBytes - encode(serializeDesignDoc(doc));
+    texts.forEach((layer, index) => {
+      layer.content.push({
+        kind: 'text',
+        text: 'x'.repeat(
+          Math.floor(padding / texts.length) + (index < padding % texts.length ? 1 : 0),
+        ),
+      });
+    });
+    const html = serializeDesignDoc(doc);
+    expect(encode(html)).toBe(LIMITS.document.maxBytes);
+    // Warm up separately so module/JIT startup is not the steady-state budget.
+    for (let index = 0; index < 5; index++) parseDesignHtml(html);
 
     const runs = 50;
     const timings: number[] = [];
@@ -94,7 +109,7 @@ describe('parse performance at the document limit', () => {
     const p95 = percentile(sorted, 0.95);
 
     console.log(
-      `[perf] parseDesignHtml 200 layers / ${(html.length / 1024).toFixed(1)} KiB: ` +
+      `[perf] parseDesignHtml 200 layers / ${(encode(html) / 1024).toFixed(1)} KiB: ` +
         `p50=${p50.toFixed(2)}ms p95=${p95.toFixed(2)}ms min=${(sorted[0] ?? 0).toFixed(2)}ms max=${(sorted[sorted.length - 1] ?? 0).toFixed(2)}ms`,
     );
 

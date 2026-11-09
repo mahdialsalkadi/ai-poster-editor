@@ -1055,3 +1055,18 @@ HTTP 500 `EXPORT_FAILED`, hidden-layer omission, queue handoff/failure recovery,
 UTF-8 style/document limits. Targeted suites and server typecheck pass. Existing
 auth, cache TTL/byte caps, one-retry and invalid-AI-output tests are retained;
 browser snapshot caps belong to the E2E task, not nonexistent server snapshots.
+
+### T1 — Hostile HTML and full-size performance
+
+A deterministic 500-case fast-check corpus now mixes arbitrary Unicode, malformed
+HTML, executable tags/URLs, CSS escapes and invalid gradients. Each input must
+return a model or a controlled `DesignError`, within 250 ms. A separate 10,000-span
+probe reproduced a real `RangeError` in the old recursive security walk (56 ms).
+The walk now enforces 64 HTML nesting levels before later recursive extraction;
+the regression receives `LIMIT_EXCEEDED`, not an implementation crash.
+
+The performance fixture now fills its 200 layers with exactly **200 KiB of actual
+text/style content**, not comment padding, and enforces steady-state p95 <200 ms.
+Targeted verification passed: six property tests plus the full-size performance
+test; observed p50 24.64 ms / p95 26.65 ms on this host. These measurements are
+local observations, not a universal latency claim or a replacement for CI.

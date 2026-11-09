@@ -384,6 +384,7 @@ every constant as a working guard.
 | Letter spacing         | -100..1000 px                                                |
 | Style declarations     | 64 per layer                                                 |
 | Style attribute        | 8 KiB                                                        |
+| HTML nesting           | 64 levels, including document envelope                       |
 | Gradient stops         | 2..6                                                         |
 | SVG depth              | 16                                                           |
 | SVG nodes              | 2,000                                                        |

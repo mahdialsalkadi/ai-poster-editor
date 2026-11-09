@@ -135,7 +135,12 @@ function textOf(node: HtmlNode): string {
   return (node.childNodes ?? []).map(textOf).join('');
 }
 
-function walkSecurity(node: HtmlNode, path: string): void {
+function walkSecurity(node: HtmlNode, path: string, depth = 0): void {
+  if (depth > LIMITS.document.maxHtmlDepth)
+    throw new LimitExceededError(
+      `HTML nesting exceeds ${LIMITS.document.maxHtmlDepth}`,
+      'document',
+    );
   if (isElement(node)) {
     const tag = node.tagName.toLowerCase();
     const curPath = `${path}.${tag}`;
@@ -164,13 +169,13 @@ function walkSecurity(node: HtmlNode, path: string): void {
     }
 
     for (const child of node.childNodes ?? []) {
-      walkSecurity(child, curPath);
+      walkSecurity(child, curPath, depth + 1);
     }
     return;
   }
 
   for (const child of node.childNodes ?? []) {
-    walkSecurity(child, path);
+    walkSecurity(child, path, depth + 1);
   }
 }
 

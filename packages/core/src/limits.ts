@@ -14,6 +14,7 @@ export const LIMITS = {
     maxArtboardPixels: 25_000_000,
     maxLayerIdLength: 64,
     maxLayerNameLength: 120,
+    maxHtmlDepth: 64,
   },
   ai: {
     maxRequestBytes: 512 * 1024,

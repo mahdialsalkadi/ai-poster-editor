@@ -2,6 +2,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   canonicalizeDoc,
+  DesignError,
   parseDesignHtml,
   serializeDesignDoc,
   type DesignDoc,
@@ -211,6 +212,67 @@ const docArb: fc.Arbitrary<DesignDoc> = fc
   }));
 
 const options = { numRuns: 150, verbose: false as const };
+
+describe('hostile HTML robustness', () => {
+  const tokens = fc.constantFrom(
+    '<div class="artboard" data-width="400" data-height="400">',
+    '</div>',
+    '<span>',
+    '</span>',
+    '<br>',
+    '<svg>',
+    '</svg>',
+    '<script>',
+    '<style>',
+    '<!--',
+    '-->',
+    '"',
+    "'",
+    '<',
+    '>',
+    '&amp;',
+    '&#0;',
+    'مرحبا',
+    'url(',
+    '\\75rl(',
+    'linear-gradient(90deg, wrong, white)',
+    '<img src="https://example.invalid">',
+    '<div data-type="text" data-id="a" style="position:absolute;width:100px">',
+  );
+  const arbitraryHtml = fc.oneof(
+    fc.fullUnicodeString({ maxLength: 8192 }),
+    fc.array(tokens, { maxLength: 160 }).map((parts) => parts.join('')),
+  );
+
+  it('never throws implementation errors or exceeds the per-input time budget on arbitrary HTML', () => {
+    fc.assert(
+      fc.property(arbitraryHtml, (html) => {
+        const started = performance.now();
+        try {
+          parseDesignHtml(html);
+        } catch (cause) {
+          expect(cause).toBeInstanceOf(DesignError);
+        }
+        expect(performance.now() - started).toBeLessThan(250);
+      }),
+      { numRuns: 500, seed: 20261110, verbose: false },
+    );
+  });
+
+  it('rejects deep nesting with a controlled limit rather than a RangeError', () => {
+    const html =
+      '<div class="artboard" data-width="400" data-height="400"><div data-id="t" data-type="text" style="position:absolute;width:100px">' +
+      '<span>'.repeat(10_000) +
+      'x' +
+      '</span>'.repeat(10_000) +
+      '</div></div>';
+    const started = performance.now();
+    expect(() => parseDesignHtml(html)).toThrow(
+      expect.objectContaining({ code: 'LIMIT_EXCEEDED' }),
+    );
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+});
 
 describe('canonical round trip properties', () => {
   it('parse(serialize(doc)) deep-equals the canonical document', () => {
