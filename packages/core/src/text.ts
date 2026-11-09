@@ -12,7 +12,10 @@ function collapseWhitespace(text: string): string {
   return text.replace(/\r\n?/g, '\n').replace(/[ \t\n\f\r]+/g, ' ');
 }
 
-function sameSpanStyle(a: Extract<InlineNode, { kind: 'span' }>, b: Extract<InlineNode, { kind: 'span' }>): boolean {
+function sameSpanStyle(
+  a: Extract<InlineNode, { kind: 'span' }>,
+  b: Extract<InlineNode, { kind: 'span' }>,
+): boolean {
   return (
     Boolean(a.bold) === Boolean(b.bold) &&
     Boolean(a.italic) === Boolean(b.italic) &&

@@ -43,8 +43,7 @@ export type GradientStop = {
 };
 
 export type Fill =
-  | { kind: 'solid'; color: Color }
-  | { kind: 'linear'; angle: number; stops: GradientStop[] };
+  { kind: 'solid'; color: Color } | { kind: 'linear'; angle: number; stops: GradientStop[] };
 
 export type Shadow = {
   x: number;

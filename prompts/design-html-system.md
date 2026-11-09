@@ -90,7 +90,9 @@ be a `.artboard` div.
   data-type="text"
   dir="rtl"
   style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#ffffff;text-align:center;line-height:1.25;letter-spacing:0px"
->عنوان رئيسي</div>
+>
+  عنوان رئيسي
+</div>
 ```
 
 Inline emphasis:
@@ -120,7 +122,7 @@ Inline emphasis:
   src="asset:hero_1"
   alt="Hero image"
   style="position:absolute;left:80px;top:820px;width:920px;height:440px;object-fit:cover;object-position:50% 50%;border-radius:24px"
->
+/>
 ```
 
 ## SVG layer pattern

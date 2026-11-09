@@ -13,7 +13,7 @@ const shapeLayer = (style: string): string =>
 describe('text-shadow spread', () => {
   it('drops a fourth length and reports it', () => {
     const { doc, warnings } = parseDesignHtml(
-      artboard(textLayer("font-family:Inter;font-size:16px;text-shadow:1px 2px 3px 4px #000000")),
+      artboard(textLayer('font-family:Inter;font-size:16px;text-shadow:1px 2px 3px 4px #000000')),
     );
     const layer = doc.layers[0] as TextLayer;
 

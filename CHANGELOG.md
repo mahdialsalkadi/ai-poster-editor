@@ -3,6 +3,16 @@
 This file records changes to AI Poster Editor. Version tags identify source
 checkpoints; they do not imply approval for public deployment.
 
+## [Unreleased]
+
+### Changed
+
+- Applied the existing Prettier policy across application source, tests and docs.
+  Byte-exact HTML fixtures, captured evidence, generated output and local tooling
+  are excluded from automatic formatting.
+- Scoped linting away from local tooling/captures and fixed three baseline lint
+  errors without changing application behavior.
+
 ## [0.1.0] - 2026-11-09
 
 Local baseline checkpoint before the remaining Phase 1 hardening work. MIT

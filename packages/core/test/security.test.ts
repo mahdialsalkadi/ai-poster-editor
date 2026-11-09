@@ -86,12 +86,18 @@ describe('security rejection corpus: attributes', () => {
     ['file scheme', 'file:///C:/secret.png'],
     ['space padded protocol relative', '  //evil.test/a.png'],
   ])('rejects image src with %s', (_name, src) => {
-    expectRejected(artboard(`<img data-id="l1" data-layer="L1" data-type="image" src="${src}" style="${GEOMETRY}">`));
+    expectRejected(
+      artboard(
+        `<img data-id="l1" data-layer="L1" data-type="image" src="${src}" style="${GEOMETRY}">`,
+      ),
+    );
   });
 
   it('accepts the asset: scheme for image layers', () => {
     const { doc } = parseDesignHtml(
-      artboard(`<img data-id="l1" data-layer="L1" data-type="image" src="asset:hero_1" style="${GEOMETRY}">`),
+      artboard(
+        `<img data-id="l1" data-layer="L1" data-type="image" src="asset:hero_1" style="${GEOMETRY}">`,
+      ),
     );
     expect(doc.layers[0]?.type).toBe('image');
   });
@@ -125,7 +131,9 @@ describe('security rejection corpus: CSS values', () => {
   });
 
   it('rejects escaped CSS in text spans', () => {
-    expectRejected(artboard(text('<span style="background:\\75rl(https://evil.test/a.png)">x</span>')));
+    expectRejected(
+      artboard(text('<span style="background:\\75rl(https://evil.test/a.png)">x</span>')),
+    );
   });
 });
 

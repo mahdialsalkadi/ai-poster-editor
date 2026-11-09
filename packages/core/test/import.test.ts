@@ -79,9 +79,7 @@ describe('importing an exported HTML document', () => {
         '<img data-id="hero" data-layer="Hero" data-type="image" src="data:image/png;base64,iVBORw0KGgo=" alt="Hero" data-prompt="a cat" style="position:absolute;left:0;top:0;width:100px;height:100px;object-fit:cover;object-position:50% 50%;border-radius:8px">',
       ),
     );
-    expect(assets).toEqual([
-      { id: 'imported_1', mimeType: 'image/png', base64: 'iVBORw0KGgo=' },
-    ]);
+    expect(assets).toEqual([{ id: 'imported_1', mimeType: 'image/png', base64: 'iVBORw0KGgo=' }]);
     const layer = doc.layers[0] as ImageLayer;
     expect(layer.type).toBe('image');
     expect(layer.src).toBe('asset:imported_1');

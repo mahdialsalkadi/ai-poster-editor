@@ -415,3 +415,18 @@ those changes or claim a production-ready release. No existing tag was replaced.
 
 Verification: the tag inventory was empty, changelog formatting was checked, and
 the checkpoint contains documentation only. The tag is local and is not pushed.
+
+### Baseline quality gates
+
+The three lint failures were corrected: two unused imports were removed and the
+unmodified layer ID binding is now `const`. The existing Prettier configuration
+was applied to application source, tests and documentation. `.prettierignore`
+protects byte-exact HTML fixtures, generated output/lockfile, captured evidence
+and local tooling; ESLint also excludes the tooling/capture directories.
+
+Verification: `pnpm lint`, `pnpm format:check` and `pnpm typecheck` all passed.
+`pnpm test` passed all 235 tests (core 163, server 47, web 25). A Git diff check
+confirmed no changes to either fixture tree, stored screenshots or
+`pnpm-lock.yaml`. The untracked `tools/` tree was not changed. Results were
+obtained on Node 22.23.1, with the same supported-version caveat as Phase 0.
+These gates now work on the whole application, not just a tracked-file subset.

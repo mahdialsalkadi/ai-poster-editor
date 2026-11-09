@@ -131,7 +131,12 @@ const svgTagSchema = z.enum([
 ]);
 
 export type SvgNodeInput =
-  | { kind: 'element'; tag: z.infer<typeof svgTagSchema>; attrs: Record<string, string>; children: SvgNodeInput[] }
+  | {
+      kind: 'element';
+      tag: z.infer<typeof svgTagSchema>;
+      attrs: Record<string, string>;
+      children: SvgNodeInput[];
+    }
   | { kind: 'text'; text: string };
 
 const svgNodeSchema: z.ZodType<SvgNodeInput> = z.lazy(() =>

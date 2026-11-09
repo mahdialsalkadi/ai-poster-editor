@@ -81,7 +81,9 @@ function inlineHtml(nodes: readonly InlineNode[]): string {
       ]
         .filter(Boolean)
         .join(';');
-      return style ? `<span style="${style}">${escapeHtml(node.text)}</span>` : escapeHtml(node.text);
+      return style
+        ? `<span style="${style}">${escapeHtml(node.text)}</span>`
+        : escapeHtml(node.text);
     })
     .join('');
 }

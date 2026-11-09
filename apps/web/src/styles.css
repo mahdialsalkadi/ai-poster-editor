@@ -81,8 +81,7 @@ button:disabled {
   min-height: 0;
   overflow: hidden;
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(56, 189, 248, 0.07), transparent 60%),
-    var(--bg);
+    radial-gradient(1200px 600px at 80% -10%, rgba(56, 189, 248, 0.07), transparent 60%), var(--bg);
 }
 
 .workspace {
@@ -251,7 +250,10 @@ button:disabled {
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
 }
 
 .button:hover:not(:disabled) {
@@ -304,7 +306,9 @@ button:disabled {
   border-radius: 9px;
   background: transparent;
   color: var(--text-muted);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .icon-button:hover:not(:disabled),
@@ -362,7 +366,10 @@ button:disabled {
   border-radius: var(--radius);
   background: transparent;
   color: var(--text-muted);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .rail-button:hover {
@@ -500,7 +507,9 @@ button:disabled {
   border-radius: var(--radius);
   background: var(--panel-2);
   text-align: start;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .template-card:hover {
@@ -932,8 +941,11 @@ button:disabled {
   min-height: 0;
   padding: 32px;
   overflow: auto;
-  background-image:
-    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 0);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(255, 255, 255, 0.06) 1px,
+    transparent 0
+  );
   background-size: 22px 22px;
 }
 
@@ -1411,7 +1423,9 @@ button:disabled {
   height: 15px;
   border-radius: 50%;
   background: var(--text-muted);
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
 }
 
 .toggle.is-on .toggle-track {

@@ -67,6 +67,8 @@ describe('SVG name casing', () => {
     );
     const reparsed = parseDesignHtml(html);
     expect(reparsed.warnings).toEqual([]);
-    expect(reparsed.doc).toEqual(parseDesignHtml(artboard(svgLayer(GRADIENT, 'viewBox="0 0 10 10"'))).doc);
+    expect(reparsed.doc).toEqual(
+      parseDesignHtml(artboard(svgLayer(GRADIENT, 'viewBox="0 0 10 10"'))).doc,
+    );
   });
 });

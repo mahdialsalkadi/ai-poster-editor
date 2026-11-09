@@ -60,7 +60,11 @@ type Attempt<T> = { value: T; warnings: Warning[] };
 function toInvalidOutput(cause: unknown): DesignError {
   if (cause instanceof DesignError && cause.code === 'AI_INVALID_OUTPUT') return cause;
   if (cause instanceof DesignError) {
-    return new DesignError('AI_INVALID_OUTPUT', `The AI output failed validation: ${cause.message}`, 'ai');
+    return new DesignError(
+      'AI_INVALID_OUTPUT',
+      `The AI output failed validation: ${cause.message}`,
+      'ai',
+    );
   }
   return new DesignError('AI_INVALID_OUTPUT', 'The AI output failed validation', 'ai');
 }
@@ -91,7 +95,8 @@ export class AiService {
       options.generateLimiter ??
       new SlidingWindowLimiter(LIMITS.rateLimit.aiGeneratePerMinutePerIp, 60_000);
     this.editLimiter =
-      options.editLimiter ?? new SlidingWindowLimiter(LIMITS.rateLimit.aiEditPerMinutePerIp, 60_000);
+      options.editLimiter ??
+      new SlidingWindowLimiter(LIMITS.rateLimit.aiEditPerMinutePerIp, 60_000);
     this.sessionLimiter =
       options.sessionLimiter ??
       new SlidingWindowLimiter(LIMITS.rateLimit.aiGeneratePerHourPerSession, 3_600_000);
@@ -116,28 +121,25 @@ export class AiService {
       style: input.style,
     });
 
-    const result = await this.attempt(
-      messages,
-      (html) => {
-        const parsed = parseDesignHtml(html);
-        if (parsed.doc.layers.length > LIMITS.ai.maxLayers) {
-          throw new DesignError(
-            'AI_INVALID_OUTPUT',
-            `The AI design has more than ${LIMITS.ai.maxLayers} layers`,
-            'ai',
-          );
-        }
-        if (parsed.doc.width !== input.width || parsed.doc.height !== input.height) {
-          throw new DesignError(
-            'AI_INVALID_OUTPUT',
-            'The AI design does not match the requested artboard size',
-            'ai',
-          );
-        }
-        const doc = validateDesignDoc(parsed.doc);
-        return { value: serializeDesignDoc(doc), warnings: parsed.warnings };
-      },
-    );
+    const result = await this.attempt(messages, (html) => {
+      const parsed = parseDesignHtml(html);
+      if (parsed.doc.layers.length > LIMITS.ai.maxLayers) {
+        throw new DesignError(
+          'AI_INVALID_OUTPUT',
+          `The AI design has more than ${LIMITS.ai.maxLayers} layers`,
+          'ai',
+        );
+      }
+      if (parsed.doc.width !== input.width || parsed.doc.height !== input.height) {
+        throw new DesignError(
+          'AI_INVALID_OUTPUT',
+          'The AI design does not match the requested artboard size',
+          'ai',
+        );
+      }
+      const doc = validateDesignDoc(parsed.doc);
+      return { value: serializeDesignDoc(doc), warnings: parsed.warnings };
+    });
 
     return { designHtml: result.value, warnings: result.warnings, usage: result.usage };
   }

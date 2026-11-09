@@ -39,7 +39,11 @@ export type LayerViewProps = {
   interactive?: boolean;
   onPointerDown?: (event: ReactPointerEvent<HTMLDivElement>, layer: Layer) => void;
   onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>, layer: Layer) => void;
-  onResizeStart?: (event: ReactPointerEvent<HTMLButtonElement>, handle: Handle, layer: Layer) => void;
+  onResizeStart?: (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    handle: Handle,
+    layer: Layer,
+  ) => void;
   onRotateStart?: (event: ReactPointerEvent<HTMLButtonElement>, layer: Layer) => void;
   onTextCommit?: (id: string, text: string) => void;
   onTextCancel?: () => void;
@@ -143,7 +147,10 @@ function ImageContent({
           }}
         />
       ) : (
-        <div className="image-placeholder" style={{ fontSize: Math.max(12 / scale, layer.width * 0.028) }}>
+        <div
+          className="image-placeholder"
+          style={{ fontSize: Math.max(12 / scale, layer.width * 0.028) }}
+        >
           <Icon name="image" size={Math.max(18 / scale, layer.width * 0.08)} />
           <span>{assetId || 'asset'}</span>
           <small>asset:{assetId}</small>
@@ -158,7 +165,9 @@ function renderSvgNode(node: SvgNode, key: number): ReactNode {
   return createElement(
     node.tag,
     { key, ...svgAttrToProps(node.attrs) },
-    node.children.length > 0 ? node.children.map((child, index) => renderSvgNode(child, index)) : undefined,
+    node.children.length > 0
+      ? node.children.map((child, index) => renderSvgNode(child, index))
+      : undefined,
   );
 }
 
@@ -336,7 +345,12 @@ export function LayerView({
     >
       {layer.type === 'text' ? (
         editing && onTextCommit && onTextCancel ? (
-          <InlineTextEditor layer={layer} scale={scale} onCommit={onTextCommit} onCancel={onTextCancel} />
+          <InlineTextEditor
+            layer={layer}
+            scale={scale}
+            onCommit={onTextCommit}
+            onCancel={onTextCancel}
+          />
         ) : (
           <TextContent layer={layer} />
         )

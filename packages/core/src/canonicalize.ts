@@ -114,9 +114,7 @@ function canonicalTextStyle(style: TextStyle, dir: 'ltr' | 'rtl', text: string):
 }
 
 function canonicalTextLayer(layer: TextLayer): TextLayer {
-  const text = layer.content
-    .map((node) => (node.kind === 'br' ? '\n' : node.text))
-    .join('');
+  const text = layer.content.map((node) => (node.kind === 'br' ? '\n' : node.text)).join('');
   return {
     ...canonicalBase(layer),
     type: 'text',
@@ -271,7 +269,11 @@ export function canonicalizeDoc(doc: DesignDoc): DesignDoc {
     height > LIMITS.document.maxArtboardSide ||
     width * height > LIMITS.document.maxArtboardPixels
   ) {
-    throw new DesignError('LIMIT_EXCEEDED', 'Artboard dimensions are outside the allowed range', 'artboard');
+    throw new DesignError(
+      'LIMIT_EXCEEDED',
+      'Artboard dimensions are outside the allowed range',
+      'artboard',
+    );
   }
 
   return {

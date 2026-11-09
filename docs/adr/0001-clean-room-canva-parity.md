@@ -19,7 +19,7 @@ licensing problem and a maintenance trap.
 
 ## Decision
 
-1. **Behavior only, never artifacts.** We may study publicly visible *behavior*
+1. **Behavior only, never artifacts.** We may study publicly visible _behavior_
    (what a button does, which capability exists). We do not copy, extract or
    ship another product's HTML, CSS, SVG, icons, images, fonts, templates or
    copy.

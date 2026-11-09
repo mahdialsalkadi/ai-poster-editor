@@ -106,14 +106,7 @@ const ALLOWED_INLINE_TAGS = new Set([
   'div',
 ]);
 
-const URL_ATTRS = new Set([
-  'href',
-  'xlink:href',
-  'srcset',
-  'action',
-  'formaction',
-  'poster',
-]);
+const URL_ATTRS = new Set(['href', 'xlink:href', 'srcset', 'action', 'formaction', 'poster']);
 
 const ASSET_SRC_RE = /^asset:[A-Za-z0-9_-]{1,64}$/;
 
@@ -197,7 +190,11 @@ function findArtboard(root: HtmlNode): HtmlNode & { tagName: string } {
     throw new DesignError('INVALID_DOC', 'Design HTML must contain a .artboard root', 'artboard');
   }
   if (found.length > 1) {
-    throw new DesignError('INVALID_DOC', 'Design HTML must contain exactly one .artboard', 'artboard');
+    throw new DesignError(
+      'INVALID_DOC',
+      'Design HTML must contain exactly one .artboard',
+      'artboard',
+    );
   }
   return found[0]!;
 }
@@ -276,11 +273,7 @@ function collectInlineNodes(
       if (spanDecls.get('font-style')?.trim().toLowerCase() === 'italic') {
         nextInherited.italic = true;
       }
-      const td = (
-        spanDecls.get('text-decoration') ??
-        spanDecls.get('text-decoration-line') ??
-        ''
-      )
+      const td = (spanDecls.get('text-decoration') ?? spanDecls.get('text-decoration-line') ?? '')
         .trim()
         .toLowerCase();
       if (td.includes('underline')) {
@@ -314,12 +307,7 @@ function inferLayerTypeFromElement(
   node: HtmlNode & { tagName: string },
 ): 'text' | 'shape' | 'image' | 'svg' {
   const explicit = getAttr(node, 'data-type')?.trim().toLowerCase();
-  if (
-    explicit === 'text' ||
-    explicit === 'shape' ||
-    explicit === 'image' ||
-    explicit === 'svg'
-  ) {
+  if (explicit === 'text' || explicit === 'shape' || explicit === 'image' || explicit === 'svg') {
     return explicit;
   }
 
@@ -345,7 +333,7 @@ function parseLayer(
     pushWarning(warnings, 'MISSING_ATTRIBUTE', 'Layer is missing data-id', path);
   }
 
-  let id = (rawId || `layer-${index + 1}`).slice(0, LIMITS.document.maxLayerIdLength);
+  const id = (rawId || `layer-${index + 1}`).slice(0, LIMITS.document.maxLayerIdLength);
   if (usedIds.has(id)) {
     throw new DesignError('DUPLICATE_ID', `Duplicate layer id "${id}"`, path);
   }
@@ -382,7 +370,13 @@ function parseLayer(
     styleCtx.dir = dir;
   }
 
-  if (type === 'text' && plainText && containsArabic(plainText) && dir !== 'rtl' && !explicitDirAttr) {
+  if (
+    type === 'text' &&
+    plainText &&
+    containsArabic(plainText) &&
+    dir !== 'rtl' &&
+    !explicitDirAttr
+  ) {
     dir = 'rtl';
     styleCtx.dir = 'rtl';
     pushWarning(
@@ -530,7 +524,11 @@ export function parseDesignHtml(input: string): ParseOutput {
   const height = heightRaw ? parsePx(heightRaw) : null;
 
   if (width === null || height === null) {
-    throw new DesignError('INVALID_DOC', 'Artboard must specify width and height in px', 'artboard');
+    throw new DesignError(
+      'INVALID_DOC',
+      'Artboard must specify width and height in px',
+      'artboard',
+    );
   }
 
   if (
@@ -555,20 +553,22 @@ export function parseDesignHtml(input: string): ParseOutput {
       )
     : { kind: 'solid' as const, color: '#ffffff' };
 
-  const elementChildren = (artboard.childNodes ?? []).filter((child): child is HtmlNode & { tagName: string } => {
-    if (child.nodeName === '#text') {
-      if ((child.value ?? '').trim().length > 0) {
-        pushWarning(
-          warnings,
-          'UNKNOWN_TAG_DROPPED',
-          'Dropped bare text node inside .artboard',
-          'artboard',
-        );
+  const elementChildren = (artboard.childNodes ?? []).filter(
+    (child): child is HtmlNode & { tagName: string } => {
+      if (child.nodeName === '#text') {
+        if ((child.value ?? '').trim().length > 0) {
+          pushWarning(
+            warnings,
+            'UNKNOWN_TAG_DROPPED',
+            'Dropped bare text node inside .artboard',
+            'artboard',
+          );
+        }
+        return false;
       }
-      return false;
-    }
-    return isElement(child);
-  });
+      return isElement(child);
+    },
+  );
 
   if (elementChildren.length > LIMITS.document.maxLayers) {
     throw new LimitExceededError(

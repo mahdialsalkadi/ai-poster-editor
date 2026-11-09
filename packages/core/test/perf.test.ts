@@ -46,7 +46,14 @@ function buildDocument(): DesignDoc {
         type: 'shape',
         height: 90,
         style: {
-          fill: { kind: 'linear', angle: 135, stops: [{ color: '#1e293b', pos: 0 }, { color: '#0f172a', pos: 100 }] },
+          fill: {
+            kind: 'linear',
+            angle: 135,
+            stops: [
+              { color: '#1e293b', pos: 0 },
+              { color: '#0f172a', pos: 100 },
+            ],
+          },
           radius: 12,
           border: { width: 2, style: 'solid', color: '#38bdf8' },
           shadow: { x: 0, y: 8, blur: 24, spread: 0, color: '#00000080' },

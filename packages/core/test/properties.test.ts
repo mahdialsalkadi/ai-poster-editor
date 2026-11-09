@@ -196,16 +196,15 @@ const docArb: fc.Arbitrary<DesignDoc> = fc
     width: input.width,
     height: input.height,
     background: input.background,
-    layers: input.layers.map((layer, index) => ({
-      ...layer,
-      id: `layer${index}`,
-      name: `Layer ${index}`,
-    }))
+    layers: input.layers
+      .map((layer, index) => ({
+        ...layer,
+        id: `layer${index}`,
+        name: `Layer ${index}`,
+      }))
       .map((layer) =>
         layer.type === 'text' &&
-        layer.content.some(
-          (node) => node.kind !== 'br' && /[\u0600-\u06ff]/u.test(node.text),
-        )
+        layer.content.some((node) => node.kind !== 'br' && /[\u0600-\u06ff]/u.test(node.text))
           ? { ...layer, style: { ...layer.style, letterSpacing: 0 } }
           : layer,
       ) as Layer[],

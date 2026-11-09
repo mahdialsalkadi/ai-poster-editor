@@ -110,11 +110,7 @@ export function createMidnightDoc(): DesignDoc {
       textLayer(
         'headline',
         'Headline',
-        [
-          { kind: 'text', text: 'معرض الفنون' },
-          { kind: 'br' },
-          { kind: 'text', text: 'الحديثة' },
-        ],
+        [{ kind: 'text', text: 'معرض الفنون' }, { kind: 'br' }, { kind: 'text', text: 'الحديثة' }],
         {
           fontFamily: 'Cairo',
           fontSize: 118,
@@ -208,11 +204,7 @@ export function createPaperDoc(): DesignDoc {
       textLayer(
         'headline',
         'Headline',
-        [
-          { kind: 'text', text: 'Design' },
-          { kind: 'br' },
-          { kind: 'text', text: 'with intent.' },
-        ],
+        [{ kind: 'text', text: 'Design' }, { kind: 'br' }, { kind: 'text', text: 'with intent.' }],
         {
           fontFamily: 'Playfair Display',
           fontSize: 112,

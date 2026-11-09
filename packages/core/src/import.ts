@@ -1,7 +1,6 @@
 import * as csstree from 'css-tree';
 import * as parse5 from 'parse5';
 import { normalizeColor } from './color.js';
-import { containsForbiddenCss } from './css-guard.js';
 import { DesignError, LimitExceededError } from './errors.js';
 import { containsArabic, fallbackFont, findAllowedFont } from './fonts.js';
 import { LIMITS } from './limits.js';
@@ -239,10 +238,7 @@ function getAttr(node: HtmlNode, name: string): string | undefined {
 function getClasses(node: HtmlNode): string[] {
   const cls = getAttr(node, 'class');
   if (!cls) return [];
-  return cls
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  return cls.trim().split(/\s+/).filter(Boolean);
 }
 
 function hasClass(node: HtmlNode, className: string): boolean {
@@ -251,10 +247,7 @@ function hasClass(node: HtmlNode, className: string): boolean {
 }
 
 function escapeText(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function escapeAttr(value: string): string {
@@ -548,13 +541,18 @@ function computeMergedStyles(
   if (tag === 'blockquote') {
     merged.set('font-style', 'italic');
   }
-  if (tag === 'button' || (tag === 'a' && (hasClass(node, 'btn') || hasClass(node, 'button') || hasClass(node, 'cta')))) {
+  if (
+    tag === 'button' ||
+    (tag === 'a' && (hasClass(node, 'btn') || hasClass(node, 'button') || hasClass(node, 'cta')))
+  ) {
     if (!merged.has('text-align')) merged.set('text-align', 'center');
   }
 
   const matched = rules
     .filter((r) => matchesSelector(node, r.selector))
-    .sort((a, b) => (a.specificity !== b.specificity ? a.specificity - b.specificity : a.order - b.order));
+    .sort((a, b) =>
+      a.specificity !== b.specificity ? a.specificity - b.specificity : a.order - b.order,
+    );
 
   for (const rule of matched) {
     for (const [k, v] of rule.declarations) {
@@ -736,20 +734,8 @@ function resolveLengthToPx(
     const expr = calcMatch[1]!.trim();
     const addSubMatch = /^(.+?)\s*([+-])\s*(.+)$/.exec(expr);
     if (addSubMatch) {
-      const lhs = resolveLengthToPx(
-        addSubMatch[1]!,
-        referenceSize,
-        artboardW,
-        artboardH,
-        fontSize,
-      );
-      const rhs = resolveLengthToPx(
-        addSubMatch[3]!,
-        referenceSize,
-        artboardW,
-        artboardH,
-        fontSize,
-      );
+      const lhs = resolveLengthToPx(addSubMatch[1]!, referenceSize, artboardW, artboardH, fontSize);
+      const rhs = resolveLengthToPx(addSubMatch[3]!, referenceSize, artboardW, artboardH, fontSize);
       if (lhs !== null && rhs !== null) {
         return quantize(addSubMatch[2] === '+' ? lhs + rhs : lhs - rhs);
       }
@@ -960,7 +946,10 @@ function isCssBorderTriangle(styles: ReadonlyMap<string, string>): {
   return { direction: 'left', width: sides.right!.size, height: t + b, color };
 }
 
-function detectNamedShape(node: HtmlNode & { tagName: string }, styles: ReadonlyMap<string, string>): string | null {
+function detectNamedShape(
+  node: HtmlNode & { tagName: string },
+  styles: ReadonlyMap<string, string>,
+): string | null {
   const attrShape = getAttr(node, 'data-shape')?.trim().toLowerCase();
   if (attrShape) return attrShape;
 
@@ -1153,7 +1142,11 @@ function buildShapeSvgInner(
   }
 }
 
-function hasOnlyInlineOrTextChildren(node: HtmlNode, rules: CssRuleEntry[], vars: ReadonlyMap<string, string>): boolean {
+function hasOnlyInlineOrTextChildren(
+  node: HtmlNode,
+  rules: CssRuleEntry[],
+  vars: ReadonlyMap<string, string>,
+): boolean {
   let hasSomeText = false;
   const check = (cur: HtmlNode): boolean => {
     for (const child of cur.childNodes ?? []) {
@@ -1164,7 +1157,14 @@ function hasOnlyInlineOrTextChildren(node: HtmlNode, rules: CssRuleEntry[], vars
       if (!isElement(child)) continue;
       const tag = child.tagName.toLowerCase();
       if (tag === 'br') continue;
-      if (tag === 'img' || tag === 'svg' || tag === 'hr' || tag === 'table' || tag === 'ul' || tag === 'ol') {
+      if (
+        tag === 'img' ||
+        tag === 'svg' ||
+        tag === 'hr' ||
+        tag === 'table' ||
+        tag === 'ul' ||
+        tag === 'ol'
+      ) {
         return false;
       }
       const childStyles = computeMergedStyles(child, rules, vars);
@@ -1283,7 +1283,12 @@ function serializeSvgNode(node: HtmlNode, vars: ReadonlyMap<string, string>): st
   return `<${canonicalTag}${attrs}>${children}</${canonicalTag}>`;
 }
 
-function estimateTextHeight(text: string, width: number, fontSize: number, lineHeight: number): number {
+function estimateTextHeight(
+  text: string,
+  width: number,
+  fontSize: number,
+  lineHeight: number,
+): number {
   const clean = text.trim();
   if (!clean) return Math.ceil(fontSize * lineHeight);
   const explicitLines = clean.split(/\r?\n/);
@@ -1339,7 +1344,9 @@ function inferLayerName(node: HtmlNode & { tagName: string }, fallback: string):
 
 function parseRotationFromTransform(transformRaw: string | undefined): number {
   if (!transformRaw) return 0;
-  const match = /rotate\(\s*([+-]?(?:\d+\.?\d*|\.\d+))(deg|rad|turn|grad)?\s*\)/i.exec(transformRaw);
+  const match = /rotate\(\s*([+-]?(?:\d+\.?\d*|\.\d+))(deg|rad|turn|grad)?\s*\)/i.exec(
+    transformRaw,
+  );
   if (!match) return 0;
   const val = Number.parseFloat(match[1]!);
   if (!Number.isFinite(val)) return 0;
@@ -1415,7 +1422,13 @@ function computeElementBox(
     const v0 = resolveLengthToPx(parts[0], pBox.width, artW, artH, fontSize);
     const v1 = resolveLengthToPx(parts[1] ?? parts[0], pBox.width, artW, artH, fontSize);
     const v2 = resolveLengthToPx(parts[2] ?? parts[0], pBox.height, artW, artH, fontSize);
-    const v3 = resolveLengthToPx(parts[3] ?? parts[1] ?? parts[0], pBox.width, artW, artH, fontSize);
+    const v3 = resolveLengthToPx(
+      parts[3] ?? parts[1] ?? parts[0],
+      pBox.width,
+      artW,
+      artH,
+      fontSize,
+    );
     insetTop = v0;
     insetRight = v1;
     insetBottom = v2;
@@ -1555,9 +1568,7 @@ function buildEnvelopeAttrs(
   const id = nextUniqueId(node, idPrefix, ctx.usedIds, ctx.layerCounter);
   const name = inferLayerName(node, `${nameFallback} ${ctx.layerCounter.value}`);
   const hidden =
-    getAttr(node, 'data-hidden') === 'true' ||
-    getAttr(node, 'hidden') !== undefined ||
-    false;
+    getAttr(node, 'data-hidden') === 'true' || getAttr(node, 'hidden') !== undefined || false;
   const locked = getAttr(node, 'data-locked') === 'true';
 
   const parts = [
@@ -1659,7 +1670,11 @@ function buildShapeLayerHtml(
 
   // Box shadow
   const rawShadow = styles.get('box-shadow');
-  if (rawShadow && rawShadow.trim().toLowerCase() !== 'none' && !rawShadow.toLowerCase().includes('inset')) {
+  if (
+    rawShadow &&
+    rawShadow.trim().toLowerCase() !== 'none' &&
+    !rawShadow.toLowerCase().includes('inset')
+  ) {
     styleParts.push(`box-shadow:${rawShadow.trim()}`);
   }
 
@@ -1795,10 +1810,19 @@ function buildTextLayerHtml(
   styleParts.push(`font-weight:${fontWeight}`);
 
   // Font style & decoration
-  if (styles.get('font-style')?.toLowerCase() === 'italic' || tag === 'i' || tag === 'em' || tag === 'blockquote') {
+  if (
+    styles.get('font-style')?.toLowerCase() === 'italic' ||
+    tag === 'i' ||
+    tag === 'em' ||
+    tag === 'blockquote'
+  ) {
     styleParts.push('font-style:italic');
   }
-  const textDec = (styles.get('text-decoration') ?? styles.get('text-decoration-line') ?? '').toLowerCase();
+  const textDec = (
+    styles.get('text-decoration') ??
+    styles.get('text-decoration-line') ??
+    ''
+  ).toLowerCase();
   if (textDec.includes('underline') || tag === 'u') {
     styleParts.push('text-decoration:underline');
   }
@@ -1810,7 +1834,12 @@ function buildTextLayerHtml(
   // Text align
   const rawAlign = styles.get('text-align')?.toLowerCase();
   let align = dir === 'rtl' ? 'right' : 'left';
-  if (rawAlign === 'left' || rawAlign === 'center' || rawAlign === 'right' || rawAlign === 'justify') {
+  if (
+    rawAlign === 'left' ||
+    rawAlign === 'center' ||
+    rawAlign === 'right' ||
+    rawAlign === 'justify'
+  ) {
     align = rawAlign;
   } else if (rawAlign === 'start') {
     align = dir === 'rtl' ? 'right' : 'left';
@@ -1827,8 +1856,15 @@ function buildTextLayerHtml(
       const pct = Number.parseFloat(rawLh.slice(0, -1));
       if (Number.isFinite(pct) && pct > 0) lineHeight = clampQuantized(pct / 100, 0.5, 5);
     } else if (rawLh.endsWith('px') || rawLh.endsWith('rem') || rawLh.endsWith('em')) {
-      const pxLh = resolveLengthToPx(rawLh, fontSize, ctx.artboardWidth, ctx.artboardHeight, fontSize);
-      if (pxLh !== null && pxLh > 0) lineHeight = clampQuantized(pxLh / Math.max(1, fontSize), 0.5, 5);
+      const pxLh = resolveLengthToPx(
+        rawLh,
+        fontSize,
+        ctx.artboardWidth,
+        ctx.artboardHeight,
+        fontSize,
+      );
+      if (pxLh !== null && pxLh > 0)
+        lineHeight = clampQuantized(pxLh / Math.max(1, fontSize), 0.5, 5);
     } else {
       const num = Number.parseFloat(rawLh);
       if (Number.isFinite(num) && num > 0) lineHeight = clampQuantized(num, 0.5, 5);
@@ -1839,7 +1875,13 @@ function buildTextLayerHtml(
   // Letter spacing
   const rawLs = styles.get('letter-spacing')?.trim();
   if (rawLs && rawLs.toLowerCase() !== 'normal') {
-    const pxLs = resolveLengthToPx(rawLs, fontSize, ctx.artboardWidth, ctx.artboardHeight, fontSize);
+    const pxLs = resolveLengthToPx(
+      rawLs,
+      fontSize,
+      ctx.artboardWidth,
+      ctx.artboardHeight,
+      fontSize,
+    );
     if (pxLs !== null) {
       styleParts.push(`letter-spacing:${clampQuantized(pxLs, -50, 200)}px`);
     }
@@ -1847,7 +1889,12 @@ function buildTextLayerHtml(
 
   // Text transform
   const rawTt = styles.get('text-transform')?.trim().toLowerCase();
-  if (rawTt === 'uppercase' || rawTt === 'lowercase' || rawTt === 'capitalize' || rawTt === 'none') {
+  if (
+    rawTt === 'uppercase' ||
+    rawTt === 'lowercase' ||
+    rawTt === 'capitalize' ||
+    rawTt === 'none'
+  ) {
     styleParts.push(`text-transform:${rawTt}`);
   }
 
@@ -1875,11 +1922,7 @@ function buildImageLayerHtml(
   const attrs = buildEnvelopeAttrs(node, 'image', 'image', 'Image', ctx);
   const styleParts = buildCommonStyleParts(box, rotation, opacity, true);
 
-  const fitRaw = (
-    styles.get('object-fit') ??
-    styles.get('background-size') ??
-    'cover'
-  )
+  const fitRaw = (styles.get('object-fit') ?? styles.get('background-size') ?? 'cover')
     .trim()
     .toLowerCase();
   const fit = fitRaw === 'contain' || fitRaw === 'fill' ? fitRaw : 'cover';
@@ -1899,7 +1942,9 @@ function buildImageLayerHtml(
     if (firstCorner.endsWith('%')) {
       const pct = Number.parseFloat(firstCorner.slice(0, -1));
       if (Number.isFinite(pct) && pct > 0) {
-        styleParts.push(`border-radius:${quantize((Math.min(box.width, box.height) * pct) / 100)}px`);
+        styleParts.push(
+          `border-radius:${quantize((Math.min(box.width, box.height) * pct) / 100)}px`,
+        );
       }
     } else {
       const pxR = resolveLengthToPx(firstCorner, box.width, ctx.artboardWidth, ctx.artboardHeight);
@@ -1908,7 +1953,11 @@ function buildImageLayerHtml(
   }
 
   const rawShadow = styles.get('box-shadow');
-  if (rawShadow && rawShadow.trim().toLowerCase() !== 'none' && !rawShadow.toLowerCase().includes('inset')) {
+  if (
+    rawShadow &&
+    rawShadow.trim().toLowerCase() !== 'none' &&
+    !rawShadow.toLowerCase().includes('inset')
+  ) {
     styleParts.push(`box-shadow:${rawShadow.trim()}`);
   }
 
@@ -1988,12 +2037,21 @@ function emitLayersFromElement(
     const triBox: BoxBox = overrideBox ?? {
       left: quantize(
         ctx.parentBox.left +
-          (resolveLengthToPx(styles.get('left'), ctx.parentBox.width, ctx.artboardWidth, ctx.artboardHeight) ?? 0),
+          (resolveLengthToPx(
+            styles.get('left'),
+            ctx.parentBox.width,
+            ctx.artboardWidth,
+            ctx.artboardHeight,
+          ) ?? 0),
       ),
       top: quantize(
         ctx.parentBox.top +
-          (resolveLengthToPx(styles.get('top'), ctx.parentBox.height, ctx.artboardWidth, ctx.artboardHeight) ??
-            flowCursorY),
+          (resolveLengthToPx(
+            styles.get('top'),
+            ctx.parentBox.height,
+            ctx.artboardWidth,
+            ctx.artboardHeight,
+          ) ?? flowCursorY),
       ),
       width: quantize(cssTriangle.width),
       height: quantize(cssTriangle.height),
@@ -2006,7 +2064,7 @@ function emitLayersFromElement(
       triStyles,
       triBox,
       (ctx.rotation + parseRotationFromTransform(styles.get('transform'))) % 360,
-      ctx.opacity * ( Number.parseFloat(styles.get('opacity') ?? '1') || 1 ),
+      ctx.opacity * (Number.parseFloat(styles.get('opacity') ?? '1') || 1),
       ctx,
     );
     return { layers: [svgLayer], nextFlowY: flowCursorY + triBox.height };
@@ -2053,7 +2111,8 @@ function emitLayersFromElement(
     let targetImgNode: HtmlNode & { tagName: string } = node;
     if (tag === 'picture') {
       const innerImg = (node.childNodes ?? []).find(
-        (c): c is HtmlNode & { tagName: string } => isElement(c) && c.tagName.toLowerCase() === 'img',
+        (c): c is HtmlNode & { tagName: string } =>
+          isElement(c) && c.tagName.toLowerCase() === 'img',
       );
       if (innerImg) targetImgNode = innerImg;
     }
@@ -2063,8 +2122,7 @@ function emitLayersFromElement(
       getAttr(targetImgNode, 'poster') ??
       '';
     const resolvedSrc =
-      registerDataUriAsset(rawSrc, ctx.assets) ??
-      extractBackgroundImageAsset(styles, ctx.assets);
+      registerDataUriAsset(rawSrc, ctx.assets) ?? extractBackgroundImageAsset(styles, ctx.assets);
     if (resolvedSrc) {
       return {
         layers: [
@@ -2094,14 +2152,7 @@ function emitLayersFromElement(
     }
     return {
       layers: [
-        buildShapeLayerHtml(
-          node,
-          placeholderStyles,
-          box,
-          effectiveRotation,
-          effectiveOpacity,
-          ctx,
-        ),
+        buildShapeLayerHtml(node, placeholderStyles, box, effectiveRotation, effectiveOpacity, ctx),
       ],
       nextFlowY: computed.nextFlowY,
     };
@@ -2146,9 +2197,7 @@ function emitLayersFromElement(
       };
     }
     return {
-      layers: [
-        buildShapeLayerHtml(node, styles, box, effectiveRotation, effectiveOpacity, ctx),
-      ],
+      layers: [buildShapeLayerHtml(node, styles, box, effectiveRotation, effectiveOpacity, ctx)],
       nextFlowY: computed.nextFlowY,
     };
   }
@@ -2173,9 +2222,7 @@ function emitLayersFromElement(
       ),
     );
   } else if (hasBox) {
-    emitted.push(
-      buildShapeLayerHtml(node, styles, box, effectiveRotation, effectiveOpacity, ctx),
-    );
+    emitted.push(buildShapeLayerHtml(node, styles, box, effectiveRotation, effectiveOpacity, ctx));
   }
 
   // If element has a CSS background-image, emit an image layer on top of the box
@@ -2189,7 +2236,12 @@ function emitLayersFromElement(
   const isPureInlineText = hasOnlyInlineOrTextChildren(node, ctx.cssRules, ctx.cssVariables);
   if (isPureInlineText) {
     const fontSize =
-      resolveLengthToPx(styles.get('font-size'), box.width, ctx.artboardWidth, ctx.artboardHeight) ??
+      resolveLengthToPx(
+        styles.get('font-size'),
+        box.width,
+        ctx.artboardWidth,
+        ctx.artboardHeight,
+      ) ??
       HEADING_DEFAULTS[tag]?.fontSize ??
       20;
     const pad = parseBoxSides(
@@ -2207,10 +2259,7 @@ function emitLayersFromElement(
       ? {
           left: quantize(box.left + pad.left),
           top: quantize(
-            box.top +
-              (pad.top > 0
-                ? pad.top
-                : Math.max(0, (box.height - fontSize * 1.25) / 2)),
+            box.top + (pad.top > 0 ? pad.top : Math.max(0, (box.height - fontSize * 1.25) / 2)),
           ),
           width: quantize(Math.max(10, box.width - pad.left - pad.right)),
           height: quantize(Math.max(10, box.height - pad.top - pad.bottom)),
@@ -2411,16 +2460,23 @@ function emitLayersFromElement(
         const measured = flowChildren.map((c) => {
           const cs = computeMergedStyles(c, ctx.cssRules, ctx.cssVariables, styles);
           const w =
-            resolveLengthToPx(cs.get('width'), contentBox.width, ctx.artboardWidth, ctx.artboardHeight) ??
-            defaultChildW;
+            resolveLengthToPx(
+              cs.get('width'),
+              contentBox.width,
+              ctx.artboardWidth,
+              ctx.artboardHeight,
+            ) ?? defaultChildW;
           const h =
-            resolveLengthToPx(cs.get('height'), contentBox.height, ctx.artboardWidth, ctx.artboardHeight) ??
-            (alignItems === 'stretch' ? contentBox.height : Math.min(contentBox.height, 80));
+            resolveLengthToPx(
+              cs.get('height'),
+              contentBox.height,
+              ctx.artboardWidth,
+              ctx.artboardHeight,
+            ) ?? (alignItems === 'stretch' ? contentBox.height : Math.min(contentBox.height, 80));
           return { node: c, w, h };
         });
 
-        const totalW =
-          measured.reduce((acc, m) => acc + m.w, 0) + gapPx * (measured.length - 1);
+        const totalW = measured.reduce((acc, m) => acc + m.w, 0) + gapPx * (measured.length - 1);
         let curX = contentBox.left;
         let stepGap = gapPx;
 
@@ -2457,8 +2513,7 @@ function emitLayersFromElement(
           const comp = computeElementBox(c, cs, childCtx, 0);
           return { node: c, w: comp.box.width, h: comp.box.height };
         });
-        const totalH =
-          measured.reduce((acc, m) => acc + m.h, 0) + gapPx * (measured.length - 1);
+        const totalH = measured.reduce((acc, m) => acc + m.h, 0) + gapPx * (measured.length - 1);
         let curY = contentBox.top;
         let stepGap = gapPx;
 
@@ -2511,10 +2566,7 @@ function emitLayersFromElement(
       // Prepend bullet/number to the first text node if not already present
       const firstText = readableText(child);
       if (firstText && !firstText.startsWith('•') && !/^\d+\./.test(firstText)) {
-        child.childNodes = [
-          { nodeName: '#text', value: prefix },
-          ...(child.childNodes ?? []),
-        ];
+        child.childNodes = [{ nodeName: '#text', value: prefix }, ...(child.childNodes ?? [])];
       }
     }
     const res = emitLayersFromElement(child, childCtx, childCursorY);
@@ -2531,11 +2583,10 @@ export function importDesignDocument(
 ): ImportDesignOutput {
   const bytes = new TextEncoder().encode(input).byteLength;
   if (bytes > MAX_IMPORT_BYTES) {
-    throw new LimitExceededError(
-      `Imported HTML exceeds ${MAX_IMPORT_BYTES} bytes`,
-      'import',
-      { bytes, maxBytes: MAX_IMPORT_BYTES },
-    );
+    throw new LimitExceededError(`Imported HTML exceeds ${MAX_IMPORT_BYTES} bytes`, 'import', {
+      bytes,
+      maxBytes: MAX_IMPORT_BYTES,
+    });
   }
 
   const root = parse5.parse(input) as unknown as HtmlNode;
@@ -2557,7 +2608,8 @@ export function importDesignDocument(
 
   const artboardStyles = computeMergedStyles(artboard, cssRules, cssVariables);
 
-  const rawWidth = getAttr(artboard, 'data-width') ?? getAttr(artboard, 'width') ?? artboardStyles.get('width');
+  const rawWidth =
+    getAttr(artboard, 'data-width') ?? getAttr(artboard, 'width') ?? artboardStyles.get('width');
   const rawHeight =
     getAttr(artboard, 'data-height') ?? getAttr(artboard, 'height') ?? artboardStyles.get('height');
 
@@ -2587,7 +2639,13 @@ export function importDesignDocument(
       const arRaw = artboardStyles.get('aspect-ratio');
       if (arRaw) {
         const arParts = arRaw.split('/').map((s) => Number.parseFloat(s.trim()));
-        if (arParts.length === 2 && Number.isFinite(arParts[0]) && Number.isFinite(arParts[1]) && arParts[0]! > 0 && arParts[1]! > 0) {
+        if (
+          arParts.length === 2 &&
+          Number.isFinite(arParts[0]) &&
+          Number.isFinite(arParts[1]) &&
+          arParts[0]! > 0 &&
+          arParts[1]! > 0
+        ) {
           height = quantize((width * arParts[1]!) / arParts[0]!);
         } else if (arParts.length === 1 && Number.isFinite(arParts[0]) && arParts[0]! > 0) {
           height = quantize(width / arParts[0]!);
@@ -2612,7 +2670,9 @@ export function importDesignDocument(
     return null;
   };
   const bodyNode = findBody(root);
-  const bodyStyles = bodyNode ? computeMergedStyles(bodyNode, cssRules, cssVariables) : new Map<string, string>();
+  const bodyStyles = bodyNode
+    ? computeMergedStyles(bodyNode, cssRules, cssVariables)
+    : new Map<string, string>();
 
   const rawArtboardBg =
     artboardStyles.get('background') ??
@@ -2639,15 +2699,7 @@ export function importDesignDocument(
   const usedIds = new Set<string>();
   const layerCounter = { value: 0 };
 
-  const artboardPad = parseBoxSides(
-    artboardStyles,
-    'padding',
-    width,
-    height,
-    width,
-    height,
-    16,
-  );
+  const artboardPad = parseBoxSides(artboardStyles, 'padding', width, height, width, height, 16);
 
   const traversalCtx: TraversalContext = {
     artboardWidth: width,
@@ -2704,8 +2756,7 @@ export function importDesignDocument(
     const savedShadow = artboardStyles.get('box-shadow');
 
     let flowY = 0;
-    const gapPx =
-      resolveLengthToPx(artboardStyles.get('gap'), width, width, height, 16) ?? 0;
+    const gapPx = resolveLengthToPx(artboardStyles.get('gap'), width, width, height, 16) ?? 0;
 
     if (
       artboardDisplay === 'flex' ||
@@ -2718,8 +2769,7 @@ export function importDesignDocument(
         ...artboard,
         tagName: 'div',
         attrs: (artboard.attrs ?? []).filter(
-          (a) =>
-            !['style', 'class', 'id', 'data-type'].includes(a.name.toLowerCase()),
+          (a) => !['style', 'class', 'id', 'data-type'].includes(a.name.toLowerCase()),
         ),
       };
       const layoutOnlyStyles = new Map<string, string>();
@@ -2769,8 +2819,7 @@ export function importDesignDocument(
     }
   } else {
     let flowY = 0;
-    const gapPx =
-      resolveLengthToPx(artboardStyles.get('gap'), width, width, height, 16) ?? 0;
+    const gapPx = resolveLengthToPx(artboardStyles.get('gap'), width, width, height, 16) ?? 0;
     for (const child of artboard.childNodes ?? []) {
       if (!isElement(child)) continue;
       const res = emitLayersFromElement(child, traversalCtx, flowY);

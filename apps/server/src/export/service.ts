@@ -62,11 +62,13 @@ export class ExportService {
     }
 
     const startedAt = Date.now();
-    const rendered = await this.queue.run(() =>
-      renderDesign({ doc, assets, options }),
-    );
+    const rendered = await this.queue.run(() => renderDesign({ doc, assets, options }));
     if (rendered.bytes.byteLength > LIMITS.export.maxResponseBytes) {
-      throw new DesignError('LIMIT_EXCEEDED', 'The export is larger than the response limit', 'export');
+      throw new DesignError(
+        'LIMIT_EXCEEDED',
+        'The export is larger than the response limit',
+        'export',
+      );
     }
 
     counter += 1;

@@ -49,7 +49,11 @@ function nearest(targets: readonly number[], value: number, threshold: number): 
 }
 
 /** Snaps one edge or center to the closest target within `threshold`. */
-export function snapEdge(targets: readonly number[], value: number, threshold: number): number | null {
+export function snapEdge(
+  targets: readonly number[],
+  value: number,
+  threshold: number,
+): number | null {
   return nearest(targets, value, threshold);
 }
 

@@ -160,8 +160,7 @@ export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) 
 
           {overLimit ? (
             <p className="export-error" role="alert">
-              الناتج يتجاوز حد {EXPORT_LIMITS.maxOutputPixels / 1_000_000} ميجابكسل. اختر دقة
-              أقل.
+              الناتج يتجاوز حد {EXPORT_LIMITS.maxOutputPixels / 1_000_000} ميجابكسل. اختر دقة أقل.
             </p>
           ) : null}
 
@@ -180,10 +179,7 @@ export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) 
                   {output.cacheHit ? ' · من الذاكرة المؤقتة' : ` · ${output.durationMs}ms`}
                 </span>
               </div>
-              <Button
-                icon="download"
-                onClick={() => downloadBlob(output.blob, output.filename)}
-              >
+              <Button icon="download" onClick={() => downloadBlob(output.blob, output.filename)}>
                 تنزيل مرة أخرى
               </Button>
             </div>

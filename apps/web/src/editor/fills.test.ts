@@ -34,7 +34,9 @@ describe('gradient helpers', () => {
     const next = insertStop(stops);
     expect(next).toHaveLength(4);
     expect(next.map((stop) => stop.pos)).toContain(62.5);
-    expect(next.map((stop) => stop.pos)).toEqual([...next.map((stop) => stop.pos)].sort((a, b) => a - b));
+    expect(next.map((stop) => stop.pos)).toEqual(
+      [...next.map((stop) => stop.pos)].sort((a, b) => a - b),
+    );
   });
 
   it('reverses a gradient and keeps it sorted', () => {

@@ -283,7 +283,9 @@ export function LeftRail({
           <div className="panel-body">
             {panel === 'templates' ? (
               <div className="templates">
-                <p className="panel-hint">ابدأ من قالب جاهز، ثم عدّل النصوص والألوان. يمكنك التراجع دائماً.</p>
+                <p className="panel-hint">
+                  ابدأ من قالب جاهز، ثم عدّل النصوص والألوان. يمكنك التراجع دائماً.
+                </p>
                 {templates.map((template) => (
                   <button
                     key={template.id}
@@ -305,7 +307,9 @@ export function LeftRail({
 
             {panel === 'elements' ? (
               <div className="elements">
-                <p className="panel-hint">أشكال أساسية تُضاف إلى منتصف اللوحة وتبقى قابلة للتحرير.</p>
+                <p className="panel-hint">
+                  أشكال أساسية تُضاف إلى منتصف اللوحة وتبقى قابلة للتحرير.
+                </p>
                 <div className="elements-grid">
                   {ELEMENT_KINDS.map((kind) => (
                     <button
@@ -421,7 +425,9 @@ export function LeftRail({
 
             {panel === 'layers' ? (
               <div className="layers-panel">
-                <p className="panel-hint">الطبقة الأعلى تظهر أولاً. انقر لتحديد، Shift لتحديد عدة طبقات.</p>
+                <p className="panel-hint">
+                  الطبقة الأعلى تظهر أولاً. انقر لتحديد، Shift لتحديد عدة طبقات.
+                </p>
                 {doc.layers.length === 0 ? (
                   <div className="empty-state">
                     <Icon name="layers" size={28} />

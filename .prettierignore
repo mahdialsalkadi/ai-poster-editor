@@ -1,0 +1,14 @@
+# Dependencies and generated output.
+**/node_modules/
+**/dist/
+**/coverage/
+pnpm-lock.yaml
+
+# Local tooling and captured evidence are not application source.
+tools/
+research/
+screenshots/
+
+# Parser/provider fixtures include byte-exact canonical HTML and golden output.
+# Reformatting them changes test data; update them intentionally with their tests.
+**/test/fixtures/**/*.html

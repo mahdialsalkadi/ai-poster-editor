@@ -15,8 +15,7 @@ export type ExportOutput = {
 };
 
 export type ExportResult =
-  | { ok: true; data: ExportOutput }
-  | { ok: false; message: string; code?: string };
+  { ok: true; data: ExportOutput } | { ok: false; message: string; code?: string };
 
 export type ExportInput = {
   doc: DesignDoc;

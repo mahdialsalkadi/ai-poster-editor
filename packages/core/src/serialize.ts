@@ -8,7 +8,6 @@ import type {
   Layer,
   Shadow,
   ShapeLayer,
-
   SvgNode,
   TextLayer,
 } from './model.js';
@@ -29,9 +28,7 @@ function escapeAttr(value: string): string {
 
 function serializeFill(fill: Fill): string {
   if (fill.kind === 'solid') return fill.color;
-  const stops = fill.stops
-    .map((stop) => `${stop.color} ${formatNumber(stop.pos)}%`)
-    .join(', ');
+  const stops = fill.stops.map((stop) => `${stop.color} ${formatNumber(stop.pos)}%`).join(', ');
   return `linear-gradient(${formatNumber(fill.angle)}deg, ${stops})`;
 }
 

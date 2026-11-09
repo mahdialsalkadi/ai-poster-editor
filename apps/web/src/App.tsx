@@ -188,13 +188,9 @@ function elementLayerFor(doc: DesignDoc, kind: ElementKind): Layer {
     height,
     style: {
       fill:
-        kind === 'ring'
-          ? { kind: 'solid', color: '#00000000' }
-          : { kind: 'solid', color: ACCENT },
+        kind === 'ring' ? { kind: 'solid', color: '#00000000' } : { kind: 'solid', color: ACCENT },
       radius,
-      ...(kind === 'ring'
-        ? { border: { width: 12, style: 'solid' as const, color: ACCENT } }
-        : {}),
+      ...(kind === 'ring' ? { border: { width: 12, style: 'solid' as const, color: ACCENT } } : {}),
     },
   };
   return layer;

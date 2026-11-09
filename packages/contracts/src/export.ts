@@ -27,7 +27,10 @@ export const exportAssetSchema = z.object({
   id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
   mimeType: allowedMimeTypeSchema,
   byteLength: z.number().int().positive().max(LIMITS.assets.maxBytesPerAsset),
-  sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  sha256: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
 });
 
 /**

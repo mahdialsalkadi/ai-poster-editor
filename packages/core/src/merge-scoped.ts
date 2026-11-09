@@ -56,8 +56,7 @@ export function mergeScopedEdit(
   const selectedIndexes = layers
     .map((layer, index) => (selected.has(layer.id) ? index : -1))
     .filter((index) => index >= 0);
-  const insertAt =
-    selectedIndexes.length > 0 ? Math.max(...selectedIndexes) + 1 : layers.length;
+  const insertAt = selectedIndexes.length > 0 ? Math.max(...selectedIndexes) + 1 : layers.length;
 
   const taken = new Set(layers.map((layer) => layer.id));
   const additions: Layer[] = [];
@@ -69,13 +68,7 @@ export function mergeScopedEdit(
       const id = taken.has(patchLayer.id) ? mintId(patchLayer.id, taken) : patchLayer.id;
       taken.add(id);
       additions.push({ ...patchLayer, id });
-      pushWarning(
-        warnings,
-        'MERGE_NEW_LAYER',
-        `Scoped edit added layer ${id}`,
-        `layers.${id}`,
-        id,
-      );
+      pushWarning(warnings, 'MERGE_NEW_LAYER', `Scoped edit added layer ${id}`, `layers.${id}`, id);
       continue;
     }
 
@@ -105,11 +98,7 @@ export function mergeScopedEdit(
     layers[index] = patchLayer;
   }
 
-  const merged = [
-    ...layers.slice(0, insertAt),
-    ...additions,
-    ...layers.slice(insertAt),
-  ];
+  const merged = [...layers.slice(0, insertAt), ...additions, ...layers.slice(insertAt)];
 
   return {
     doc: canonicalizeDoc({ ...base, layers: merged }),

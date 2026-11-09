@@ -4,15 +4,9 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import {
-  normalizeAngle,
-  quantize,
-  type DesignDoc,
-  type Layer,
-} from '@poster/core';
+import { normalizeAngle, quantize, type DesignDoc, type Layer } from '@poster/core';
 import type { UpdateOptions } from '../editor/history.js';
 import { estimatedLayerHeight, replaceTextContent, updateLayers } from '../editor/layers.js';
 import { fillToCss } from '../editor/render.js';
@@ -147,7 +141,10 @@ export function Canvas({
       const rect = stage.getBoundingClientRect();
       // Keep the artboard visible on narrow stages instead of shrinking it to
       // a sliver: the breathing room scales with the smaller stage dimension.
-      const padding = Math.min(104, Math.max(24, Math.round(Math.min(rect.width, rect.height) * 0.12)));
+      const padding = Math.min(
+        104,
+        Math.max(24, Math.round(Math.min(rect.width, rect.height) * 0.12)),
+      );
       const fit = Math.min(
         (rect.width - padding) / doc.width,
         (rect.height - padding) / doc.height,
@@ -403,7 +400,7 @@ export function Canvas({
         const item = doc.layers.find((candidate) => candidate.id === id);
         if (!item) continue;
         const height =
-          'height' in item ? item.height : textHeights[item.id] ?? estimatedLayerHeight(item);
+          'height' in item ? item.height : (textHeights[item.id] ?? estimatedLayerHeight(item));
         starts.set(id, { left: item.left, top: item.top, width: item.width, height });
       }
       beginSession({
@@ -459,9 +456,7 @@ export function Canvas({
   const startResize = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>, handle: Handle, layer: Layer) => {
       const height =
-        'height' in layer
-          ? layer.height
-          : textHeights[layer.id] ?? estimatedLayerHeight(layer);
+        'height' in layer ? layer.height : (textHeights[layer.id] ?? estimatedLayerHeight(layer));
       beginSession({
         kind: 'resize',
         pointerId: event.pointerId,
@@ -491,9 +486,7 @@ export function Canvas({
       const rect = artboardRef.current?.getBoundingClientRect();
       if (!rect) return;
       const height =
-        'height' in layer
-          ? layer.height
-          : textHeights[layer.id] ?? estimatedLayerHeight(layer);
+        'height' in layer ? layer.height : (textHeights[layer.id] ?? estimatedLayerHeight(layer));
       const centerX = rect.left + (layer.left + layer.width / 2) * scale;
       const centerY = rect.top + (layer.top + height / 2) * scale;
       const startAngle =
@@ -589,7 +582,11 @@ export function Canvas({
             />
           ))}
           {showGrid && scale >= 0.28 ? (
-            <div className="canvas-grid" style={{ backgroundSize: '40px 40px' }} aria-hidden="true" />
+            <div
+              className="canvas-grid"
+              style={{ backgroundSize: '40px 40px' }}
+              aria-hidden="true"
+            />
           ) : null}
         </div>
       </div>

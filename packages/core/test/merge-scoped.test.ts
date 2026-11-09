@@ -68,9 +68,7 @@ describe('mergeScopedEdit', () => {
     ]);
     expect(doc.width).toBe(400);
     expect(doc.height).toBe(400);
-    expect(warnings.some((warning) => warning.code === 'MERGE_ARTBOARD_CHANGE_IGNORED')).toBe(
-      true,
-    );
+    expect(warnings.some((warning) => warning.code === 'MERGE_ARTBOARD_CHANGE_IGNORED')).toBe(true);
   });
 
   it('appends new layers at the end when the selection is empty', () => {

@@ -101,7 +101,9 @@ docs/          Design HTML contract and architecture decision records
     data-type="text"
     dir="rtl"
     style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#ffffff;text-align:right;line-height:1.25;letter-spacing:0px"
-  >عنوان رئيسي</div>
+  >
+    عنوان رئيسي
+  </div>
 </div>
 ```
 
@@ -130,18 +132,18 @@ Full details: [`docs/contract.md`](docs/contract.md).
 
 ## Editor shortcuts
 
-| Action | Shortcut |
-| --- | --- |
-| Save now | `Ctrl/Cmd + S` |
-| Open export | `Ctrl/Cmd + E` |
-| Undo / redo | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z` |
-| Duplicate selection | `Ctrl/Cmd + D` |
-| Zoom in / out / fit | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
-| Edit text on canvas | `Enter` or `F2` |
-| Nudge / nudge 10px | arrows / `Shift` + arrows |
-| Delete selection | `Delete` |
-| Shortcut sheet | `?` |
-| Clear selection / close dialog | `Esc` |
+| Action                         | Shortcut                                         |
+| ------------------------------ | ------------------------------------------------ |
+| Save now                       | `Ctrl/Cmd + S`                                   |
+| Open export                    | `Ctrl/Cmd + E`                                   |
+| Undo / redo                    | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z`          |
+| Duplicate selection            | `Ctrl/Cmd + D`                                   |
+| Zoom in / out / fit            | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
+| Edit text on canvas            | `Enter` or `F2`                                  |
+| Nudge / nudge 10px             | arrows / `Shift` + arrows                        |
+| Delete selection               | `Delete`                                         |
+| Shortcut sheet                 | `?`                                              |
+| Clear selection / close dialog | `Esc`                                            |
 
 ## Tests
 
@@ -162,15 +164,15 @@ either: milestone 6 verifies formats, dimensions and self-containment, not visua
 
 ## Milestones
 
-| Milestone | Scope | Status |
-| --- | --- | --- |
-| 1 | `packages/core` contract, parser, serializer, merge, tests | done |
-| 2 | Static rendering, artboard viewport, layers panel, selection | done |
-| 3 | Moveable transforms, snapping, undo/redo | done |
-| 4 | Inline text editing, properties panel | done |
-| 5 | AI provider, prompts, snapshots, daily spend cap | done |
-| 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | done |
-| 7 | Gradient normalization, template gallery, shortcuts, documentation | done |
+| Milestone | Scope                                                              | Status |
+| --------- | ------------------------------------------------------------------ | ------ |
+| 1         | `packages/core` contract, parser, serializer, merge, tests         | done   |
+| 2         | Static rendering, artboard viewport, layers panel, selection       | done   |
+| 3         | Moveable transforms, snapping, undo/redo                           | done   |
+| 4         | Inline text editing, properties panel                              | done   |
+| 5         | AI provider, prompts, snapshots, daily spend cap                   | done   |
+| 6         | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave         | done   |
+| 7         | Gradient normalization, template gallery, shortcuts, documentation | done   |
 
 ## Original work
 
@@ -238,7 +240,9 @@ screenshots/   Visual verification captures for milestone 6 and 7
     data-type="text"
     dir="rtl"
     style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#ffffff;text-align:right;line-height:1.25;letter-spacing:0px"
-  >عنوان رئيسي</div>
+  >
+    عنوان رئيسي
+  </div>
 </div>
 ```
 
@@ -269,18 +273,18 @@ Full details: [`docs/contract.md`](docs/contract.md).
 
 ## Editor shortcuts
 
-| Action | Shortcut |
-| --- | --- |
-| Save now | `Ctrl/Cmd + S` |
-| Open export | `Ctrl/Cmd + E` |
-| Undo / redo | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z` |
-| Duplicate selection | `Ctrl/Cmd + D` |
-| Zoom in / out / fit | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
-| Edit text on canvas | `Enter` or `F2` |
-| Nudge / nudge 10px | arrows / `Shift` + arrows |
-| Delete selection | `Delete` |
-| Shortcut sheet | `?` |
-| Clear selection / close dialog | `Esc` |
+| Action                         | Shortcut                                         |
+| ------------------------------ | ------------------------------------------------ |
+| Save now                       | `Ctrl/Cmd + S`                                   |
+| Open export                    | `Ctrl/Cmd + E`                                   |
+| Undo / redo                    | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z`          |
+| Duplicate selection            | `Ctrl/Cmd + D`                                   |
+| Zoom in / out / fit            | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
+| Edit text on canvas            | `Enter` or `F2`                                  |
+| Nudge / nudge 10px             | arrows / `Shift` + arrows                        |
+| Delete selection               | `Delete`                                         |
+| Shortcut sheet                 | `?`                                              |
+| Clear selection / close dialog | `Esc`                                            |
 
 ## Tests
 
@@ -301,15 +305,15 @@ either: milestone 6 verifies formats, dimensions and self-containment, not visua
 
 ## Milestones
 
-| Milestone | Scope | Status |
-| --- | --- | --- |
-| 1 | `packages/core` contract, parser, serializer, merge, tests | done |
-| 2 | Static rendering, artboard viewport, layers panel, selection | done |
-| 3 | Moveable transforms, snapping, undo/redo | done |
-| 4 | Inline text editing, properties panel | done |
-| 5 | AI provider, prompts, snapshots, daily spend cap | done |
-| 6 | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave | done |
-| 7 | Gradient normalization, template gallery, shortcuts, documentation | done |
+| Milestone | Scope                                                              | Status |
+| --------- | ------------------------------------------------------------------ | ------ |
+| 1         | `packages/core` contract, parser, serializer, merge, tests         | done   |
+| 2         | Static rendering, artboard viewport, layers panel, selection       | done   |
+| 3         | Moveable transforms, snapping, undo/redo                           | done   |
+| 4         | Inline text editing, properties panel                              | done   |
+| 5         | AI provider, prompts, snapshots, daily spend cap                   | done   |
+| 6         | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave         | done   |
+| 7         | Gradient normalization, template gallery, shortcuts, documentation | done   |
 
 All milestones are on the `main` branch: https://github.com/mahdialsalkadi/ai-poster-editor.
 

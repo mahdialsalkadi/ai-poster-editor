@@ -14,12 +14,7 @@ Design HTML document.
 ## 1. Document shape
 
 ```html
-<div
-  class="artboard"
-  data-width="1080px"
-  data-height="1350px"
-  style="background:#0f172a"
->
+<div class="artboard" data-width="1080px" data-height="1350px" style="background:#0f172a">
   <!-- layers in paint order: first is bottom, last is top -->
 </div>
 ```
@@ -29,12 +24,12 @@ The `.artboard` element is required, and the input must be a Design HTML
 `<meta>` or `<link>` is on the banned-tag list. The parser finds the first
 element with class `artboard` inside that fragment.
 
-| Attribute | Required | Meaning |
-| --- | --- | --- |
-| `class` | yes | must contain `artboard` |
-| `data-width` | yes | artboard width, px |
-| `data-height` | yes | artboard height, px |
-| `style` | no | only `background` / `background-color`; other declarations warn |
+| Attribute     | Required | Meaning                                                         |
+| ------------- | -------- | --------------------------------------------------------------- |
+| `class`       | yes      | must contain `artboard`                                         |
+| `data-width`  | yes      | artboard width, px                                              |
+| `data-height` | yes      | artboard height, px                                             |
+| `style`       | no       | only `background` / `background-color`; other declarations warn |
 
 Artboard dimensions must satisfy the limits in §8. `background` accepts a
 solid color or a `linear-gradient(...)`.
@@ -57,34 +52,34 @@ ignored; other text is ignored with a warning.
 </div>
 ```
 
-| Attribute | Required | Rules |
-| --- | --- | --- |
-| `data-id` | yes | `^[A-Za-z][A-Za-z0-9_-]{0,63}$`, unique in the document |
-| `data-layer` | no | display name, max 120 chars; default `Layer N` + warning |
-| `data-type` | yes | `text`, `shape`, `image`, `svg` |
-| `data-hidden` | no | exactly `"true"` hides the layer |
-| `data-locked` | no | exactly `"true"` locks the layer |
-| `data-prompt` | image only | generation prompt metadata |
-| `style` | yes | must include `position:absolute`, `left`, `top`, `width` |
+| Attribute     | Required   | Rules                                                    |
+| ------------- | ---------- | -------------------------------------------------------- |
+| `data-id`     | yes        | `^[A-Za-z][A-Za-z0-9_-]{0,63}$`, unique in the document  |
+| `data-layer`  | no         | display name, max 120 chars; default `Layer N` + warning |
+| `data-type`   | yes        | `text`, `shape`, `image`, `svg`                          |
+| `data-hidden` | no         | exactly `"true"` hides the layer                         |
+| `data-locked` | no         | exactly `"true"` locks the layer                         |
+| `data-prompt` | image only | generation prompt metadata                               |
+| `style`       | yes        | must include `position:absolute`, `left`, `top`, `width` |
 
 Unknown `data-*` attributes are dropped with a warning. Other unknown
 attributes are not part of the contract.
 
 ### 2.1 Common style properties
 
-| Property | Value | Notes |
-| --- | --- | --- |
-| `position` | `absolute` | required |
-| `left`, `top` | px | may be negative, clamped to ±100000 |
-| `width` | px | 1..10000 |
-| `height` | px | required for shape/image/svg; forbidden for text |
-| `transform` | `rotate(<n>deg)` | only rotation; normalized to `[0, 360)` |
-| `opacity` | number | clamped to 0..1 |
-| `background`, `background-color` | color or `linear-gradient(...)` | shape fill / artboard background |
-| `border` | `<width>px <solid\|dashed\|dotted> <color>` | shape/image |
-| `border-radius` | single px value | shape/image |
-| `box-shadow` | `x y blur [spread] color` | shape/image; one shadow only |
-| `text-shadow` | `x y blur color` | text; one shadow only, a fourth length is dropped with a warning |
+| Property                         | Value                                       | Notes                                                            |
+| -------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
+| `position`                       | `absolute`                                  | required                                                         |
+| `left`, `top`                    | px                                          | may be negative, clamped to ±100000                              |
+| `width`                          | px                                          | 1..10000                                                         |
+| `height`                         | px                                          | required for shape/image/svg; forbidden for text                 |
+| `transform`                      | `rotate(<n>deg)`                            | only rotation; normalized to `[0, 360)`                          |
+| `opacity`                        | number                                      | clamped to 0..1                                                  |
+| `background`, `background-color` | color or `linear-gradient(...)`             | shape fill / artboard background                                 |
+| `border`                         | `<width>px <solid\|dashed\|dotted> <color>` | shape/image                                                      |
+| `border-radius`                  | single px value                             | shape/image                                                      |
+| `box-shadow`                     | `x y blur [spread] color`                   | shape/image; one shadow only                                     |
+| `text-shadow`                    | `x y blur color`                            | text; one shadow only, a fourth length is dropped with a warning |
 
 Percentages are not allowed for geometry or font size. They are dropped with a
 `PERCENTAGE_DROPPED` warning. `display`, `float`, margins, padding, `z-index`,
@@ -130,19 +125,19 @@ trimmed. `br` at the start/end and consecutive `br` are collapsed.
 
 ### 3.2 Text style
 
-| Property | Values | Default |
-| --- | --- | --- |
-| `font-family` | one of the 11 allowed fonts | `Inter` (LTR) / `Cairo` (RTL) |
-| `font-size` | px, 1..1000 | 16 |
-| `font-weight` | 100..900, multiples of 100; `normal`/`bold` | 400 |
-| `font-style` | `normal`, `italic` | normal |
-| `text-decoration` | `none`, `underline` | none |
-| `color` | color | `#000000` |
-| `text-align` | `left`, `center`, `right`, `justify`, `start`, `end` | `left` (`start`/`end` resolve by `dir`) |
-| `line-height` | unitless number > 0, or `normal` | 1.2 |
-| `letter-spacing` | px, -100..1000 | 0 |
-| `text-transform` | `none`, `uppercase`, `lowercase`, `capitalize` | none |
-| `text-shadow` | one shadow, no spread | none |
+| Property          | Values                                               | Default                                 |
+| ----------------- | ---------------------------------------------------- | --------------------------------------- |
+| `font-family`     | one of the 11 allowed fonts                          | `Inter` (LTR) / `Cairo` (RTL)           |
+| `font-size`       | px, 1..1000                                          | 16                                      |
+| `font-weight`     | 100..900, multiples of 100; `normal`/`bold`          | 400                                     |
+| `font-style`      | `normal`, `italic`                                   | normal                                  |
+| `text-decoration` | `none`, `underline`                                  | none                                    |
+| `color`           | color                                                | `#000000`                               |
+| `text-align`      | `left`, `center`, `right`, `justify`, `start`, `end` | `left` (`start`/`end` resolve by `dir`) |
+| `line-height`     | unitless number > 0, or `normal`                     | 1.2                                     |
+| `letter-spacing`  | px, -100..1000                                       | 0                                       |
+| `text-transform`  | `none`, `uppercase`, `lowercase`, `capitalize`       | none                                    |
+| `text-shadow`     | one shadow, no spread                                | none                                    |
 
 `dir` is `ltr` or `rtl`. If omitted and the text contains Arabic, the parser
 infers `rtl` and emits `RTL_DIRECTION_INFERRED`. An explicit `dir` is preserved
@@ -199,7 +194,7 @@ with `FONT_FALLBACK`.
   data-prompt="a mountain at sunrise"
   style="position:absolute;left:80px;top:760px;width:920px;height:500px;
          object-fit:cover;object-position:50% 50%;border-radius:24px"
->
+/>
 ```
 
 - `src` must match `^asset:[A-Za-z0-9_-]{1,64}$`. External URLs, `data:`, and
@@ -303,38 +298,38 @@ Rules:
 
 All limits live in `packages/core/src/limits.ts`.
 
-| Area | Limit |
-| --- | --- |
-| Design HTML | 200 KiB |
-| Layers | 200 |
-| Artboard side | 100..5000 px |
-| Artboard pixels | 25,000,000 |
-| Layer id | 64 chars |
-| Layer name | 120 chars |
-| Text per layer | 10,000 codepoints |
-| Inline nodes per layer | 1,000 |
-| Font size | 1..1000 px |
-| Letter spacing | -100..1000 px |
-| Style declarations | 64 per layer |
-| Style attribute | 8 KiB |
-| Gradient stops | 2..6 |
-| SVG depth | 16 |
-| SVG nodes | 2,000 |
-| SVG path | 20,000 chars |
-| SVG attributes/node | 32 |
-| SVG viewBox | 200 chars |
-| Assets | 20 per document |
-| Asset bytes | 10 MiB |
-| Asset dimension | 8000 px |
-| Asset pixels | 40 MP |
-| Total asset pixels | 80 MP |
-| Export | 40 MP, 40 MiB, 15 s, queue 20, concurrency 2 |
-| AI request | 512 KiB body, 128 KiB model output, 60 layers per generation |
-| AI call | 60 s timeout, 1 retry, 16,000 output tokens |
-| AI volume | 5 generations/min/IP (20/hour/session), 10 edits/min/IP |
-| Export/upload volume | 10 exports/min/IP, 20 uploads/min/IP |
-| History | 100 undo steps |
-| Snapshots | 20 per project |
+| Area                   | Limit                                                        |
+| ---------------------- | ------------------------------------------------------------ |
+| Design HTML            | 200 KiB                                                      |
+| Layers                 | 200                                                          |
+| Artboard side          | 100..5000 px                                                 |
+| Artboard pixels        | 25,000,000                                                   |
+| Layer id               | 64 chars                                                     |
+| Layer name             | 120 chars                                                    |
+| Text per layer         | 10,000 codepoints                                            |
+| Inline nodes per layer | 1,000                                                        |
+| Font size              | 1..1000 px                                                   |
+| Letter spacing         | -100..1000 px                                                |
+| Style declarations     | 64 per layer                                                 |
+| Style attribute        | 8 KiB                                                        |
+| Gradient stops         | 2..6                                                         |
+| SVG depth              | 16                                                           |
+| SVG nodes              | 2,000                                                        |
+| SVG path               | 20,000 chars                                                 |
+| SVG attributes/node    | 32                                                           |
+| SVG viewBox            | 200 chars                                                    |
+| Assets                 | 20 per document                                              |
+| Asset bytes            | 10 MiB                                                       |
+| Asset dimension        | 8000 px                                                      |
+| Asset pixels           | 40 MP                                                        |
+| Total asset pixels     | 80 MP                                                        |
+| Export                 | 40 MP, 40 MiB, 15 s, queue 20, concurrency 2                 |
+| AI request             | 512 KiB body, 128 KiB model output, 60 layers per generation |
+| AI call                | 60 s timeout, 1 retry, 16,000 output tokens                  |
+| AI volume              | 5 generations/min/IP (20/hour/session), 10 edits/min/IP      |
+| Export/upload volume   | 10 exports/min/IP, 20 uploads/min/IP                         |
+| History                | 100 undo steps                                               |
+| Snapshots              | 20 per project                                               |
 
 Exceeding a hard limit throws `LimitExceededError` (or a `DesignError` with
 `LIMIT_EXCEEDED`). Values that can be safely clamped are clamped and produce a
@@ -371,20 +366,20 @@ Duplicate layer ids are fatal (`DUPLICATE_ID`), not warnings. The table lists th
 codes the v1 core actually emits; `ASSET_UNRESOLVED` is reserved for the export
 worker in milestone 6 and is not emitted yet.
 
-| Code | Meaning |
-| --- | --- |
-| `UNSUPPORTED_PROPERTY` | declaration/attribute is not part of the contract |
-| `UNSUPPORTED_VALUE` | value is malformed or unsupported |
-| `PERCENTAGE_DROPPED` | percentage used where px is required |
-| `FONT_FALLBACK` | unknown font replaced |
-| `FONT_SCRIPT_MISMATCH` | font lacks Arabic coverage |
-| `SVG_LIMIT` | SVG tag/attribute/node issue |
-| `GRADIENT_LIMIT` | too many stops, truncated |
-| `NUMBER_CLAMPED` | numeric value clamped |
-| `MISSING_ATTRIBUTE` | required metadata absent, default used |
-| `UNKNOWN_TAG_DROPPED` | unsupported HTML/inline tag dropped |
-| `RTL_DIRECTION_INFERRED` | Arabic detected, `dir="rtl"` inferred |
-| `MERGE_*` | merge-specific outcomes |
+| Code                     | Meaning                                           |
+| ------------------------ | ------------------------------------------------- |
+| `UNSUPPORTED_PROPERTY`   | declaration/attribute is not part of the contract |
+| `UNSUPPORTED_VALUE`      | value is malformed or unsupported                 |
+| `PERCENTAGE_DROPPED`     | percentage used where px is required              |
+| `FONT_FALLBACK`          | unknown font replaced                             |
+| `FONT_SCRIPT_MISMATCH`   | font lacks Arabic coverage                        |
+| `SVG_LIMIT`              | SVG tag/attribute/node issue                      |
+| `GRADIENT_LIMIT`         | too many stops, truncated                         |
+| `NUMBER_CLAMPED`         | numeric value clamped                             |
+| `MISSING_ATTRIBUTE`      | required metadata absent, default used            |
+| `UNKNOWN_TAG_DROPPED`    | unsupported HTML/inline tag dropped               |
+| `RTL_DIRECTION_INFERRED` | Arabic detected, `dir="rtl"` inferred             |
+| `MERGE_*`                | merge-specific outcomes                           |
 
 ## 11. Merge contract
 
@@ -487,7 +482,7 @@ layers of HTML and not the asset library.
 The request is `multipart/form-data`:
 
 - `options` — `{ format: 'png' | 'jpeg' | 'pdf' | 'html', scale: 1 | 2 | 3,
-  quality?, idempotencyKey? }`; `scale` is ignored for `pdf` and `html`.
+quality?, idempotencyKey? }`; `scale` is ignored for `pdf` and `html`.
 - `doc` — the `DesignDoc` JSON.
 - one binary part per referenced asset, named by its `asset:` id.
 

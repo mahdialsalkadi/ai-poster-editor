@@ -127,10 +127,7 @@ export function exportRoutes(options: { service: ExportService }) {
       return reply
         .header('content-type', result.contentType)
         .header('content-length', String(result.bytes.byteLength))
-        .header(
-          'content-disposition',
-          `attachment; filename="poster.${EXTENSIONS[result.format]}"`,
-        )
+        .header('content-disposition', `attachment; filename="poster.${EXTENSIONS[result.format]}"`)
         .header('cache-control', 'no-store')
         .header('x-export-id', result.id)
         .header('x-export-width', String(result.width))

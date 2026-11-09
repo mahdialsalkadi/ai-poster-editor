@@ -18,14 +18,7 @@ import { inlineLineCount } from './text.js';
 export type AlignTarget = 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom';
 export type ReorderMove = 'front' | 'back' | 'forward' | 'backward';
 export type ElementKind =
-  | 'rectangle'
-  | 'rounded'
-  | 'circle'
-  | 'line'
-  | 'ring'
-  | 'star'
-  | 'check'
-  | 'arrow';
+  'rectangle' | 'rounded' | 'circle' | 'line' | 'ring' | 'star' | 'check' | 'arrow';
 
 export const ELEMENT_LABELS: Record<ElementKind, string> = {
   rectangle: 'مستطيل',
@@ -75,13 +68,7 @@ export function uniqueLayerId(doc: DesignDoc, base: string): string {
   throw new Error('Could not allocate a unique layer id');
 }
 
-function baseLayer(
-  id: string,
-  name: string,
-  left: number,
-  top: number,
-  width: number,
-): LayerBase {
+function baseLayer(id: string, name: string, left: number, top: number, width: number): LayerBase {
   return {
     id,
     name: clampName(name),
@@ -95,7 +82,11 @@ function baseLayer(
   };
 }
 
-function centerOffset(doc: DesignDoc, width: number, height: number): { left: number; top: number } {
+function centerOffset(
+  doc: DesignDoc,
+  width: number,
+  height: number,
+): { left: number; top: number } {
   const step = (doc.layers.length % 7) * 24;
   return {
     left: (doc.width - width) / 2 + step,
@@ -204,7 +195,11 @@ export function estimatedLayerHeight(layer: Layer): number {
   return Math.max(layer.style.fontSize, layer.style.fontSize * layer.style.lineHeight * lines);
 }
 
-export function alignLayers(doc: DesignDoc, ids: readonly string[], target: AlignTarget): DesignDoc {
+export function alignLayers(
+  doc: DesignDoc,
+  ids: readonly string[],
+  target: AlignTarget,
+): DesignDoc {
   const selected = new Set(ids);
   return updateLayers(doc, ids, (layer) => {
     if (!selected.has(layer.id)) return layer;

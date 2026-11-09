@@ -91,8 +91,16 @@ const TYPE_LABEL: Record<Layer['type'], string> = {
 
 function clampArtboard(width: number, height: number): { width: number; height: number } {
   const maxPixels = LIMITS.document.maxArtboardPixels;
-  let w = clamp(Math.round(width), LIMITS.document.minArtboardSide, LIMITS.document.maxArtboardSide);
-  let h = clamp(Math.round(height), LIMITS.document.minArtboardSide, LIMITS.document.maxArtboardSide);
+  let w = clamp(
+    Math.round(width),
+    LIMITS.document.minArtboardSide,
+    LIMITS.document.maxArtboardSide,
+  );
+  let h = clamp(
+    Math.round(height),
+    LIMITS.document.minArtboardSide,
+    LIMITS.document.maxArtboardSide,
+  );
   if (w * h > maxPixels) {
     const ratio = Math.sqrt(maxPixels / (w * h));
     w = Math.max(LIMITS.document.minArtboardSide, Math.floor(w * ratio));
@@ -101,13 +109,7 @@ function clampArtboard(width: number, height: number): { width: number; height: 
   return { width: w, height: h };
 }
 
-function FillEditor({
-  fill,
-  onChange,
-}: {
-  fill: Fill;
-  onChange: (fill: Fill) => void;
-}) {
+function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => void }) {
   const updateStop = (index: number, patch: { color?: string; pos?: number }) => {
     if (fill.kind !== 'linear') return;
     const stops = fill.stops.map((stop, stopIndex) =>
@@ -165,7 +167,9 @@ function FillEditor({
               />
             </Field>
             <Field label="الألوان">
-              <span className="muted-value">{fill.stops.length} / {LIMITS.gradient.maxStops}</span>
+              <span className="muted-value">
+                {fill.stops.length} / {LIMITS.gradient.maxStops}
+              </span>
             </Field>
           </Row>
           {fill.stops.map((stop, index) => (
@@ -196,7 +200,10 @@ function FillEditor({
               عكس التدرج
             </Button>
             {fill.stops.length < LIMITS.gradient.maxStops ? (
-              <Button icon="plus" onClick={() => onChange({ ...fill, stops: insertStop(fill.stops) })}>
+              <Button
+                icon="plus"
+                onClick={() => onChange({ ...fill, stops: insertStop(fill.stops) })}
+              >
                 إضافة لون
               </Button>
             ) : null}
@@ -277,10 +284,20 @@ function ShadowEditor({
         <>
           <Row cols={3}>
             <Field label="أفقي">
-              <NumberInput value={value.x} min={-500} max={500} onChange={(x) => onChange({ ...value, x })} />
+              <NumberInput
+                value={value.x}
+                min={-500}
+                max={500}
+                onChange={(x) => onChange({ ...value, x })}
+              />
             </Field>
             <Field label="رأسي">
-              <NumberInput value={value.y} min={-500} max={500} onChange={(y) => onChange({ ...value, y })} />
+              <NumberInput
+                value={value.y}
+                min={-500}
+                max={500}
+                onChange={(y) => onChange({ ...value, y })}
+              />
             </Field>
             <Field label="التمويه">
               <NumberInput
@@ -309,10 +326,9 @@ function DocumentPanel({
 }) {
   const setSize = (width: number, height: number) => {
     const next = clampArtboard(width, height);
-    onUpdate(
-      (current) => ({ ...current, width: next.width, height: next.height }),
-      { coalesceKey: 'artboard-size' },
-    );
+    onUpdate((current) => ({ ...current, width: next.width, height: next.height }), {
+      coalesceKey: 'artboard-size',
+    });
   };
 
   return (
@@ -395,13 +411,7 @@ function DocumentPanel({
   );
 }
 
-function LayerHeader({
-  layer,
-  onUpdate,
-}: {
-  layer: Layer;
-  onUpdate: InspectorProps['onUpdate'];
-}) {
+function LayerHeader({ layer, onUpdate }: { layer: Layer; onUpdate: InspectorProps['onUpdate'] }) {
   return (
     <div className="inspector-layer-head">
       <span className={`layer-type layer-type--${layer.type}`}>
@@ -441,7 +451,9 @@ function LayerHeader({
           size="sm"
           active={layer.hidden}
           onClick={() =>
-            onUpdate((doc) => updateLayer(doc, layer.id, (item) => ({ ...item, hidden: !item.hidden })))
+            onUpdate((doc) =>
+              updateLayer(doc, layer.id, (item) => ({ ...item, hidden: !item.hidden })),
+            )
           }
         />
         <IconButton
@@ -450,7 +462,9 @@ function LayerHeader({
           size="sm"
           active={layer.locked}
           onClick={() =>
-            onUpdate((doc) => updateLayer(doc, layer.id, (item) => ({ ...item, locked: !item.locked })))
+            onUpdate((doc) =>
+              updateLayer(doc, layer.id, (item) => ({ ...item, locked: !item.locked })),
+            )
           }
         />
       </div>
@@ -468,7 +482,9 @@ function TransformSection({
   onUpdate: InspectorProps['onUpdate'];
 }) {
   const height = 'height' in layer ? layer.height : estimatedLayerHeight(layer);
-  const patch = (values: Partial<Pick<Layer, 'left' | 'top' | 'width' | 'rotation' | 'opacity'>>) => {
+  const patch = (
+    values: Partial<Pick<Layer, 'left' | 'top' | 'width' | 'rotation' | 'opacity'>>,
+  ) => {
     onUpdate(
       (current) =>
         updateLayer(current, layer.id, (item) => {
@@ -541,11 +557,7 @@ function TransformSection({
         </Field>
       </Row>
       <div className="transform-actions">
-        <Button
-          icon="alignLeft"
-          onClick={() => patch({ left: 0 })}
-          title="محاذاة إلى يسار اللوحة"
-        >
+        <Button icon="alignLeft" onClick={() => patch({ left: 0 })} title="محاذاة إلى يسار اللوحة">
           يسار
         </Button>
         <Button
@@ -603,10 +615,9 @@ function TextSection({
             dir={layer.dir}
             ariaLabel="محتوى النص"
             onChange={(value) =>
-              onUpdate(
-                (doc) => replaceTextContent(doc, layer.id, plainToInline(value)),
-                { coalesceKey: `text-content-${layer.id}` },
-              )
+              onUpdate((doc) => replaceTextContent(doc, layer.id, plainToInline(value)), {
+                coalesceKey: `text-content-${layer.id}`,
+              })
             }
           />
         </Field>
@@ -694,10 +705,7 @@ function TextSection({
           />
         </Field>
         <Field label="لون النص" wide>
-          <ColorInput
-            value={layer.style.color}
-            onChange={(color) => patchStyle({ color })}
-          />
+          <ColorInput value={layer.style.color} onChange={(color) => patchStyle({ color })} />
         </Field>
         <Field label="التحويل" wide>
           <Select
@@ -761,7 +769,10 @@ function ShapeSection({
   return (
     <Section title="الشكل" icon="shape">
       <Field label="التعبئة" wide>
-        <FillEditor fill={layer.style.fill} onChange={(fill) => patchStyle((style) => ({ ...style, fill }))} />
+        <FillEditor
+          fill={layer.style.fill}
+          onChange={(fill) => patchStyle((style) => ({ ...style, fill }))}
+        />
       </Field>
       <Field label="استدارة الزوايا" wide>
         <NumberInput
@@ -901,10 +912,12 @@ function ImageSection({
       <BorderEditor
         value={layer.style.border}
         onChange={(border) =>
-          patchStyle((() => {
-            const { border: _current, ...rest } = layer.style;
-            return border ? { ...rest, border } : rest;
-          })())
+          patchStyle(
+            (() => {
+              const { border: _current, ...rest } = layer.style;
+              return border ? { ...rest, border } : rest;
+            })(),
+          )
         }
       />
       <ShadowEditor
@@ -1058,7 +1071,9 @@ function MultiPanel({
 }) {
   return (
     <Section title={`${selection.length} طبقات محددة`} icon="layers">
-      <p className="panel-hint">تنطبق المحاذاة على حدود اللوحة. التوزيع يحتاج ثلاث طبقات أو أكثر.</p>
+      <p className="panel-hint">
+        تنطبق المحاذاة على حدود اللوحة. التوزيع يحتاج ثلاث طبقات أو أكثر.
+      </p>
       <div className="align-grid">
         <IconButton icon="alignLeft" label="محاذاة يسار" onClick={() => onAlign('left')} />
         <IconButton icon="alignCenter" label="توسيط أفقي" onClick={() => onAlign('centerX')} />
@@ -1068,10 +1083,18 @@ function MultiPanel({
         <IconButton icon="alignBottom" label="محاذاة أسفل" onClick={() => onAlign('bottom')} />
       </div>
       <div className="row">
-        <Button icon="alignJustify" onClick={() => onDistribute('horizontal')} disabled={selection.length < 3}>
+        <Button
+          icon="alignJustify"
+          onClick={() => onDistribute('horizontal')}
+          disabled={selection.length < 3}
+        >
           توزيع أفقي
         </Button>
-        <Button icon="alignMiddle" onClick={() => onDistribute('vertical')} disabled={selection.length < 3}>
+        <Button
+          icon="alignMiddle"
+          onClick={() => onDistribute('vertical')}
+          disabled={selection.length < 3}
+        >
           توزيع رأسي
         </Button>
       </div>

@@ -6,8 +6,18 @@ export const languageSchema = z.enum(['auto', 'ar', 'en']);
 
 export const generateDesignRequestSchema = z.object({
   prompt: z.string().min(3).max(4_000),
-  width: z.number().int().min(LIMITS.document.minArtboardSide).max(LIMITS.document.maxArtboardSide).default(1080),
-  height: z.number().int().min(LIMITS.document.minArtboardSide).max(LIMITS.document.maxArtboardSide).default(1350),
+  width: z
+    .number()
+    .int()
+    .min(LIMITS.document.minArtboardSide)
+    .max(LIMITS.document.maxArtboardSide)
+    .default(1080),
+  height: z
+    .number()
+    .int()
+    .min(LIMITS.document.minArtboardSide)
+    .max(LIMITS.document.maxArtboardSide)
+    .default(1350),
   language: languageSchema.default('auto'),
   style: z.string().max(200).optional(),
 });

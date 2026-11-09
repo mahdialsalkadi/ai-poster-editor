@@ -2,10 +2,7 @@ import { DesignError } from '@poster/core';
 
 export type Prices = { inputPerMTok: number; outputPerMTok: number };
 
-export function estimateCost(
-  tokens: { input: number; output: number },
-  prices: Prices,
-): number {
+export function estimateCost(tokens: { input: number; output: number }, prices: Prices): number {
   return (
     (tokens.input / 1_000_000) * prices.inputPerMTok +
     (tokens.output / 1_000_000) * prices.outputPerMTok

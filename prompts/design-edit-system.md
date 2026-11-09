@@ -84,7 +84,9 @@ Instruction: "Make the headline shorter and change the accent to warm orange."
     data-type="text"
     dir="rtl"
     style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#fb923c;text-align:center;line-height:1.25;letter-spacing:0px"
-  >عنوان أقصر</div>
+  >
+    عنوان أقصر
+  </div>
 </div>
 ```
 

@@ -23,14 +23,7 @@ import type {
   TextTransform,
   Warning,
 } from './model.js';
-import {
-  clamp,
-  clampQuantized,
-  normalizeAngle,
-  parseNumber,
-  parsePx,
-  quantize,
-} from './numbers.js';
+import { clampQuantized, normalizeAngle, parseNumber, parsePx, quantize } from './numbers.js';
 import { pushWarning } from './warnings.js';
 
 export type Declarations = ReadonlyMap<string, string>;
@@ -668,8 +661,9 @@ export function parseFill(raw: string, ctx: StyleContext, property = 'background
   }
 
   // 4. Shorthand background containing a gradient or a solid color token
-  const embeddedGradientMatch =
-    /((?:repeating-)?(?:linear|radial|conic)-gradient\([^)]+\))/i.exec(trimmed);
+  const embeddedGradientMatch = /((?:repeating-)?(?:linear|radial|conic)-gradient\([^)]+\))/i.exec(
+    trimmed,
+  );
   if (embeddedGradientMatch) {
     return parseFill(embeddedGradientMatch[1]!, ctx, property);
   }
@@ -780,9 +774,9 @@ function parseFallbackBorder(declarations: Declarations, ctx: StyleContext): Bor
   const bs = declarations.get('border-style');
   const bc = declarations.get('border-color');
   if (bw || bs || bc) {
-    const firstWidth = bw ? splitTopLevel(bw, ' ')[0] ?? '1px' : '1px';
-    const firstStyle = bs ? splitTopLevel(bs, ' ')[0] ?? 'solid' : 'solid';
-    const firstColor = bc ? splitTopLevel(bc, ' ')[0] ?? '#000000' : '#000000';
+    const firstWidth = bw ? (splitTopLevel(bw, ' ')[0] ?? '1px') : '1px';
+    const firstStyle = bs ? (splitTopLevel(bs, ' ')[0] ?? 'solid') : 'solid';
+    const firstColor = bc ? (splitTopLevel(bc, ' ')[0] ?? '#000000') : '#000000';
     return parseBorder(`${firstWidth} ${firstStyle} ${firstColor}`, ctx);
   }
 
@@ -918,11 +912,7 @@ export function parseShapeStyle(
   const bgRaw = declarations.get('background') ?? declarations.get('background-color');
   const fill: Fill =
     bgRaw !== undefined
-      ? parseFill(
-          bgRaw,
-          ctx,
-          declarations.has('background') ? 'background' : 'background-color',
-        )
+      ? parseFill(bgRaw, ctx, declarations.has('background') ? 'background' : 'background-color')
       : { kind: 'solid', color: '#00000000' };
 
   const border = parseFallbackBorder(declarations, ctx);

@@ -93,10 +93,7 @@ export async function createAssetFromFile(
     if (size.width <= 0 || size.height <= 0) {
       throw new AssetError('BAD_DIMENSIONS', 'أبعاد الصورة غير صالحة');
     }
-    if (
-      size.width > LIMITS.assets.maxDimension ||
-      size.height > LIMITS.assets.maxDimension
-    ) {
+    if (size.width > LIMITS.assets.maxDimension || size.height > LIMITS.assets.maxDimension) {
       throw new AssetError(
         'BAD_DIMENSIONS',
         `أقصى بُعد مسموح للصورة هو ${LIMITS.assets.maxDimension} بكسل`,

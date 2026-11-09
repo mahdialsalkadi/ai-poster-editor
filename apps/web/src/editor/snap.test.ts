@@ -113,7 +113,11 @@ describe('snapBounds', () => {
 
   it('snaps the closest edge rather than the first one in range', () => {
     // Edges are 494, 500 and 506; only the exact centre wins with delta 0.
-    const result = snapBounds({ left: 494, top: 300, width: 12, height: 10 }, { xs: [500], ys: [] }, 6);
+    const result = snapBounds(
+      { left: 494, top: 300, width: 12, height: 10 },
+      { xs: [500], ys: [] },
+      6,
+    );
     expect(result.dx).toBe(0);
     expect(result.guides).toEqual([{ axis: 'x', position: 500 }]);
   });

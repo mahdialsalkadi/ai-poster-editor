@@ -21,7 +21,9 @@ export function Toasts({
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast toast--${toast.tone}`}>
           <Icon
-            name={toast.tone === 'error' ? 'warning' : toast.tone === 'success' ? 'check' : 'sparkles'}
+            name={
+              toast.tone === 'error' ? 'warning' : toast.tone === 'success' ? 'check' : 'sparkles'
+            }
             size={17}
           />
           <span className="toast-message">{toast.message}</span>

@@ -74,7 +74,10 @@ export function buildEditMessages(input: EditPromptInput): AiMessage[] {
     input.instruction.trim(),
   ].join('\n');
 
-  return [{ role: 'system', content: systemPrompt('edit') }, { role: 'user', content: user }];
+  return [
+    { role: 'system', content: systemPrompt('edit') },
+    { role: 'user', content: user },
+  ];
 }
 
 /** Appends the validator's complaint to the last user message for the single retry. */

@@ -1,8 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import {
-  editDesignRequestSchema,
-  generateDesignRequestSchema,
-} from '@poster/contracts';
+import { editDesignRequestSchema, generateDesignRequestSchema } from '@poster/contracts';
 import { DesignError, serializeDesignDoc } from '@poster/core';
 import type { AiRequestContext, AiService } from '../ai/service.js';
 import { requestIdOf } from '../errors.js';

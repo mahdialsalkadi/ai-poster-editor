@@ -12,8 +12,10 @@ import {
 const artboard = (inner: string, width = 400, height = 400): string =>
   `<div class="artboard" data-width="${width}px" data-height="${height}px" style="background:#ffffff">${inner}</div>`;
 
-const shape = (id: string, style = 'position:absolute;left:0px;top:0px;width:1px;height:1px'): string =>
-  `<div data-id="${id}" data-layer="${id}" data-type="shape" style="${style}"></div>`;
+const shape = (
+  id: string,
+  style = 'position:absolute;left:0px;top:0px;width:1px;height:1px',
+): string => `<div data-id="${id}" data-layer="${id}" data-type="shape" style="${style}"></div>`;
 
 describe('document byte limit', () => {
   const base = '<div class="artboard" data-width="400px" data-height="400px"></div>';
@@ -36,16 +38,12 @@ describe('document byte limit', () => {
 
 describe('layer limits', () => {
   it('accepts exactly 200 layers', () => {
-    const html = artboard(
-      Array.from({ length: 200 }, (_, index) => shape(`l${index}`)).join(''),
-    );
+    const html = artboard(Array.from({ length: 200 }, (_, index) => shape(`l${index}`)).join(''));
     expect(parseDesignHtml(html).doc.layers).toHaveLength(200);
   });
 
   it('rejects 201 layers', () => {
-    const html = artboard(
-      Array.from({ length: 201 }, (_, index) => shape(`l${index}`)).join(''),
-    );
+    const html = artboard(Array.from({ length: 201 }, (_, index) => shape(`l${index}`)).join(''));
     expect(() => parseDesignHtml(html)).toThrow(LimitExceededError);
   });
 
@@ -113,9 +111,7 @@ describe('SVG limits', () => {
 
   it('rejects more than 2000 SVG nodes', () => {
     const circle = '<circle cx="1" cy="1" r="1"></circle>';
-    expect(() => parseDesignHtml(artboard(svg(circle.repeat(2001))))).toThrow(
-      LimitExceededError,
-    );
+    expect(() => parseDesignHtml(artboard(svg(circle.repeat(2001))))).toThrow(LimitExceededError);
   });
 
   it('rejects an over-long path', () => {
@@ -135,7 +131,9 @@ describe('number canonicalization', () => {
 
   it('quantizes layer geometry while parsing', () => {
     const doc = parseDesignHtml(
-      artboard(shape('q', 'position:absolute;left:10.004px;top:10.006px;width:20.005px;height:30.014px')),
+      artboard(
+        shape('q', 'position:absolute;left:10.004px;top:10.006px;width:20.005px;height:30.014px'),
+      ),
     ).doc;
     const layer = doc.layers[0] as ShapeLayer;
     expect([layer.left, layer.top, layer.width, layer.height]).toEqual([10, 10.01, 20.01, 30.01]);

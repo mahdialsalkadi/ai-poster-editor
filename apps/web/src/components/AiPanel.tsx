@@ -42,7 +42,9 @@ export function AiPanel({
         <Icon name="sparkles" size={18} />
         <div>
           <strong>توليد تصميم كامل</strong>
-          <p>اكتب وصفاً قصيراً. يعمل المزوّد عندما يضبط الخادم AI_PROVIDER وAI_MODEL وAI_API_KEY.</p>
+          <p>
+            اكتب وصفاً قصيراً. يعمل المزوّد عندما يضبط الخادم AI_PROVIDER وAI_MODEL وAI_API_KEY.
+          </p>
         </div>
       </div>
 
@@ -100,8 +102,8 @@ export function AiPanel({
 
       {lastUsage ? (
         <p className="ai-usage">
-          {lastUsage.model} · {(lastUsage.latencyMs / 1000).toFixed(1)} ث ·{' '}
-          {lastUsage.outputTokens} رمز
+          {lastUsage.model} · {(lastUsage.latencyMs / 1000).toFixed(1)} ث · {lastUsage.outputTokens}{' '}
+          رمز
         </p>
       ) : null}
 
@@ -140,15 +142,13 @@ export function AiPanel({
         }}
         disabled={busy || selectionCount === 0 || instruction.trim().length < 3}
         full
-        title={
-          selectionCount === 0
-            ? 'حدد طبقة أولاً'
-            : 'تعديل التحديد يتطلب مزود AI في M1'
-        }
+        title={selectionCount === 0 ? 'حدد طبقة أولاً' : 'تعديل التحديد يتطلب مزود AI في M1'}
       >
         عدّل التحديد
       </Button>
-      <p className="ai-note">تعديل التحديد يرسل فقط الطبقات المحددة إلى الخادم، مع الحفاظ على ترتيب الطبقات.</p>
+      <p className="ai-note">
+        تعديل التحديد يرسل فقط الطبقات المحددة إلى الخادم، مع الحفاظ على ترتيب الطبقات.
+      </p>
     </div>
   );
 }

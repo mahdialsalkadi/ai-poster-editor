@@ -37,7 +37,9 @@ function reducer(state: HistoryState, action: Action): HistoryState {
 
       const key = action.options.coalesceKey;
       const coalesce =
-        key !== undefined && state.last?.key === key && action.at - state.last.at < COALESCE_WINDOW_MS;
+        key !== undefined &&
+        state.last?.key === key &&
+        action.at - state.last.at < COALESCE_WINDOW_MS;
 
       return {
         past: coalesce
@@ -136,6 +138,16 @@ export function useDocHistory(initial: DesignDoc): DocHistory {
       replace,
       reset,
     }),
-    [state.present, state.past.length, state.future.length, update, commit, undo, redo, replace, reset],
+    [
+      state.present,
+      state.past.length,
+      state.future.length,
+      update,
+      commit,
+      undo,
+      redo,
+      replace,
+      reset,
+    ],
   );
 }

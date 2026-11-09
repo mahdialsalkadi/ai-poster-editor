@@ -47,7 +47,11 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<ApiResult<T>> {
+async function postJson<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<ApiResult<T>> {
   let response: Response;
   try {
     response = await fetch(path, {
@@ -84,9 +88,7 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
         status: response.status,
         code: typeof error.code === 'string' ? error.code : 'INTERNAL_ERROR',
         message:
-          typeof error.message === 'string'
-            ? error.message
-            : `فشل الطلب (${response.status})`,
+          typeof error.message === 'string' ? error.message : `فشل الطلب (${response.status})`,
         ...(typeof error.path === 'string' ? { path: error.path } : {}),
         ...(typeof error.requestId === 'string' ? { requestId: error.requestId } : {}),
       },

@@ -244,9 +244,7 @@ describe('AI service', () => {
     const system = calls[0]?.find((message) => message.role === 'system')?.content ?? '';
     expect(user).toContain('<untrusted_design_data>');
     expect(user).toContain('</untrusted_design_data>');
-    expect(user.indexOf('</untrusted_design_data>')).toBeLessThan(
-      user.indexOf('اجعل لون العنوان'),
-    );
+    expect(user.indexOf('</untrusted_design_data>')).toBeLessThan(user.indexOf('اجعل لون العنوان'));
     expect(system).toContain('selection-scoped');
   });
 
