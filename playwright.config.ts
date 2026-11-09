@@ -12,6 +12,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
   snapshotPathTemplate: '{testDir}/goldens/{arg}{ext}',
+  updateSnapshots: 'none',
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     viewport: { width: 1440, height: 1000 },

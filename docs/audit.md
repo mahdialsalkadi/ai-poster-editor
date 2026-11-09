@@ -1113,3 +1113,18 @@ are excluded from lint/format/git. Initial fixture startup exposed root CommonJS
 module inference; an isolated ESM package marker inside `e2e/` fixes it without
 changing application module semantics. The three editor-flow tests and seven
 storage/canvas tests pass; no retry or selector force bypass was used.
+
+### T1 — Three-design visual regression
+
+Added reviewed 600 × 800, 1× PNG goldens for English/Inter, Arabic/Cairo and SVG
+local gradients. Each comparison uses the real multipart export API and isolated
+Chromium renderer. Tests assert the runner/server Playwright 1.65.0 pins, launched
+Chromium 158.0.8127.18 and output geometry; bundled frozen-lockfile fonts are used.
+Tolerance is a 0.2 per-pixel color threshold with at most 0.3% different pixels.
+
+`pnpm update-goldens` is the explicit update command. Normal runs set
+`updateSnapshots: 'none'`, so missing files cannot silently become passing baselines.
+All three generated PNGs were inspected for readable English, joined/right-aligned
+Arabic and the SVG/checkmark gradient, then `pnpm test:visual` passed all three
+comparisons without updating files. These reference exporter regressions do not
+claim universal editor/export pixel equivalence. Harness typecheck also passes.
