@@ -415,7 +415,8 @@ decisions had already been committed; the tag does not retroactively precede
 those changes or claim a production-ready release. No existing tag was replaced.
 
 Verification: the tag inventory was empty, changelog formatting was checked, and
-the checkpoint contains documentation only. The tag is local and is not pushed.
+the checkpoint contains documentation only. The tag was initially local; its
+subsequent push is recorded in the hosted verification below.
 
 ### Baseline quality gates
 
@@ -442,10 +443,9 @@ Phase 1. Actions are pinned to verified release commit SHAs; token permissions
 are read-only and checkout does not persist credentials. No AI secret is needed.
 
 The README badge now links to this workflow rather than a static passing image.
-**R1 current verdict: workflow implemented, hosted result pending.** Local quality
-checks are recorded above. YAML formatting/syntax and workflow structure are
-checked locally, but GitHub Actions cannot report green on main until these local
-commits are pushed and its runner executes them. No hosted success is claimed.
+At the local review checkpoint, R1 was implemented but still awaiting its hosted
+run. Local YAML/structure and quality checks were not treated as hosted success.
+The completed GitHub Actions verification is recorded below.
 
 Verification: a local TypeScript check parsed the YAML and asserted the triggers,
 Node matrix, pinned actions, permissions, pnpm version, required gates and dynamic
@@ -523,11 +523,32 @@ Final local verification:
 
 Logs are `/tmp/opencode/poster-phase1-final-{build,typecheck,lint,format-check,tests}.log`.
 Local verification still used Node 22.23.1, below the declared minimum; the
-supported Node 22/latest matrix needs its hosted run.
+supported Node 22/latest matrix therefore required the hosted run recorded below.
 
-**Not yet satisfied:** the plan's final "CI green on main" criterion. Commits and
-`v0.1.0` remain local; no push, hosted CI run or deployment has been performed.
-R1 therefore remains pending hosted verification, while R2/R3 are remediated.
-Stop here for owner review before Phase 2. Authentication, durable retry-safe
+At this checkpoint, "CI green on main" was not yet satisfied: commits and the tag
+were local. The owner then authorized the push. Authentication, durable retry-safe
 spend, ownership, renderer containment and the other security/product findings
 are not fixed by Phase 1 and must not be marked green.
+
+### Hosted CI verification — 9 November 2026
+
+With the owner's approval, `main` and the annotated `v0.1.0` checkpoint tag were
+pushed to origin. The tag still points to `3b7ef38`; it was not moved or replaced.
+
+[GitHub Actions run 42573905144](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42573905144)
+completed successfully for `2357f1a9bc9cda76c5f18cfa2e5ddc0c24cc1133` on main.
+Both matrix jobs passed frozen installation, typecheck, lint, formatting,
+Chromium/system dependency installation, all 235 tests and build:
+
+- Node 22 resolved to **22.23.4**, satisfying the manifest's minimum.
+- The latest-Node alias resolved to **27.0.0-alpha.0.0.0**. This is the actual
+  tested prerelease, not a claim to have separately tested a latest-stable alias.
+
+Both jobs still reported the known high-severity Zod advisory. The workflow
+succeeded because that audit step is deliberately advisory in Phase 1; the
+vulnerability was not fixed or waived for public deployment.
+
+**R1 current verdict: remediated, hosted matrix verified. Phase 1 is complete.**
+The badge now reflects a real successful hosted workflow. Logs are retained locally
+at `/tmp/opencode/poster-phase1-github-ci-details.log`, in addition to GitHub's run
+record. Stop for owner review before Phase 2; no deployment has been performed.
