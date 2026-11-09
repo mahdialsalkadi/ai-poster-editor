@@ -946,3 +946,16 @@ Fontsource already supplies the Latin/Arabic woff2 subsets used by both web and
 export. No font binaries or license text were replaced, and no font dependency
 was added. The final build checks all 11 OFL notices in the distribution. Further
 font-bundle reduction is optimization, not an unimplemented subset requirement.
+
+### P4 — Snapshot verification and shared limit
+
+Retained the existing snapshot UI and verified it rather than rebuilding it.
+The 20-entry cap is now the shared browser-local `LIMITS.snapshots.maxEntries`,
+not a misleading server `maxPerProject`. Eviction and insert share one readwrite
+transaction so concurrent tabs cannot race the count. Obscura checks on the
+isolated development origin created 22 snapshots, observed 20 newest-first after
+reopening, reloaded the editor, restored the newest entry through the AI panel,
+confirmed its removal and then reloaded the restored 410 × 410 document. No AI
+provider was called. A second check issued 30 simultaneous snapshot writes and
+confirmed the raw store count was still 20. P4 is verified locally; site-data
+clearing still removes it.

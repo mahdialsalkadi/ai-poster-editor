@@ -73,7 +73,8 @@ export const LIMITS = {
     maxSteps: 100,
   },
   snapshots: {
-    maxPerProject: 20,
+    /** Browser-local pre-edit history, not a server project store. */
+    maxEntries: 20,
   },
   rateLimit: {
     aiGeneratePerMinutePerIp: 5,

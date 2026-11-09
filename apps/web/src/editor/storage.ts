@@ -1,4 +1,5 @@
 import type { AssetEntry } from './assets.js';
+import { LIMITS } from '@poster/core';
 
 /**
  * Uploaded images are kept in IndexedDB so a reload restores the asset library
@@ -10,7 +11,7 @@ const DB_VERSION = 3;
 const STORE = 'assets';
 const SNAPSHOT_STORE = 'snapshots';
 
-export const MAX_SNAPSHOTS = 20;
+export const MAX_SNAPSHOTS = LIMITS.snapshots.maxEntries;
 
 type StoredAsset = {
   id: string;
@@ -173,22 +174,20 @@ export async function saveSnapshotRecord(record: StoredSnapshot): Promise<void> 
   const db = await openDatabase();
   if (!db) return;
   try {
-    const reading = db.transaction(SNAPSHOT_STORE, 'readonly');
-    const readingDone = transactionDone(reading);
-    const existing = await requestResult(
-      reading.objectStore(SNAPSHOT_STORE).getAll() as IDBRequest<StoredSnapshot[]>,
-    );
-    await readingDone;
-    const evict = (existing ?? [])
-      .filter(validSnapshot)
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .slice(0, Math.max(0, (existing?.length ?? 0) + 1 - MAX_SNAPSHOTS));
-
     const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
     const done = transactionDone(tx);
     const store = tx.objectStore(SNAPSHOT_STORE);
-    for (const entry of evict) store.delete(entry.id);
-    store.put(record);
+    const reading = store.getAll() as IDBRequest<StoredSnapshot[]>;
+    reading.onsuccess = () => {
+      const existing = reading.result.filter(
+        (item) => validSnapshot(item) && item.id !== record.id,
+      );
+      const evict = existing
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .slice(0, Math.max(0, existing.length + 1 - MAX_SNAPSHOTS));
+      for (const entry of evict) store.delete(entry.id);
+      store.put(record);
+    };
     await done;
   } catch {
     // Snapshotting is a convenience; a storage failure must not fail the edit.
