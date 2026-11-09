@@ -236,9 +236,9 @@ export class AiService {
   }
 
   /**
-   * Reserves the worst-case cost, calls the provider, validates the output and
-   * retries exactly once with the validator's complaint. Every exit path settles
-   * the reservation with the tokens actually spent.
+   * Reserves an estimate for one attempt, then validates output with at most one
+   * validation retry. Retry cost is not separately reserved yet (contract §12.2).
+   * Settlements use the provider usage accumulated before success/failure.
    */
   private async attempt<T>(
     messages: AiMessage[],

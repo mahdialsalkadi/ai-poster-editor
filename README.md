@@ -180,8 +180,9 @@ release readiness until resolved or explicitly assessed.
   enabled; consecutive blank lines collapse; interface chrome is fixed Arabic/RTL.
 - **Gallery/import:** four designed templates plus a blank, not five finished
   language-balanced layouts. Broader HTML/CSS import is best-effort and lossy.
-- **Configuration:** several advertised export/upload/rate environment variables
-  are not consumed; the constants in `packages/core/src/limits.ts` currently apply.
+- **Configuration:** export/upload/rate limits currently use constants in
+  `packages/core/src/limits.ts`, not environment overrides. The example environment
+  file only lists settings the server actually reads.
 
 See [docs/audit.md](docs/audit.md) for evidence, current verdicts and remaining
 decisions. Work proceeds one phase at a time; Phase 1 repository hygiene does

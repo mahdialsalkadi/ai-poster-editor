@@ -7,6 +7,10 @@ checkpoints; they do not imply approval for public deployment.
 
 ### Changed
 
+- Corrected the contract's obsolete route/milestone notes and unsupported safety
+  claims, documented the separate import boundary and actual PDF conversion, and
+  added a contract changelog. The example environment now describes real state
+  and settings instead of advertising unused limit overrides.
 - Replaced the duplicated README with one loopback-only quick start, accurate
   test/milestone statements, the declared Node requirement and explicit public
   deployment limitations.

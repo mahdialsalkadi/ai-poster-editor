@@ -3,10 +3,11 @@
 Date: 9 November 2026. Baseline: `947349a` on `main` (26 commits).
 Repository: <https://github.com/mahdialsalkadi/ai-poster-editor>.
 
-This verifies the findings in **Completion and Hardening Plan v1.1** against
-the local source and runtime. Application code, dependencies and configuration
-were not changed. No live AI provider was called. Stop here for review before
-Phase 1; nothing below authorizes a public deployment.
+The initial Phase 0 verification checked **Completion and Hardening Plan v1.1**
+against the local source/runtime without changing application code, dependencies
+or configuration. Its findings and citations describe the baseline above.
+Subsequent owner-approved decisions and Phase 1 changes are recorded in the
+follow-ups below. No live AI provider was called; public deployment is not approved.
 
 ## Verdicts
 
@@ -473,3 +474,60 @@ returned HTTP 200 and `status: ok` from `/api/health`. The listener was confirme
 as 127.0.0.1 and shut down after the check. The web dev command's Vite CLI was
 also verified; the MIT/font notice and CI badge checks still pass. Existing
 development servers were not stopped or rebound.
+
+### Contract and configuration cleanup
+
+`docs/contract.md` now distinguishes canonical producer requirements, restricted
+parsing and broader HTML import. It removes stale milestone promises, documents
+implemented edit/export/missing-asset behavior and the upload stub, and corrects
+PDF units, full-document edit prompts, snapshot/cache state, timeout/isolation
+claims and the actual reservation formula. A dated contract changelog records
+documentation corrections without claiming schema/runtime changes.
+
+`.env.example` now states that the server has in-memory state, uses a loopback
+development origin/listener, warns about retry spend, and lists only consumed
+settings. Unused export/upload/rate overrides are described as unsupported rather
+than presented as working controls. The private `.env` was not changed.
+
+Additional current behavior was verified while correcting stale text: default
+text size is 32, unknown inline elements lose their contents, Arabic spacing has
+no dedicated warning, and canonical letter spacing of 500 reparses as 200. The
+last mismatch is an open Phase 3 round-trip/range issue, **not** fixed by this
+documentation task. Font/color/PDF implementations were not replaced.
+
+Verification: a local TypeScript check asserted all listed API routes, removal
+of obsolete claims, valid local documentation links, consumed example settings,
+the README HTML example and those parser behaviors. The CI/badge and MIT/font
+checks also passed. **R3 current verdict: documentation corrected**; original
+source-line citations above continue to describe the Phase 0 baseline at
+`947349a`, not the newly formatted files. Security/product findings remain open.
+
+### Phase 1 review checkpoint
+
+Local implementation of the remaining Phase 1 tasks is complete. The changelog
+and annotated baseline tag exist, licensing is MIT with the OFL notices retained,
+the quality gates pass, the workflow/badge are real, and README/contract/example
+configuration statements have been corrected. The final contract task also
+corrects accounting comments; it does not change accounting behavior.
+
+Final local verification:
+
+- `pnpm install --frozen-lockfile --offline`: passed; no dependency/lockfile change.
+- `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm build`: passed.
+- `pnpm test`: 235 passed (core 163, server 47, web 25).
+- Documentation/workflow/MIT/font checks and the loopback startup smoke: passed.
+- `pnpm audit --prod`: one high-severity Zod advisory, non-blocking only for the
+  Phase 1 CI step; still a public-launch blocker.
+- Git comparisons against `v0.1.0`: byte-exact HTML fixtures, screenshots and
+  `pnpm-lock.yaml` unchanged. No dependency was added and `tools/` remains untouched.
+
+Logs are `/tmp/opencode/poster-phase1-final-{build,typecheck,lint,format-check,tests}.log`.
+Local verification still used Node 22.23.1, below the declared minimum; the
+supported Node 22/latest matrix needs its hosted run.
+
+**Not yet satisfied:** the plan's final "CI green on main" criterion. Commits and
+`v0.1.0` remain local; no push, hosted CI run or deployment has been performed.
+R1 therefore remains pending hosted verification, while R2/R3 are remediated.
+Stop here for owner review before Phase 2. Authentication, durable retry-safe
+spend, ownership, renderer containment and the other security/product findings
+are not fixed by Phase 1 and must not be marked green.

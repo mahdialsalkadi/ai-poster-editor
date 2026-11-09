@@ -1,15 +1,20 @@
 # Design HTML contract (v1)
 
-- **Status:** Normative for `@poster/core` v1
+- **Status:** Canonical schema-v1 contract with current implementation notes
 - **Document version:** `schemaVersion: 1`
 - **Source of truth:** a single Design HTML document
 - **Runtime representation:** `DesignDoc` (`packages/core/src/model.ts`)
 
-This document defines the only HTML/CSS/SVG subset the editor, AI pipeline,
-storage, and export worker may exchange. Anything outside the subset is either
-rejected or dropped with a warning. The parser is deliberately stricter than a
-browser: a document that renders in a browser is not necessarily a valid
-Design HTML document.
+This document defines the canonical HTML/CSS/SVG form exchanged by the AI
+pipeline and core, plus the model used by storage, rendering and export. It
+separates producer requirements from parser/import compatibility behavior.
+Unsupported input can be rejected, dropped, approximated or reported with a
+warning; acceptance does not mean browser-equivalent rendering.
+
+The current application is **not approved for public deployment**. Authentication,
+ownership, spending and export-isolation gaps remain open in [audit.md](audit.md).
+The implementation notes below describe those gaps, not a completed security
+guarantee. The documentation changes do not change `schemaVersion` or runtime code.
 
 ## 1. Document shape
 
@@ -19,20 +24,47 @@ Design HTML document.
 </div>
 ```
 
-The `.artboard` element is required, and the input must be a Design HTML
-**fragment**: a full HTML document is rejected because `<head>` metadata such as
-`<meta>` or `<link>` is on the banned-tag list. The parser finds the first
-element with class `artboard` inside that fragment.
+Canonical output is a Design HTML **fragment** with exactly one `.artboard`.
+`parseDesignHtml` requires exactly one such element and scans the whole input for
+banned tags/attributes. Typical full exported documents are rejected because
+their `<meta>` and `<style>` elements are banned; an outer HTML wrapper alone is
+not the rejection rule. Use `importDesignDocument` for full-document import.
 
-| Attribute     | Required | Meaning                                                         |
-| ------------- | -------- | --------------------------------------------------------------- |
-| `class`       | yes      | must contain `artboard`                                         |
-| `data-width`  | yes      | artboard width, px                                              |
-| `data-height` | yes      | artboard height, px                                             |
-| `style`       | no       | only `background` / `background-color`; other declarations warn |
+| Attribute     | Required | Meaning                                                                |
+| ------------- | -------- | ---------------------------------------------------------------------- |
+| `class`       | yes      | must contain `artboard`                                                |
+| `data-width`  | yes      | artboard width, px                                                     |
+| `data-height` | yes      | artboard height, px                                                    |
+| `style`       | no       | canonical background; CSS size compatibility fallbacks described below |
 
 Artboard dimensions must satisfy the limits in §8. `background` accepts a
 solid color or a `linear-gradient(...)`.
+
+`parseDesignHtml` also accepts artboard CSS `width`/`height` when the data
+attributes are absent, but still requires `px` (or the special unitless zero,
+which fails the artboard minimum). Positive bare numeric data attributes are
+not accepted by this parser yet. Canonical serialization always emits `px`.
+
+### 1.1 Broader HTML import is a separate boundary
+
+The editor calls `importDesignDocument`, not the restricted parser directly,
+when importing files. This path accepts up to 40 MiB of source HTML, extracts
+stylesheet rules/variables without executing scripts, identifies an artboard or
+compatible container, and converts a subset of nested HTML/CSS into positioned
+layers. It approximates normal flow, Flexbox, Grid, lists, tables and compound
+shape/text elements; it can convert some CSS polygons/triangles into SVG.
+
+It resolves a wider set of lengths, can infer missing dimensions, and can
+extract inline image data into assets. Metadata/scripts and unsupported elements
+are discarded rather than receiving the restricted parser's identical rejection
+behavior. External resources are not fetched by the importer. The generated
+fragment is passed to `parseDesignHtml`; image bytes still require independent
+type/dimension validation in the browser and on export. Only PNG/JPEG/WebP are
+supported by the app's image-upload/export policy.
+
+`{ strict: true }` requires an explicit `.artboard` and `px` artboard dimensions;
+it does not turn the importer into a full browser or remove its conversion step.
+Broader import is lossy and has different input limits from canonical interchange.
 
 ## 2. Layer envelope
 
@@ -55,15 +87,20 @@ ignored; other text is ignored with a warning.
 | Attribute     | Required   | Rules                                                    |
 | ------------- | ---------- | -------------------------------------------------------- |
 | `data-id`     | yes        | `^[A-Za-z][A-Za-z0-9_-]{0,63}$`, unique in the document  |
-| `data-layer`  | no         | display name, max 120 chars; default `Layer N` + warning |
+| `data-layer`  | no         | display name, max 120 chars; default `Layer N`           |
 | `data-type`   | yes        | `text`, `shape`, `image`, `svg`                          |
 | `data-hidden` | no         | exactly `"true"` hides the layer                         |
 | `data-locked` | no         | exactly `"true"` locks the layer                         |
 | `data-prompt` | image only | generation prompt metadata                               |
 | `style`       | yes        | must include `position:absolute`, `left`, `top`, `width` |
 
-Unknown `data-*` attributes are dropped with a warning. Other unknown
-attributes are not part of the contract.
+The table specifies what canonical producers must emit. The parser also accepts
+`id`/`data-name` aliases, generates a missing ID, truncates IDs to 64 characters,
+and infers layer type from the element/content when `data-type` is absent.
+Duplicate resulting IDs are fatal. Canonical validation enforces the ID pattern;
+parsing alone is not a substitute for `validateDesignDoc` on untrusted model data.
+Missing left/top coordinates currently default to zero. Unknown metadata is not
+preserved, but not every ignored attribute produces a warning.
 
 ### 2.1 Common style properties
 
@@ -81,10 +118,16 @@ attributes are not part of the contract.
 | `box-shadow`                     | `x y blur [spread] color`                   | shape/image; one shadow only                                     |
 | `text-shadow`                    | `x y blur color`                            | text; one shadow only, a fourth length is dropped with a warning |
 
-Percentages are not allowed for geometry or font size. They are dropped with a
-`PERCENTAGE_DROPPED` warning. `display`, `float`, margins, padding, `z-index`,
-`overflow`, `filter`, `clip-path`, transitions, animations, and CSS variables
-are not supported.
+Canonical lengths are px. Layer length parsing also converts `rem`/`em`/`pt`
+to px; this is not inherited browser layout. Percentage geometry is dropped
+with `PERCENTAGE_DROPPED` and can then fail required-width/height checks.
+Font-size percentages are unsupported. Rotation parsing accepts deg/rad/turn/grad
+and keeps a rotation, not arbitrary transform composition.
+
+`display`, float, layout margins/padding, z-index, overflow, filters, clipping,
+transitions, animations and CSS variables are not represented in `DesignDoc`.
+Some are recognized and silently omitted by the restricted parser; broader
+import (§1.1) can approximate selected layouts before producing canonical layers.
 
 ## 3. Text layers
 
@@ -103,7 +146,8 @@ are not supported.
 </div>
 ```
 
-Text height is automatic. A `height` declaration is dropped with a warning.
+Text height is automatic. An input `height` is not retained on the text layer;
+the current parser does not guarantee a warning when omitting it.
 
 ### 3.1 Inline content
 
@@ -118,7 +162,12 @@ Allowed inline nodes:
 - `<u>` (underline);
 - `<p>` and `<div>` inside a text layer are treated as line breaks.
 
-Unknown inline tags are unwrapped with an `UNKNOWN_TAG_DROPPED` warning.
+Compatibility input also accepts `ins` (underline), `mark` (bold), `cite`/`q`
+(italic), and the content of `small`, `code`, `a` without href, `label`, `sub`,
+`sup` and `time`. These normalize to the same text/span/break model; subscript,
+superscript and other browser-specific inline layout are not retained.
+Unknown inline elements and their contents are dropped with
+`UNKNOWN_TAG_DROPPED`, not generally unwrapped by `parseDesignHtml`.
 Whitespace is normalized: CRLF becomes LF, then runs of spaces/tabs/newlines
 collapse to one space. Leading/trailing spaces at the layer boundary are
 trimmed. `br` at the start/end and consecutive `br` are collapsed.
@@ -128,7 +177,7 @@ trimmed. `br` at the start/end and consecutive `br` are collapsed.
 | Property          | Values                                               | Default                                 |
 | ----------------- | ---------------------------------------------------- | --------------------------------------- |
 | `font-family`     | one of the 11 allowed fonts                          | `Inter` (LTR) / `Cairo` (RTL)           |
-| `font-size`       | px, 1..1000                                          | 16                                      |
+| `font-size`       | px, 1..1000                                          | 32                                      |
 | `font-weight`     | 100..900, multiples of 100; `normal`/`bold`          | 400                                     |
 | `font-style`      | `normal`, `italic`                                   | normal                                  |
 | `text-decoration` | `none`, `underline`                                  | none                                    |
@@ -144,8 +193,14 @@ infers `rtl` and emits `RTL_DIRECTION_INFERRED`. An explicit `dir` is preserved
 by canonicalization.
 
 If Arabic text is paired with a Latin-only font, the parser substitutes an
-Arabic-capable font and emits `FONT_SCRIPT_MISMATCH`. `letter-spacing` on Arabic
-text is accepted but warns because it can break cursive joining.
+Arabic-capable font and emits `FONT_SCRIPT_MISMATCH`. Arabic letter spacing is
+currently accepted without a dedicated warning and the UI does not disable it;
+avoid nonzero spacing because it can break cursive joining.
+
+The parser also accepts keyword font sizes and converts supported relative
+lengths to px. It normalizes percentage/px line height to a multiplier. Current
+text parsing clamps line height to 0.5..5 and letter spacing to -50..200, which is
+narrower than some canonical model values; see the round-trip qualification in §7.
 
 ### 3.3 Allowed fonts
 
@@ -181,6 +236,14 @@ with `FONT_FALLBACK`.
 - `box-shadow`: x, y, blur (>=0), optional spread, color. `inset` is rejected
   with a warning.
 - Height is required.
+
+Compatibility parsing takes the first radius from multi-corner shorthand,
+converts a percentage radius using the box size, and reduces border longhands,
+directional borders or an outline to one uniform border. Some noncanonical border
+styles become solid. Only the first shadow is retained; inset shadows are dropped.
+Repeating gradients lose repetition, and radial/conic CSS gradients can be
+approximated as linear gradients. These are lossy conversions, not new canonical
+fill types. Producers should use explicit canonical values instead.
 
 ## 5. Image layers
 
@@ -275,11 +338,12 @@ the same design must serialize to the same bytes.
 
 Rules:
 
-1. **Colors** become lowercase `#rrggbb` or `#rrggbbaa`. Eight keywords
-   (`transparent`, `black`, `white`, `red`, `green`, `blue`, `gray`, `grey`),
-   `rgb()`, `rgba()`, `hsl()`, and `hsla()` are accepted at parse time and converted.
-   Every other CSS keyword (e.g. `rebeccapurple`) is dropped with
-   `UNSUPPORTED_VALUE` and the fill falls back to transparent black.
+1. **Colors** become lowercase `#rrggbb` or `#rrggbbaa`. The expanded named-color
+   table in `packages/core/src/color.ts` includes `orange`, `gold`, `navy` and
+   `rebeccapurple`; supported hex, `rgb()`/`rgba()` and `hsl()`/`hsla()` input is
+   converted too. Unsupported text colors warn and use opaque `#000000`;
+   unsupported shape fills warn and use transparent black. Such warnings do not
+   currently trigger an AI retry. Direct invalid model colors fail canonicalization.
 2. **Numbers** are rounded to two decimals with a stable epsilon; `-0` becomes
    `0`. Angles are normalized to `[0, 360)`.
 3. **Geometry** is clamped to the limits. `width`/`height` are at least 1.
@@ -294,9 +358,17 @@ Rules:
 9. **Round trip**: `parse(serialize(doc))` equals `canonicalizeDoc(doc)` and
    `serialize(parse(serialize(doc)))` is byte-identical.
 
+Rule 9 is the required invariant and is tested for the generated supported-domain
+documents and fixtures. It is not yet established across every model value:
+current text parsing clamps some line-height/letter-spacing values more narrowly
+than canonicalization. Canonicalization can also clamp without producing parser
+warnings. Do not infer full boundary coverage from the current property tests.
+
 ## 8. Limits
 
-All limits live in `packages/core/src/limits.ts`.
+Configured limits live in `packages/core/src/limits.ts`. The table includes
+intended ceilings; enforcement gaps are called out below rather than treating
+every constant as a working guard.
 
 | Area                   | Limit                                                        |
 | ---------------------- | ------------------------------------------------------------ |
@@ -331,18 +403,31 @@ All limits live in `packages/core/src/limits.ts`.
 | History                | 100 undo steps                                               |
 | Snapshots              | 20 per project                                               |
 
-Exceeding a hard limit throws `LimitExceededError` (or a `DesignError` with
-`LIMIT_EXCEEDED`). Values that can be safely clamped are clamped and produce a
-`NUMBER_CLAMPED` warning.
+Enforced hard limits throw `LimitExceededError` (or a `DesignError` with
+`LIMIT_EXCEEDED`). Parser clamping may produce `NUMBER_CLAMPED`; model
+canonicalization can clamp silently. Current qualifications include:
+
+- The Fastify JSON body limit is 1 MiB, not a route-specific 512 KiB AI-body
+  ceiling. AI prompt/output and parsed Design HTML checks occur separately.
+- The 8 KiB style constant and 80 MP aggregate-asset constant do not have complete
+  enforcement in the reviewed paths. Per-image pixel limits do not enforce an
+  aggregate budget.
+- Export/upload per-IP rate constants are not wired to route limiters. Generation
+  and editing do have the AI limiters described in §12.2.
+- Export's 15 seconds is currently per rendering operation, not a total deadline
+  including queue wait and browser launch. Queue-full currently maps to HTTP 413,
+  not the planned 429.
+- Image side dimensions are checked after decode/re-encode, not header-only
+  before decoding. Snapshot limits are per project, not a global byte/count cap.
 
 ## 9. Security boundary
 
-Rejected with `SecurityViolationError`:
+The restricted HTML/SVG parser rejects these security constructs:
 
 - banned HTML tags: `script`, `style`, `link`, `iframe`, `form`, `input`,
   `button`, `textarea`, `select`, `option`, `object`, `embed`, `meta`, `base`,
   `template`, `video`, `audio`, `source`, `track`, `math`, `foreignObject`,
-  `use`, `image`;
+  `use`, `image`, `applet`;
 - every `on*` event attribute;
 - `href`, `xlink:href`, `srcset`, `action`, `formaction`, `poster`;
 - any `src` that is not an `asset:` reference, including protocol-relative
@@ -351,20 +436,26 @@ Rejected with `SecurityViolationError`:
   including escaped forms (`\75rl(`, `u\72l(`) and mixed case (`URL(`);
 - CSS `behavior`, `-moz-binding`;
 - SVG scripts, external references, event attributes, `href`, `style`;
-- duplicate layer ids;
-- invalid ids, invalid `asset:` ids, invalid SVG ids.
+- invalid `asset:` references and invalid SVG IDs.
 
-The parser never executes scripts, loads external resources, or writes to the
-DOM. It is safe to run on untrusted AI output in the server process. The web
-renderer must still sanitize/validate before rendering; it should render from
-`DesignDoc`, not by injecting Design HTML into `innerHTML`.
+Duplicate layer IDs fail with `DUPLICATE_ID`, not `SecurityViolationError`.
+Canonical model validation enforces layer-ID syntax; the HTML parser's metadata
+compatibility behavior is described in §2. Errors for malformed IDs and other
+validation failures are not all security-violation errors.
+
+The parser does not execute scripts, load resources or write to the DOM. This
+does not prove resource isolation or eliminate the need to validate parsed model
+data, apply API limits and address dependency advisories. The web renders React
+children and validated SVG nodes from `DesignDoc`; it does not inject Design HTML
+with `innerHTML`. App CSP and public-service containment remain unimplemented.
+The importer (§1.1) has a different dropping/conversion policy from this parser.
 
 ## 10. Warnings
 
 Warnings are non-fatal. Each has `{ code, message, path, layerId?, severity }`.
-Duplicate layer ids are fatal (`DUPLICATE_ID`), not warnings. The table lists the
-codes the v1 core actually emits; `ASSET_UNRESOLVED` is reserved for the export
-worker in milestone 6 and is not emitted yet.
+Duplicate layer IDs are fatal (`DUPLICATE_ID`), not warnings. The table lists
+core warning codes. `ASSET_UNRESOLVED` is an implemented export error for a missing
+referenced image, not a parser warning or a future milestone placeholder.
 
 | Code                     | Meaning                                           |
 | ------------------------ | ------------------------------------------------- |
@@ -393,26 +484,28 @@ AI edits are patches, not full replacements.
 - rejects a type change for an existing id (`MERGE_TYPE_CHANGE_IGNORED`);
 - ignores layers outside `selectedLayerIds` (`MERGE_IGNORED_UNSELECTED`);
 - appends new layers only when `allowNewLayers` is true
-  (`MERGE_NEW_LAYER`), otherwise ignores them;
+  (`MERGE_NEW_LAYER`), otherwise ignores them with `MERGE_IGNORED_UNSELECTED`;
 - ignores artboard size/background unless `allowArtboardChanges` is true
   (`MERGE_ARTBOARD_CHANGE_IGNORED`);
-- reports duplicate patch ids and keeps the first (`MERGE_DUPLICATE_ID`).
+- rejects duplicate input IDs during canonicalization. Its later
+  `MERGE_DUPLICATE_ID` guard is defensive, not a promise to accept malformed patches.
 
 The result is canonicalized again. Invalid patch input throws before merging.
 
 ### 11.1 Selection-scoped edits
 
-`mergeScopedEdit(baseDoc, aiOutputHtml, selectedLayerIds)` is the path the AI
-editor uses. For a scoped edit the model never receives the whole document: it
-receives only the selected layers plus the artboard size, and it must answer
+`mergeScopedEdit(baseDoc, aiOutputHtml, selectedLayerIds)` is the path used by
+`POST /api/ai/edit`. The current service sends the whole serialized base document
+inside an untrusted-data block, with selected IDs supplied separately. Scope is
+enforced at merge time; it is not prompt-data minimization. The model must answer
 with a full `.artboard` wrapper carrying the same `data-width` and `data-height`
-and containing only the layers it returns. That wrapper is what makes the
-answer parseable by `parseDesignHtml` before any merge happens.
+and only the changed/allowed layers. The wrapper makes the answer parseable
+before merging.
 
 Rules:
 
-- The AI output is parsed and validated first. A security violation, a limit
-  breach or an invalid document throws before the base document is touched.
+- The AI output is parsed first and the merged model is canonicalized before
+  application. Rejected input never partially writes back to the base document.
 - Unselected layers keep their content, geometry and z-order. A returned layer
   outside the selection is ignored with `MERGE_IGNORED_UNSELECTED`.
 - A returned layer whose `data-id` matches a selected layer replaces it in
@@ -433,8 +526,9 @@ Rules:
   again before it is returned.
 
 `mergeDesignDoc` remains available for whole-design patches and for the
-`/api/design/merge` route. `POST /api/ai/edit` will expose the scoped path in
-milestone 5.
+`/api/design/merge` route. The AI service rejects unknown IDs before merging when
+`allowNewLayers` is false; the lower-level scoped merge function itself accepts
+new layers as described above.
 
 ## 12. API boundary
 
@@ -445,11 +539,20 @@ The contracts package defines request/response schemas and error envelopes:
 - `POST /api/design/merge` — base + patch + selection -> merged document
 - `POST /api/ai/generate` — prompt -> Design HTML
 - `POST /api/ai/edit` — instruction + selection -> patch -> merge
-- `POST /api/assets` — image upload -> `asset:<id>`
-- `POST /api/export` — `{ doc, assets }` -> PNG/JPEG at 1x/2x/3x, PDF at
-  artboard size, or standalone HTML (milestone 6; returns
-  `UNSUPPORTED_FEATURE` today)
+- `GET /api/ai/snapshots/:id` — retrieve an in-memory pre-edit snapshot
+- `POST /api/assets` — currently a stub returning `UNSUPPORTED_FEATURE` (HTTP 422);
+  the editor uploads/stores images locally instead
+- `GET /api/assets/limits` — supported image types and per-image limits
+- `POST /api/export` — implemented multipart `options` + `doc` + image parts ->
+  PNG/JPEG at 1x/2x/3x, native PDF or standalone HTML
 - `GET /api/export/limits` — the export limits below
+- `GET /api/health` — process health, version and selected configured limits
+
+These routes currently have no authentication. `PUBLIC_ORIGIN` restricts CORS
+when set, but CORS is not access control; without it the server reflects origins.
+There is no configured trusted-proxy policy. AI session/project identity is
+caller-supplied `x-session-id`/`x-project-id`, defaulting to request IP/`default`.
+The web currently sends neither identifier. Public deployment remains blocked.
 
 Every non-2xx response uses the error envelope:
 
@@ -466,87 +569,110 @@ Every non-2xx response uses the error envelope:
 
 ### 12.1 Export contract
 
-> **Milestone 6 — implemented.** `packages/contracts/src/export.ts`
-> holds the final request schema (four formats, scale 1/2/3, assets and an
-> idempotency key). `POST /api/export` accepts the multipart request below
-> through `@fastify/multipart`, validates the document before reading asset
-> bytes, renders it and returns the bytes with `x-export-*` metadata headers.
+`packages/contracts/src/export.ts` defines four formats, scale 1/2/3 and an optional
+idempotency key. `POST /api/export` accepts the multipart request below through
+`@fastify/multipart`, validates the document before copying asset file parts, and
+returns output bytes with `x-export-*` metadata headers. This implemented route
+is distinct from the unsupported standalone upload route.
 
 **Input.** The client sends the canonical `DesignDoc`, never Design HTML: the
 editor already holds the document, and a serialize/reparse cycle would let a
 lossy round-trip change the design on the way to the renderer. Alongside the
-document the client sends **only the image bytes the document references** —
-a document with 3 images on a 400-layer artboard uploads 3 files, not 400
-layers of HTML and not the asset library.
+document the client sends **only the image bytes its visible image layers
+reference**, not the full asset library. The document still has the 200-layer
+limit; the transport does not remove that ceiling.
 
 The request is `multipart/form-data`:
 
-- `options` — `{ format: 'png' | 'jpeg' | 'pdf' | 'html', scale: 1 | 2 | 3,
-quality?, idempotencyKey? }`; `scale` is ignored for `pdf` and `html`.
+- `options` — JSON with `format` (`png`, `jpeg`, `pdf`, `html`), `scale` (1, 2, 3),
+  optional JPEG `quality` (0.1..1, default 0.92), and optional `idempotencyKey`
+  (8..128 characters). PDF/HTML ignore scale.
 - `doc` — the `DesignDoc` JSON.
-- one binary part per referenced asset, named by its `asset:` id.
+- one binary part per referenced asset, named `asset:<id>` (bare IDs are accepted
+  too). Send the `options` and `doc` fields before file parts.
 
 A referenced asset with no part fails `ASSET_UNRESOLVED`; a part for an
 unreferenced id is ignored. The document is canonicalized and validated
-before any asset byte is read. Repeated requests with the same
-`idempotencyKey` return the stored result instead of rendering again.
+before file parts are copied into request buffers. Repeated requests with the
+same `idempotencyKey` return a stored result instead of rendering again. The
+current cache is global to the service, FIFO-bounded to 20 entries, memory-only,
+and has no TTL, aggregate byte budget, caller scope or request-content match.
+Another caller reusing a key can receive the original caller's result. This is
+an open security defect, not the intended public API ownership policy.
 
 **Asset re-validation.** Supplied bytes are never trusted. For each asset the
-server sniffs the real type with `file-type` (`image/png`, `image/jpeg` or
-`image/webp` only; the declared MIME type is ignored), compares the header
-dimensions and pixel count with the asset limit, and decodes and re-encodes
-the image with `sharp`. A failure is `INVALID_DOC` with `path: assets.<id>`.
-Only the re-encoded buffer reaches the renderer, so a polyglot file or a
-decompression bomb is rejected before rendering starts.
+server checks bytes, sniffs the real type with `file-type` (`image/png`,
+`image/jpeg` or `image/webp`; declared MIME is ignored), then decodes/re-encodes
+to PNG with `sharp` and an input-pixel guard. Side dimensions are checked on the
+decoded output, not with a pre-decode header check. Only re-encoded bytes reach
+the renderer, but this does not establish rejection of every polyglot or bomb.
+Malformed/unsupported bytes fail `INVALID_DOC`; byte/dimension/pixel-limit failures
+can be `LIMIT_EXCEEDED`. Errors identify `assets.<id>`.
 
 **Serialization.** `serializeForExport(doc, assets)` produces one
 self-contained HTML document: hidden layers are omitted, every `asset:<id>`
 becomes an inline `data:` URI of the re-encoded bytes, and the allowed fonts
-are embedded as `@font-face` rules with inline woff2 data URIs. The result
+are embedded as `@font-face` rules with available Arabic/Latin 400/700 woff2
+subsets (some families have only 400). The result
 has no external reference of any kind and is the only thing the renderer
 receives — never the editor DOM, never the asset URLs.
 
-**Rendering.** Playwright renders in an isolated context: strict CSP
-(`default-src 'none'`, inline styles/fonts/images only), no network, no
-`--no-sandbox` override, one fresh context per request, and the worker process
-is killed after `LIMITS.export.timeoutMs`. The page is the serialized HTML
-above; the renderer waits for `document.fonts.ready` before capturing.
+**Rendering.** Playwright uses a shared Chromium instance with a fresh context
+per request: document JavaScript is disabled, service workers are blocked and
+the context is offline. The exported document has CSP `default-src 'none'` with
+inline styles and data fonts/images. Trusted driver evaluation still runs to
+wait for `document.fonts.ready`; "JavaScript-free" does not mean all evaluation
+is disabled.
+
+This is not yet a hardened worker boundary. Launch does not explicitly scrub
+the environment or enable Chromium's sandbox; installed Playwright defaults add
+`--no-sandbox` unless enabled. No abort-all request interception, container egress
+denial or CPU/memory limits are configured. A per-operation timeout rejects and
+closes the context; it does not kill the process tree or bound queue/launch time.
+Required deployment-level containment is pending Phase 2.
 
 **Output.**
 
-- `png` / `jpeg`: exactly artboard size x `scale` in integer pixels, so 1x, 2x
-  and 3x are reproducible. `jpeg` flattens onto the artboard background and
-  honours `quality` (default 0.92).
-- `pdf`: one page whose size equals the artboard size in points, no margins
-  and no scaling; the page is rendered at 2x and placed at 1x so text stays
-  sharp.
+- `png` / `jpeg`: artboard size x `scale` in pixels. JPEG has no alpha channel
+  and Chromium flattens transparency; `quality` defaults to 0.92.
+- `pdf`: Chromium's native vector PDF, one page, no margins, with **1 CSS px =
+  0.75 pt** (subject to Chromium page-size rounding), not one point per artboard
+  pixel. It is not a raster screenshot placed in a PDF. Device scale factor 2
+  does not change that physical page-size conversion. A 794x1123 document was
+  measured at 595.92x842.88 pt with extractable text and an embedded Inter font.
+  The actual UI A4 preset is 2480x3508 and therefore exports too large physically;
+  preset/PDF sizing is an open correctness issue.
 - `html`: the `serializeForExport` document itself, served as
   `text/html; charset=utf-8` for download. It is a self-contained copy, not
-  Design HTML: `parseDesignHtml` still only accepts fragments. The editor's
-  import goes through `importDesignDocument`, which rebuilds a fragment from
-  the `.artboard` subtree (including the exported `.artboard` stylesheet rule)
-  and turns inlined `data:` images back into `asset:` references.
+  Design HTML: exported metadata/styles are rejected by `parseDesignHtml`.
+  The editor imports it through `importDesignDocument` (§1.1), rebuilding layers
+  from the artboard/CSS and turning inline images back into assets. Hidden layers
+  and some editor metadata are omitted from export, so it is not a lossless
+  project-backup format. Use canonical Design HTML/model persistence for editing
+  state rather than assuming the download retains everything.
 
-**Limits and errors** (§8): 40 MP of output, 40 MiB response, 15 s, queue 20,
-concurrency 2. Oversize output is `LIMIT_EXCEEDED`, a worker crash or timeout
-is `EXPORT_FAILED`, a missing asset is `ASSET_UNRESOLVED`, malformed asset
-bytes are `INVALID_DOC`, and a disabled worker is `UNSUPPORTED_FEATURE`.
+**Limits and errors** (§8): raster output is limited to 40 MP, response bytes to
+40 MiB, with queue 20 and concurrency 2. Oversize output and queue-full currently
+use `LIMIT_EXCEEDED` (HTTP 413); rendering failure/timeout uses `EXPORT_FAILED`;
+missing assets use `ASSET_UNRESOLVED`. The renderer has no deployment kill switch
+yet. Neither an end-to-end timeout nor visual equality with the editor is proven.
 
 ### 12.2 AI contract
 
-> **Milestone 5 — implemented.** `AI_PROVIDER` selects an OpenAI-compatible
-> chat-completions endpoint (`AI_MODEL`, `AI_BASE_URL`, `AI_API_KEY`); with no
-> provider configured the routes answer `UNSUPPORTED_FEATURE`. The prompt files
-> in `prompts/` are the system prompts. `POST /api/ai/generate` returns
-> canonical Design HTML, `POST /api/ai/edit` returns the merged document plus
-> `snapshotId`, and `GET /api/ai/snapshots/:id` reads a snapshot back through
-> `validateDesignDoc`.
+`AI_PROVIDER` selects an OpenAI-compatible chat-completions endpoint (`AI_MODEL`,
+`AI_BASE_URL`, `AI_API_KEY`). Accepted selectors are `openai` and
+`openai-compatible`; missing/unsupported configuration disables the service and
+routes answer `UNSUPPORTED_FEATURE`. The files in `prompts/` supply the system
+prompts. Generation returns canonical Design HTML, editing returns merged Design
+HTML plus `snapshotId`, and snapshot retrieval validates the stored document.
 
-**Provider boundary.** The server talks to one `AiProvider` interface
-(`generateDesign`, `editDesign`) selected by `AI_PROVIDER`. Provider keys stay
-in the server environment (`AI_API_KEY`) and never reach the browser, the
-prompt, a log line or an error message. `usage.model` always names the model
-that actually ran, so a local template is never reported as a hosted model.
+**Provider boundary.** The service calls `AiProvider.complete`. The current
+transport sends `AI_API_KEY` in an outbound authorization header, not in a prompt
+or web response. It reports the configured model name and provider token usage;
+it does not independently resolve provider aliases. Missing token usage becomes
+zero, which can undercount cost. No Anthropic adapter or automatic price lookup
+exists. Explicit log redaction and renderer-environment isolation remain pending;
+do not put shared/provider keys in the public web bundle.
 
 **Untrusted data.** Nothing the model sees is trusted, and nothing the model
 returns is trusted either:
@@ -560,37 +686,54 @@ returns is trusted either:
   close the block early and the opening tag cannot nest a second block.
 - The instruction is plain text capped at 4,000 characters and sent in its own
   field; it is never concatenated into the data block.
-- Model output is parsed by `parseDesignHtml` through the full security
-  boundary of §9 and then canonicalized. A model that emits a script, an
-  external URL or a forbidden tag produces `AI_INVALID_OUTPUT`, never a
-  partially applied edit.
+- The extracted Design HTML is parsed through the security boundary of §9 and
+  then canonicalized. A security violation in that parsed fragment produces
+  `AI_INVALID_OUTPUT`, not a partially applied edit. Fence/prose trimming before
+  parsing is not a browser execution or a repair loop.
 
-**One retry.** Invalid output is retried once with the validation error
-appended to the prompt (`LIMITS.ai.retries`), then fails with
-`AI_INVALID_OUTPUT`. There is no repair loop and no hidden second model. The
-call is bounded by `LIMITS.ai.timeoutMs`, `LIMITS.ai.maxRequestBytes`,
-`LIMITS.ai.maxOutputBytes`, `LIMITS.ai.maxOutputTokens` and
-`LIMITS.ai.maxLayers`.
+**One retry.** Rejected parsed output is retried once with the validation error
+appended to the prompt (`LIMITS.ai.retries`), then fails with `AI_INVALID_OUTPUT`.
+Warnings alone do not retry. Some transport failures, including no-text replies,
+throw before that validation retry path. There is no repair loop or hidden model.
+Provider calls have a configured timeout/token maximum; extracted output has a
+128 KiB check, generation a 60-layer check, and incoming Design HTML its core
+limits. These checks are not a single end-to-end deadline or a streaming response
+memory limit. Edit output uses the document layer ceiling rather than generation's
+60-layer ceiling.
 
-**Snapshot before edit.** Before an edit is applied, the server stores the
-current canonical document as a snapshot keyed by project id
-(`LIMITS.snapshots.maxPerProject`, oldest dropped first). The apply response
-carries the snapshot id, and restoring it is a plain document write, so a bad
-AI edit is always reversible without asking the model again. Snapshots are
-read back through `validateDesignDoc`.
+**Snapshot before edit.** A valid edit stores the canonical pre-edit document in
+memory, keyed by caller-controlled project ID, with 20 snapshots per project and
+oldest-first eviction. IDs are predictable timestamp/counter strings. There is
+no ownership check, TTL, global byte/count cap or durable storage, and the web
+does not retain/list/restore snapshot IDs yet. Retrieval uses `validateDesignDoc`,
+but that is not authorization. Restart, eviction or a missing UI can prevent
+recovery; do not promise that every edit is durably reversible.
 
-**Daily spend cap.** Spend is accounted per server per UTC day. Before a call
-the server reserves the estimated cost (prompt tokens x provider price); if
-`spent + reserved` would exceed `AI_DAILY_SPEND_CAP_USD`, the request fails
-with `SPEND_CAP_EXCEEDED` (HTTP 402) **before** the provider is called. After
-the call the reservation is settled to the actual `usage.costUsd`. Reserving
-first is what stops concurrent requests from racing past the cap. Per-IP and
-per-session limits (`LIMITS.rateLimit`) are checked earlier and answer
-`RATE_LIMITED`. The cap value is deployment configuration, not code.
+**Daily spend cap.** A process-local ledger rolls over per UTC day. It reserves
+the following estimate before the first attempt:
 
-**Paths.** Generation returns Design HTML plus `usage`. The edit path returns
-a patch that is merged with `mergeScopedEdit` (§11.1). Neither path can change
-the artboard size, and a scoped edit never deletes a selected layer.
+```text
+estimatedPromptTokens × inputPrice / 1,000,000
++ maxOutputTokens × outputPrice / 1,000,000
+```
+
+If `spent + reserved + estimate` exceeds the configured cap, it returns
+`SPEND_CAP_EXCEEDED` (HTTP 402) before calling the provider. It settles to reported
+usage afterward. However, the same reservation covers a possible second attempt;
+retry cost is not reserved separately. The prompt estimate is character-count/4,
+prices default to fixed values independent of model, missing usage becomes zero,
+and restart/multiple instances reset/multiply the ledger. This is **not a reliable
+public-service spending ceiling** until hardened. There is no `AI_DISABLED` switch
+or settlement logging yet.
+
+Generation checks per-IP and caller-supplied session limits; editing checks only
+its per-IP limiter. Excess returns `RATE_LIMITED` (HTTP 429). Session IDs are not
+authenticated identities and the limiter key count has no hard global bound.
+
+**Paths.** Generation requires the model output to match the requested artboard
+size. Editing merges a model patch with `mergeScopedEdit` (§11.1), preserving the
+base artboard and selected layers omitted by the patch. The response contains
+the merged design, not an unvalidated patch for the browser to apply.
 
 ## 13. Versioning
 
@@ -603,6 +746,7 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
 ## 14. Reference implementation
 
 - `packages/core/src/parse.ts` — parse5 whitelist parser
+- `packages/core/src/import.ts` — broader HTML/CSS-to-layer conversion
 - `packages/core/src/serialize.ts` — canonical serializer
 - `packages/core/src/canonicalize.ts` — normalization
 - `packages/core/src/style.ts` — CSS subset
@@ -618,4 +762,26 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
 - `packages/core/src/numbers.ts` — quantization and angle normalization
 - `packages/core/src/limits.ts` — every limit above
 - `packages/core/test/` — `core`, `security`, `limits`, `properties` (fast-check),
-  `golden`, `merge-scoped`, `svg-casing` and `perf` suites
+  `golden`, `merge-scoped`, `svg-casing`, `import`, `style-edge-cases`, `untrusted`
+  and `perf` suites
+- `apps/server/src/` — API routes, AI/accounting/snapshots and export implementation
+- `apps/server/test/` — AI, API, export contract and rendering tests
+
+## 15. Contract changelog
+
+### 2026-11-09 — Documentation corrections, no schema/runtime change
+
+- Distinguished canonical producer requirements, restricted parsing and broader
+  HTML/CSS import; documented current compatibility conversions and range gaps.
+- Corrected the named-color table/defaults, inline dropping behavior and Arabic
+  spacing behavior instead of promising unsupported warnings.
+- Marked scoped editing, missing-asset errors and export formats as implemented;
+  identified the standalone upload route as a stub.
+- Corrected full-document edit prompts, snapshot durability/ownership, retry spend
+  reservations, rate/body limits, cache scope and renderer containment claims.
+- Specified native PDF's CSS-pixel-to-point conversion and the actual A4 preset
+  defect, without replacing working vector rendering.
+
+See [the project changelog](../CHANGELOG.md) for source checkpoints and
+[the audit](audit.md) for evidence and verification. Correcting documentation
+does not close the corresponding implementation/security findings.

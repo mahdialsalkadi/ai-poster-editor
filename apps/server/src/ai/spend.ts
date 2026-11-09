@@ -14,9 +14,9 @@ export function utcDay(at: number): string {
 }
 
 /**
- * Spend is accounted per server per UTC day. A request reserves its worst-case
- * cost before the provider is called, so concurrent requests cannot race past
- * the cap; the reservation is then settled to the actual cost.
+ * Process-local accounting per UTC day. Synchronous reservations bound the
+ * estimates admitted concurrently, not unreserved retry costs or missing usage.
+ * Durable, retry-safe public-service accounting is still pending (contract §12.2).
  */
 export class DailySpendLedger {
   private day = '';
