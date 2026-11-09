@@ -6,7 +6,7 @@ import type { AssetEntry } from './assets.js';
  * stored; object URLs are created fresh on load.
  */
 const DB_NAME = 'poster.assets';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = 'assets';
 const SNAPSHOT_STORE = 'snapshots';
 
@@ -23,7 +23,7 @@ type StoredAsset = {
   blob: Blob;
 };
 
-function openDatabase(): Promise<IDBDatabase | null> {
+export function openDatabase(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
     if (typeof indexedDB === 'undefined') {
       resolve(null);
@@ -43,8 +43,12 @@ function openDatabase(): Promise<IDBDatabase | null> {
         const store = db.createObjectStore(SNAPSHOT_STORE, { keyPath: 'id' });
         store.createIndex('createdAt', 'createdAt');
       }
+      if (!db.objectStoreNames.contains('documents')) db.createObjectStore('documents');
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => resolve(null);
     request.onblocked = () => resolve(null);
   });

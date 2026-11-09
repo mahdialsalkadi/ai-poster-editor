@@ -4,7 +4,6 @@ import {
   importDesignDocument,
   parseDesignHtml,
   serializeDesignDoc,
-  validateDesignDoc,
   type DesignDoc,
   type ImageLayer,
   type Layer,
@@ -34,6 +33,12 @@ import {
   type AssetEntry,
 } from './editor/assets.js';
 import { useDocHistory } from './editor/history.js';
+import {
+  DocumentConflictError,
+  loadDocument,
+  saveDocument,
+  type DocumentLoad,
+} from './editor/documents.js';
 import {
   createSnapshotId,
   deleteAssetRecord,
@@ -65,8 +70,6 @@ import { plainToInline } from './editor/text.js';
 import { TEMPLATES, createBlankDoc } from './sample.js';
 
 const ACCENT = '#f5a524';
-const STORAGE_KEY = 'poster.design.v1';
-const NAME_KEY = 'poster.name.v1';
 
 const BASE_LAYER = { rotation: 0, opacity: 1, hidden: false, locked: false } as const;
 
@@ -262,22 +265,20 @@ function distributeLayers(
 }
 
 export function App() {
-  const [initialDoc] = useState<DesignDoc>(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) return validateDesignDoc(JSON.parse(raw));
-    } catch {
-      // A corrupt snapshot should never block the editor.
-    }
-    return TEMPLATES[0]?.doc ?? createBlankDoc();
-  });
+  const [initialDoc] = useState<DesignDoc>(() => TEMPLATES[0]?.doc ?? createBlankDoc());
 
   const history = useDocHistory(initialDoc);
   const doc = history.doc;
 
-  const [name, setName] = useState(
-    () => window.localStorage.getItem(NAME_KEY) ?? 'ملصق بدون عنوان',
+  const [name, setName] = useState('ملصق بدون عنوان');
+  const [storageReady, setStorageReady] = useState(false);
+  const [recovery, setRecovery] = useState<Extract<DocumentLoad, { kind: 'recovery' }> | null>(
+    null,
   );
+  const [storageError, setStorageError] = useState(false);
+  const [storageConflict, setStorageConflict] = useState(false);
+  const revisionRef = useRef<string | null>(null);
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [panel, setPanel] = useState<PanelId | null>('layers');
   const [selection, setSelection] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -337,21 +338,70 @@ export function App() {
     );
   }, [doc]);
 
+  const resetHistory = history.reset;
   useEffect(() => {
+    let cancelled = false;
+    void loadDocument()
+      .then((loaded) => {
+        if (cancelled) return;
+        revisionRef.current = loaded.revision;
+        if (loaded.kind === 'recovery') {
+          setRecovery(loaded);
+          return;
+        }
+        if (loaded.current) {
+          resetHistory(loaded.current.doc);
+          setName(loaded.current.record.name);
+          setLastSavedAt(loaded.current.record.savedAt);
+        }
+        setStorageReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStorageError(true);
+          setSaveState('error');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resetHistory]);
+
+  const persist = useCallback((currentDoc: DesignDoc, currentName: string) => {
+    const task = saveQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        const record = await saveDocument(currentDoc, currentName, revisionRef.current);
+        revisionRef.current = record.revision;
+        return record;
+      });
+    saveQueue.current = task;
+    return task;
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady || storageConflict) return;
+    let cancelled = false;
     setSaveState('dirty');
     const handle = window.setTimeout(() => {
       setSaveState('saving');
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
-        window.localStorage.setItem(NAME_KEY, name);
-        setLastSavedAt(Date.now());
-        setSaveState('saved');
-      } catch {
-        setSaveState('error');
-      }
+      void persist(doc, name)
+        .then((record) => {
+          if (!cancelled) {
+            setLastSavedAt(record.savedAt);
+            setSaveState('saved');
+          }
+        })
+        .catch((cause: unknown) => {
+          if (cause instanceof DocumentConflictError) setStorageConflict(true);
+          if (!cancelled) setSaveState('error');
+        });
     }, 700);
-    return () => window.clearTimeout(handle);
-  }, [doc, name]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [doc, name, storageReady, storageConflict, persist]);
 
   useEffect(
     () => () => {
@@ -559,18 +609,20 @@ export function App() {
     }
   }, [doc, notify]);
 
-  const saveNow = useCallback(() => {
+  const saveNow = useCallback(async () => {
+    if (!storageReady || storageConflict) return;
+    setSaveState('saving');
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
-      window.localStorage.setItem(NAME_KEY, name);
-      setLastSavedAt(Date.now());
+      const record = await persist(doc, name);
+      setLastSavedAt(record.savedAt);
       setSaveState('saved');
       notify('success', 'تم الحفظ محليًا');
-    } catch {
+    } catch (cause) {
+      if (cause instanceof DocumentConflictError) setStorageConflict(true);
       setSaveState('error');
       notify('error', 'تعذر الحفظ محليًا');
     }
-  }, [doc, name, notify]);
+  }, [doc, name, notify, persist, storageReady, storageConflict]);
 
   const handleImportFile = useCallback(
     async (file: File) => {
@@ -697,6 +749,60 @@ export function App() {
 
   return (
     <div className="app" dir="rtl">
+      {!storageReady || storageConflict ? (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="استعادة الحفظ المحلي">
+          <div className="modal-panel">
+            <div className="modal-body">
+              {storageConflict ? (
+                <>
+                  <p>
+                    حُفظ إصدار أحدث في تبويب آخر. توقف الحفظ لحماية عملك. انسخ التصميم قبل إعادة
+                    التحميل.
+                  </p>
+                  <button onClick={() => void copyHtml()}>نسخ التصميم الحالي</button>
+                  <button onClick={() => window.location.reload()}>إعادة التحميل</button>
+                </>
+              ) : recovery ? (
+                <>
+                  <p>النسخة المحفوظة تالفة أو غير مدعومة. لن نستبدلها دون اختيارك.</p>
+                  {recovery.backup ? (
+                    <button
+                      onClick={() => {
+                        if (!recovery.backup) return;
+                        history.reset(recovery.backup.doc);
+                        setName(recovery.backup.record.name);
+                        setRecovery(null);
+                        setStorageReady(true);
+                      }}
+                    >
+                      استعادة النسخة الاحتياطية
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={() => {
+                      history.reset(createBlankDoc());
+                      setRecovery(null);
+                      setStorageReady(true);
+                    }}
+                  >
+                    بدء تصميم جديد
+                  </button>
+                </>
+              ) : storageError ? (
+                <>
+                  <p>
+                    تعذر فتح الحفظ المحلي. تحقق من مساحة المتصفح وصلاحيات التخزين؛ لم تتغير البيانات
+                    المحفوظة.
+                  </p>
+                  <button onClick={() => window.location.reload()}>إعادة المحاولة</button>
+                </>
+              ) : (
+                <p>جارٍ تحميل التصميم المحفوظ…</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <TopBar
         name={name}
         onNameChange={setName}

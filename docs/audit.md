@@ -865,3 +865,28 @@ dimensions. A server regression exercises that same preset and checks a single
 ~595 × 842 pt page, embedded font data and Unicode-mapped vector text extraction
 using Node's built-in zlib (no PDF dependency). Existing documents retain their
 chosen dimensions; no silent resizing of old 2480 × 3508 documents occurs.
+
+### P3 — IndexedDB autosave and recovery
+
+`poster.assets` version 3 adds a `documents` store with current and backup
+records containing schema version, canonical HTML, title, time and a random
+revision. Loading validates with the core parser; saving validates both model
+and serialized HTML. Debounced writes and explicit save share a serial queue.
+Identical saves do not rotate the backup. Failed/aborted writes propagate to
+the visible save-error state instead of claiming success.
+
+Read/compare/write and backup rotation run in one IndexedDB readwrite
+transaction. A stale tab receives a conflict dialog (copy unsaved HTML or reload)
+rather than overwriting another tab. This compare-and-swap guard does not rely on
+BroadcastChannel message timing. Corrupt/unsupported current data pauses autosave
+and offers a validated backup or explicitly starting a new document. Legacy
+localStorage documents migrate only after a successful commit; concurrent
+migrations reload the winner. No localStorage document writes remain in App.
+
+Verification: 7 web tests validate records, reject invalid HTML/version/metadata,
+and surface unavailable storage. Actual Chromium IndexedDB checks via Obscura
+on the isolated loopback development origin passed: empty store, one-time legacy
+migration, save/reopen, stale-tab rejection, one winner from simultaneous writers,
+backup recovery, injected QuotaExceededError propagation and atomic preservation
+of the previous document after the failed write. Web typecheck and all 34 web
+tests passed. No fake IndexedDB or new dependency was installed.

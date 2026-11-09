@@ -31,8 +31,9 @@ Trust boundaries:
 3. **API → worker.** Private, authenticated by a shared bearer token. The
    worker has no public address and no route off its `internal: true` network.
 4. **API → Supabase / AI provider.** Outbound only, over the edge network.
-5. **Browser storage.** IndexedDB holds assets and pre-edit snapshots;
-   `localStorage` holds the current document. This data never leaves the browser
+5. **Browser storage.** IndexedDB holds assets, pre-edit snapshots, the current
+   document and one validated backup. Legacy localStorage documents migrate once.
+   This data never leaves the browser
    except as part of an export or AI request.
 
 ## 2. Assets
