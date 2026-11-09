@@ -3,6 +3,8 @@
 **/dist/
 **/coverage/
 pnpm-lock.yaml
+playwright-report/
+test-results/
 
 # Local tooling and captured evidence are not application source.
 tools/

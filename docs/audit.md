@@ -1090,3 +1090,26 @@ Coverage verification passed all 435 instrumented tests. Critical line coverage:
 parser **92.14%**, style **98.55%**, CSS guard **100%**, merge **91.08%**, scoped
 merge **100%**. Full measured source coverage is **84.73%**, not a claimed global
 90%. Lint and core typecheck passed. CI wiring follows with the browser gates.
+
+### T1 — Trusted-input browser E2E
+
+Added a pinned Playwright runner, a typechecked TypeScript test harness and a
+loopback-only server that serves the production Vite build (including its CSP)
+alongside the actual Fastify API. The fixture has an in-memory zero-price mock
+`AiProvider`, no private `.env`, no provider network calls and an explicit
+`POSTER_E2E=true` guard. It is not an application deployment mode.
+
+Ten browser tests pass with real mouse/keyboard/clipboard input: template choice;
+drag, resize and rotation; Arabic/English rich-clipboard-to-plain-text paste and
+blank lines; undo/redo; reload persistence; mock generation and scoped edit;
+snapshot restore after reload; actual PNG/PDF downloads with pixel/page geometry;
+invalid output not applied; 22 AI edits retaining only 20 snapshots; Shift/marquee
+selection, layer clipboard and pan; production CSP blocking inline scripts and
+external image loads; one-time migration, corrupt-record backup recovery,
+two-tab stale-write refusal, quota errors and unavailable IndexedDB.
+
+`pnpm typecheck` now includes the harness/configuration, and generated reports
+are excluded from lint/format/git. Initial fixture startup exposed root CommonJS
+module inference; an isolated ESM package marker inside `e2e/` fixes it without
+changing application module semantics. The three editor-flow tests and seven
+storage/canvas tests pass; no retry or selector force bypass was used.
