@@ -1018,3 +1018,17 @@ staging smoke and release tagging. Docker daemon/TLS/live Supabase and live AI
 deployment checks remain open; public exposure is still not approved. Fixed
 Arabic/RTL chrome and the optional Anthropic adapter remain explicit non-goals
 of this checkpoint.
+
+## Phase 4 execution — 10 November 2026
+
+The owner approved continuing after Phase 3 and explicitly approved two exact,
+development-only dependencies: `@playwright/test` 1.65.0 (matching the existing
+Playwright/Chromium pin) and `@vitest/coverage-v8` 3.2.7 (matching installed Vitest).
+No production dependency is added by this setup task. Installation passed the
+existing supply-chain policy. Baseline V8 coverage ran all 324 tests successfully;
+style coverage is 72.41%, so tests must improve it before enabling the proposed
+90% per-file gates. No thresholds are lowered to disguise missing tests.
+
+Phase 3 hosted verification is now available: [CI run 42667028252](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42667028252)
+passed at `8a24f6c74ef2efb46e6035cf8dc04da9bbb79306`. This updates the earlier
+local-only checkpoint; it does not constitute deployment approval.
