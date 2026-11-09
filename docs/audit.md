@@ -959,3 +959,10 @@ confirmed its removal and then reloaded the restored 410 × 410 document. No AI
 provider was called. A second check issued 30 simultaneous snapshot writes and
 confirmed the raw store count was still 20. P4 is verified locally; site-data
 clearing still removes it.
+
+### P1 follow-up — All paint channels
+
+Final review extended the same retryable-color warning to missing/invalid shadow
+colors and SVG fill, stroke and gradient stops. Valid stop colors normalize to hex.
+Four additional core tests cover these paths and named SVG stop round trips so
+unsupported SVG paint cannot silently bypass the AI retry policy.

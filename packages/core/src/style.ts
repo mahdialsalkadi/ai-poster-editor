@@ -825,7 +825,7 @@ export function parseShadow(
     }
     pushWarning(
       ctx.warnings,
-      'UNSUPPORTED_VALUE',
+      color === null ? 'UNSUPPORTED_COLOR' : 'UNSUPPORTED_VALUE',
       `Invalid ${property}: ${raw}`,
       ctx.path,
       ctx.layerId,
@@ -847,7 +847,7 @@ export function parseShadow(
   if (lengths.length < 2 || lengths.length > 4 || color === null) {
     pushWarning(
       ctx.warnings,
-      'UNSUPPORTED_VALUE',
+      color === null ? 'UNSUPPORTED_COLOR' : 'UNSUPPORTED_VALUE',
       `Invalid ${property}: ${raw}`,
       ctx.path,
       ctx.layerId,

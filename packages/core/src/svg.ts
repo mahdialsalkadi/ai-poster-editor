@@ -153,7 +153,16 @@ function validateReference(
     throw new SecurityViolationError('Only local SVG url(#id) references are allowed', path);
   }
   if (trimmed === 'none') return 'none';
-  return normalizeColor(trimmed);
+  const color = normalizeColor(trimmed);
+  if (color === null)
+    pushWarning(
+      ctx.warnings,
+      'UNSUPPORTED_COLOR',
+      `Invalid SVG color: ${value}`,
+      `${ctx.path}.${path}`,
+      ctx.layerId,
+    );
+  return color;
 }
 
 function validatePathData(value: string, ctx: SvgContext, path: string): string | null {
@@ -233,6 +242,20 @@ function parseSvgElement(
       const value = validateReference(attr.value, ids, ctx, canonicalName);
       if (value === null) continue;
       attrs[canonicalName] = value;
+      continue;
+    }
+    if (canonicalName === 'stop-color') {
+      assertSafePaintValue(attr.value, `${ctx.path}.${canonicalName}`);
+      const color = normalizeColor(attr.value);
+      if (color === null)
+        pushWarning(
+          ctx.warnings,
+          'UNSUPPORTED_COLOR',
+          `Invalid SVG stop color: ${attr.value}`,
+          `${ctx.path}.${canonicalName}`,
+          ctx.layerId,
+        );
+      else attrs[canonicalName] = color;
       continue;
     }
     if (canonicalName === 'd') {

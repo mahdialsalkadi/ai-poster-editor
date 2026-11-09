@@ -213,7 +213,11 @@ function canonicalSvgNodes(nodes: readonly SvgNode[]): SvgNode[] {
       attrs: Object.fromEntries(
         Object.entries(node.attrs).map(([key, value]) => [
           key,
-          key === 'fill' || key === 'stroke' ? canonicalSvgPaint(value, `svg.${key}`) : value,
+          key === 'stop-color'
+            ? canonicalColor(value, `svg.${key}`)
+            : key === 'fill' || key === 'stroke'
+              ? canonicalSvgPaint(value, `svg.${key}`)
+              : value,
         ]),
       ),
       children: canonicalSvgNodes(node.children),

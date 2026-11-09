@@ -17,6 +17,38 @@ const shapeLayer = (style: string): string =>
   `<div data-id="s" data-layer="S" data-type="shape" style="position:absolute;left:0px;top:0px;width:50px;height:50px;${style}"></div>`;
 
 describe('unsupported colors', () => {
+  it('round-trips named SVG gradient-stop colors canonically', () => {
+    const { doc } = parseDesignHtml(
+      artboard(
+        '<svg data-id="s" data-type="svg" style="position:absolute;left:0px;top:0px;width:50px;height:50px"><defs><linearGradient id="g"><stop offset="0%" stop-color="orange"></stop><stop offset="100%" stop-color="white"></stop></linearGradient></defs></svg>',
+      ),
+    );
+    const layer = doc.layers[0];
+    if (layer?.type !== 'svg') throw new Error('Missing SVG');
+    const defs = layer.nodes[0];
+    if (defs?.kind !== 'element') throw new Error('Missing defs');
+    const gradient = defs.children[0];
+    if (gradient?.kind !== 'element') throw new Error('Missing gradient');
+    const stop = gradient.children[0];
+    if (stop?.kind !== 'element') throw new Error('Missing stop');
+    stop.attrs['stop-color'] = 'orange';
+    expect(parseDesignHtml(serializeDesignDoc(doc)).doc).toEqual(canonicalizeDoc(doc));
+  });
+  it.each(['text-shadow:0px 1px 2px wrong', 'text-shadow:0px 1px 2px'])(
+    'reports unsupported shadow colors: %s',
+    (shadow) => {
+      const { warnings } = parseDesignHtml(artboard(textLayer(shadow)));
+      expect(warnings.some((item) => item.code === 'UNSUPPORTED_COLOR')).toBe(true);
+    },
+  );
+  it('reports unsupported SVG fill, stroke and gradient-stop colors', () => {
+    const { warnings } = parseDesignHtml(
+      artboard(
+        '<svg data-id="s" data-type="svg" style="position:absolute;left:0px;top:0px;width:50px;height:50px"><defs><linearGradient id="g"><stop offset="0%" stop-color="wrong"></stop><stop offset="100%" stop-color="#ffffff"></stop></linearGradient></defs><circle cx="20" cy="20" r="10" fill="wrong" stroke="wrong"></circle></svg>',
+      ),
+    );
+    expect(warnings.filter((item) => item.code === 'UNSUPPORTED_COLOR')).toHaveLength(3);
+  });
   it('keeps text visible and reports a machine-readable warning', () => {
     const { doc, warnings } = parseDesignHtml(artboard(textLayer('color:not-a-color')));
     expect((doc.layers[0] as TextLayer).style.color).toBe('#000000');
