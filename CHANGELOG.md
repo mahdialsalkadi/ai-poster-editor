@@ -7,11 +7,19 @@ checkpoints; they do not imply approval for public deployment.
 
 ### Changed
 
+- Added a GitHub Actions workflow for Node 22 and the latest Node, pnpm 12.16.1,
+  frozen installs, typecheck, lint, formatting, tests and build. Production audit
+  is initially advisory; the README badge now reports the actual workflow.
 - Applied the existing Prettier policy across application source, tests and docs.
   Byte-exact HTML fixtures, captured evidence, generated output and local tooling
   are excluded from automatic formatting.
 - Scoped linting away from local tooling/captures and fixed three baseline lint
   errors without changing application behavior.
+
+### Security
+
+- Production audit reports high-severity Zod advisory GHSA-mrhx-c7xc-m3w5. No
+  dependency upgrade is included here; public deployment remains blocked.
 
 ## [0.1.0] - 2026-11-09
 

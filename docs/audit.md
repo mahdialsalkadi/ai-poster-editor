@@ -430,3 +430,29 @@ confirmed no changes to either fixture tree, stored screenshots or
 `pnpm-lock.yaml`. The untracked `tools/` tree was not changed. Results were
 obtained on Node 22.23.1, with the same supported-version caveat as Phase 0.
 These gates now work on the whole application, not just a tracked-file subset.
+
+### CI configuration
+
+`.github/workflows/ci.yml` runs on main pushes, pull requests and manual dispatch,
+using Node 22 and the latest available Node with pnpm 12.16.1. It performs a frozen
+install, typecheck, lint, format check, Chromium/system dependency installation,
+tests and build. Production dependency audit is explicitly non-blocking during
+Phase 1. Actions are pinned to verified release commit SHAs; token permissions
+are read-only and checkout does not persist credentials. No AI secret is needed.
+
+The README badge now links to this workflow rather than a static passing image.
+**R1 current verdict: workflow implemented, hosted result pending.** Local quality
+checks are recorded above. YAML formatting/syntax and workflow structure are
+checked locally, but GitHub Actions cannot report green on main until these local
+commits are pushed and its runner executes them. No hosted success is claimed.
+
+Verification: a local TypeScript check parsed the YAML and asserted the triggers,
+Node matrix, pinned actions, permissions, pnpm version, required gates and dynamic
+badge. `pnpm install --frozen-lockfile --offline` passed without lockfile changes.
+`pnpm audit --prod` reported one high-severity Zod advisory,
+[GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), affecting
+the core/contracts/server dependency paths. It reports a patched version of
+4.6.6 or newer; this project currently uses Zod 3. No upgrade was attempted in
+this phase. The advisory must be evaluated/remediated before public deployment;
+an advisory CI step is not a security clearance. Local logs are
+`/tmp/opencode/poster-phase1-install.log` and `poster-phase1-advisories.log`.

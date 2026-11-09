@@ -7,7 +7,7 @@ language, and the invariants are enforced in `packages/core`.
 
 ## Status
 
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/mahdialsalkadi/ai-poster-editor)
+[![CI](https://github.com/mahdialsalkadi/ai-poster-editor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mahdialsalkadi/ai-poster-editor/actions/workflows/ci.yml)
 [![Milestone 7](https://img.shields.io/badge/Milestone-7-complete-blue)](https://github.com/mahdialsalkadi/ai-poster-editor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
