@@ -62,6 +62,47 @@ Open <http://127.0.0.1:5173>. API health is available at
 <http://127.0.0.1:3001/api/health>. Do not use a public bind address, tunnel or
 reverse proxy to expose this development setup.
 
+## Deployment (Docker Compose)
+
+The repository ships a four-service topology: `proxy` terminates TLS and serves
+the public origin, `web` serves the built editor, `api` runs Fastify and `worker`
+runs Chromium. Only the proxy publishes ports. The worker is attached only to an
+`internal: true` network, so it cannot reach the internet, the API's outbound
+AI/Supabase traffic, or the web service.
+
+1. `cp -n .env.example .env` and set at least:
+   - `PUBLIC_ORIGIN` to the exact public `https://` origin, not the dev URL.
+   - Supabase Auth: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, an
+     `AUTH_COOKIE_SECRET` of 32+ characters and, for HS256 projects,
+     `SUPABASE_JWT_SECRET`; alternatively a server-only `API_ACCESS_KEY`.
+   - `EXPORT_WORKER_TOKEN` to a random value; compose refuses to start without it.
+   - AI settings and both prices if AI is enabled, or `AI_DISABLED=true`.
+2. Put `fullchain.pem` and `privkey.pem` in `docker/nginx/certs/`
+   (see `docker/nginx/certs/README.md`).
+3. Point DNS at the host and run:
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+The proxy probe is `GET /healthz`, the API's is `GET /api/health` and the
+worker's is `GET /health`. The API keeps the spend ledger on the `spend` volume,
+so run exactly **one** API replica until a shared billing store exists.
+
+Chromium's sandbox is enabled. If the worker reports "No usable sandbox", the
+host's Docker seccomp profile is blocking the unprivileged user namespaces the
+sandbox needs: apply `docker-compose.sandbox.yml` as an override, or — only
+because this worker has no egress and is disposable — set
+`EXPORT_CHROMIUM_SANDBOX=false`. Never disable the sandbox on a worker with
+network access.
+
+These images and the proxy configuration have not been started on the machine
+that prepared them (Docker was unavailable), so container startup, the sandbox
+and TLS are **not verified** yet. See [docs/security.md](docs/security.md) for
+the threat model and deployment checklist, and [docs/audit.md](docs/audit.md) for
+the verification record. Do not expose the build until that checklist passes.
+
 ## What works
 
 - Model-based React rendering, layer selection, Shift-click multi-select,
@@ -156,17 +197,18 @@ comparisons. There is no E2E suite or editor/export visual-equivalence gate yet.
 
 `pnpm format` applies the project's formatter. Byte-exact HTML fixtures, captured
 evidence, generated output/lockfile and local tooling are intentionally excluded.
-The production audit step is advisory in Phase 1; its warnings still block public
-release readiness until resolved or explicitly assessed.
+Production audit is a blocking CI step, Dependabot opens grouped weekly updates,
+and pnpm resolves no version published less than a day ago (only the data-only
+`caniuse-lite` is exempt).
 
 ## Known limitations
 
-- **Public-launch security blockers:** access control, route rate limits, scoped
-  export caching, browser-only edit snapshots, the web sign-in panel, app CSP and
-  the sandboxed renderer worker are in place. Remaining blockers are the container
-  deployment isolation, a blocking CI audit gate and the dependency
-  minimum-release-age policy; offline browser contexts and an export CSP are not a
-  hardened worker boundary.
+- **Public-launch security:** access control, route rate limits, scoped export
+  caching, browser-only edit snapshots, the sign-in UI, app CSP, the sandboxed
+  renderer worker, container isolation, a blocking audit gate and the dependency
+  release-age policy are implemented. The containers, proxy TLS and the Docker
+  sandbox have not been started on the preparing host, so deployment is unverified
+  until the checklist in [docs/security.md](docs/security.md) passes.
 - **Spend limits:** the daily total persists in one atomically written file and is
   enforced per attempt, but it assumes a single API replica and manually configured
   prices. Multiple replicas need a shared billing store.
@@ -198,9 +240,10 @@ packages/core/       Canonical model, parsing, import, serialization and merge
 packages/contracts/ Shared API schemas and error envelopes
 apps/web/           Vite + React editor
 apps/server/        Fastify API, AI service and Playwright exporter
+docker/             API, worker and web images plus the TLS proxy config
 prompts/            Generator and scoped-edit system prompts
-docs/               Contract, audit and architecture decisions
-.github/workflows/  CI
+docs/               Contract, security model, audit and architecture decisions
+.github/workflows/  CI and Dependabot
 screenshots/        Historical manual verification captures, not visual tests
 ```
 
@@ -210,7 +253,7 @@ screenshots/        Historical manual verification captures, not visual tests
 | ------------------ | -------------------------------------------------------------- | -------------------------------------------------------- |
 | 1                  | Core contract, parser, serializer, merge and tests             | Broader robustness/coverage gates remain                 |
 | 2–4                | Canvas, selection, transforms, inline editing and inspector    | Editor gaps listed above remain                          |
-| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Container deployment and launch gates remain             |
+| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Container runtime verification remains                   |
 | 6                  | Local assets, export formats and autosave                      | Upload API, isolation, persistence and PDF sizing remain |
 | 7                  | Gradients, gallery, shortcuts and docs                         | Gallery/language balance and product polish remain       |
 

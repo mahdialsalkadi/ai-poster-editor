@@ -638,6 +638,16 @@ provider/API keys, Supabase secrets and cookie keys are absent. Its Node heap is
 capped with `--max-old-space-size=512`; container-level CPU/memory limits belong
 to deployment and are not enforced by the process itself.
 
+In the container topology, `EXPORT_WORKER_URL` switches the API to the worker
+service's `POST /render` endpoint (`worker-server.ts`); `EXPORT_WORKER_TOKEN` adds
+bearer authentication and `GET /health` stays unauthenticated. Compose runs that
+worker as `pwuser`, on an `internal: true` network with no egress, with
+CPU/memory/PID limits, and passes only `NODE_ENV`, `WORKER_HOST`, `WORKER_PORT`,
+`PLAYWRIGHT_BROWSERS_PATH`, `EXPORT_CHROMIUM_SANDBOX` and the worker token. No
+provider, Supabase or access-control secret reaches the renderer. The reference
+topology, TLS proxy and sandbox caveat are in `docker-compose.yml` and
+[security.md](security.md).
+
 Playwright uses a shared Chromium instance with a fresh context per request:
 document JavaScript is disabled, service workers are blocked, the context is
 offline, and a route handler aborts every `http(s)` request. Only `data:` URLs

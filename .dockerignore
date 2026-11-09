@@ -1,0 +1,29 @@
+# Version control and CI
+.git
+.gitignore
+.github
+
+# Dependencies and build output are reinstalled inside the build stage
+node_modules
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+
+# Local secrets and runtime state (never copied into an image)
+.env
+.env.*
+!.env.example
+.data
+
+# Documentation, evidence, scratch tooling and generated artifacts
+docs
+screenshots
+examples
+tools
+research
+test-results
+playwright-report
+
+# Local TLS material is mounted at runtime, not baked into an image
+docker/nginx/certs

@@ -1,0 +1,15 @@
+# Optional override for hosts whose Docker seccomp profile blocks the
+# unprivileged user namespaces Chromium's sandbox needs.
+#
+# Try the default compose file first. If the worker exits with
+# "No usable sandbox!", run:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sandbox.yml up -d
+#
+# Only the worker loses syscall filtering. It still runs as pwuser, without
+# capabilities, on a network with no egress. Do not apply this to any service
+# that handles credentials or accepts public traffic.
+services:
+  worker:
+    security_opt:
+      - seccomp=unconfined

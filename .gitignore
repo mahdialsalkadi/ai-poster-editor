@@ -15,3 +15,7 @@ tools/rea/.git/
 tools/rea/node_modules/
 tools/rea/dist/
 .data/
+
+# Local TLS material for the compose proxy (see docker/nginx/certs/README.md).
+docker/nginx/certs/*
+!docker/nginx/certs/README.md
