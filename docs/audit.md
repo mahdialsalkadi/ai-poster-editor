@@ -376,6 +376,26 @@ Formatting checks passed for `package.json`, `THIRD_PARTY_NOTICES.md` and this
 audit; existing README formatting issues were not changed. The checker is a local
 scratch artifact, not a new application dependency.
 
-All other findings remain as audited. D2 (private/internal vs public deployment)
-and D3–D7 remain undecided. No release tag, dependency addition, push or deployment
-is part of this licensing change.
+All other findings remain as audited. At the end of this licensing change,
+D2–D7 were still undecided. No release tag, dependency addition, push or deployment
+was part of the licensing change.
+
+## Deployment decision — 9 November 2026
+
+The owner selected **public deployment** for **D2**, following the recommendation
+of a publicly accessible editor with sign-in-protected AI and export operations.
+This records the target; authentication and hosting are not implemented by this
+decision, and the current build is not approved for public exposure.
+
+All Phase 2 hardening items are now required before public deployment, including
+access control, rate limits, persistent spend accounting with retry-safe
+reservations, snapshot/cache ownership, export isolation, app CSP and deployment
+controls. Provider credentials and any shared backend access key must remain on
+the server, never embedded in the public web bundle.
+
+Continue in phase order: finish the remaining Phase 1 safety-net/repository tasks,
+then implement and test Phase 2 before any public staging or production exposure.
+The security findings above remain open; choosing a public target does not make
+them pass. D1 is MIT, D2 is public, and D3–D7 remain undecided. No provider,
+authentication dependency, hosting service or deployment action was selected or
+added as part of this decision.
