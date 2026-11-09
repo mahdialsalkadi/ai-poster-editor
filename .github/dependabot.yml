@@ -21,7 +21,7 @@ updates:
         update-types:
           - minor
           - patch
-      development-toolchain-major:
+      development-typescript-toolchain:
         dependency-type: development
         update-types:
           - major
