@@ -681,8 +681,8 @@ in `docs/security.md`; they are not claimed to be active when running `pnpm dev`
   pixel. It is not a raster screenshot placed in a PDF. Device scale factor 2
   does not change that physical page-size conversion. A 794x1123 document was
   measured at 595.92x842.88 pt with extractable text and an embedded Inter font.
-  The actual UI A4 preset is 2480x3508 and therefore exports too large physically;
-  preset/PDF sizing is an open correctness issue.
+  The UI A4 preset is 794x1123 CSS pixels. Older 2480x3508 documents keep their
+  explicit size; choose the A4 preset to change their physical page dimensions.
 - `html`: the `serializeForExport` document itself, served as
   `text/html; charset=utf-8` for download. It is a self-contained copy, not
   Design HTML: exported metadata/styles are rejected by `parseDesignHtml`.

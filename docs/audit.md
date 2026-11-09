@@ -856,3 +856,12 @@ the plan's reject-and-retry policy; manual imports retain safe fallbacks.
 Verification: core regression tests cover opaque text fallback and invalid solid,
 linear and radial fills; mocked AI tests cover successful correction, accepted
 CSS names and rejection after exactly two attempts for generation and edits.
+
+### P2 — Physical A4 PDF size
+
+The Inspector now uses the shared `A4_SIZE` (794 × 1123 CSS pixels). Native
+Chromium vector PDF remains unchanged in principle, with explicit CSS-pixel page
+dimensions. A server regression exercises that same preset and checks a single
+~595 × 842 pt page, embedded font data and Unicode-mapped vector text extraction
+using Node's built-in zlib (no PDF dependency). Existing documents retain their
+chosen dimensions; no silent resizing of old 2480 × 3508 documents occurs.

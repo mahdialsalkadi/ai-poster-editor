@@ -84,8 +84,8 @@ export async function renderHtml(job: BrowserRenderJob): Promise<RenderedExport>
       const bytes = await withTimeout(
         page.pdf({
           // Playwright wants px/in/cm/mm; 1 CSS px = 0.75pt = 1/96in.
-          width: `${((job.width * 0.75) / 72).toFixed(4)}in`,
-          height: `${((job.height * 0.75) / 72).toFixed(4)}in`,
+          width: `${job.width}px`,
+          height: `${job.height}px`,
           printBackground: true,
           margin: { top: '0', right: '0', bottom: '0', left: '0' },
           pageRanges: '1',

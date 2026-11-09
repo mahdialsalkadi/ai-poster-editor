@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { DesignDoc, ImageLayer } from '@poster/core';
+import { A4_SIZE } from '@poster/core';
+import { inflateSync } from 'node:zlib';
 import sharp from 'sharp';
 import { buildServer } from '../src/app.js';
 import { closeExportBrowser } from '../src/export/renderer.js';
@@ -178,6 +180,56 @@ describe('export API', () => {
     expect(response.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
     expect(response.headers['x-export-width']).toBe('300');
     expect(response.headers['x-export-height']).toBe('400');
+  }, 40_000);
+
+  it('exports the UI A4 size as one vector page with embedded, extractable text', async () => {
+    const doc = textDoc(A4_SIZE.width, A4_SIZE.height);
+    const title = doc.layers[0];
+    if (title?.type !== 'text') throw new Error('Missing test text');
+    title.dir = 'ltr';
+    title.style.fontFamily = 'Inter';
+    title.content = [{ kind: 'text', text: 'Print' }];
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/export',
+      ...exportBody(doc, { format: 'pdf' }),
+    });
+    expect(response.statusCode).toBe(200);
+    const pdf = response.rawPayload.toString('latin1');
+    const mediaBox = /\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)/.exec(pdf);
+    expect(mediaBox).not.toBeNull();
+    expect(Math.abs(Number(mediaBox?.[1]) - 595)).toBeLessThan(1.5);
+    expect(Math.abs(Number(mediaBox?.[2]) - 842)).toBeLessThan(1.5);
+    expect(pdf.match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
+    expect(pdf).toContain('/FontFile2');
+    expect(pdf).toContain('/ToUnicode');
+
+    // Inspect Chromium's Flate streams without adding a PDF library. The
+    // ToUnicode CMap maps glyph codes back to Unicode; Tj is vector text, not
+    // a screenshot. This deliberately tests our pinned Chromium PDF dialect.
+    const streams = [...pdf.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((match) => {
+      try {
+        return inflateSync(Buffer.from(match[1]!, 'latin1')).toString('latin1');
+      } catch {
+        return match[1]!;
+      }
+    });
+    const cmap = streams.find((stream) => stream.includes('beginbfchar')) ?? '';
+    const chars = new Map(
+      [...cmap.matchAll(/<([\da-f]{4})>\s*<([\da-f]{4})>/gi)].map((match) => [
+        match[1]!.toUpperCase(),
+        String.fromCharCode(parseInt(match[2]!, 16)),
+      ]),
+    );
+    const text = streams
+      .flatMap((stream) => [...stream.matchAll(/<([\da-f]+)>\s*Tj/gi)])
+      .map((match) =>
+        (match[1]!.match(/.{4}/g) ?? [])
+          .map((code) => chars.get(code.toUpperCase()) ?? '')
+          .join(''),
+      )
+      .join('');
+    expect(text).toBe('Print');
   }, 40_000);
 
   it('returns a self-contained HTML document with embedded fonts and images', async () => {

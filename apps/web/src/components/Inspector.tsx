@@ -1,6 +1,7 @@
 import {
   ALLOWED_FONTS,
   ARABIC_FONTS,
+  A4_SIZE,
   LIMITS,
   clamp,
   type AllowedFont,
@@ -360,7 +361,7 @@ function DocumentPanel({
             { label: 'مربع', width: 1080, height: 1080 },
             { label: 'ستوري', width: 1080, height: 1920 },
             { label: 'أفقي', width: 1920, height: 1080 },
-            { label: 'A4', width: 2480, height: 3508 },
+            { label: 'A4', ...A4_SIZE },
           ].map((preset) => (
             <button
               key={preset.label}
