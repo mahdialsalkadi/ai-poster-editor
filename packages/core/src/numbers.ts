@@ -41,3 +41,11 @@ export function parseNumber(input: string): number | null {
   const value = Number.parseFloat(input.trim());
   return Number.isFinite(value) ? quantize(value) : null;
 }
+
+/** Bare numbers are supported only on artboard data attributes, not CSS lengths. */
+export function parseArtboardDimension(input: string): number | null {
+  const match = /^(\d+(?:\.\d*)?|\.\d+)(?:px)?$/i.exec(input.trim());
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? quantize(value) : null;
+}

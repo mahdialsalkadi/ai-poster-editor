@@ -33,8 +33,8 @@ not the rejection rule. Use `importDesignDocument` for full-document import.
 | Attribute     | Required | Meaning                                                                |
 | ------------- | -------- | ---------------------------------------------------------------------- |
 | `class`       | yes      | must contain `artboard`                                                |
-| `data-width`  | yes      | artboard width, px                                                     |
-| `data-height` | yes      | artboard height, px                                                    |
+| `data-width`  | yes      | artboard width, positive number or px; canonical output uses px        |
+| `data-height` | yes      | artboard height, positive number or px; canonical output uses px       |
 | `style`       | no       | canonical background; CSS size compatibility fallbacks described below |
 
 Artboard dimensions must satisfy the limits in §8. `background` accepts a

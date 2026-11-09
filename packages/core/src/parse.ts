@@ -11,7 +11,7 @@ import {
   type ParseOutput,
   type Warning,
 } from './model.js';
-import { parsePx, quantize } from './numbers.js';
+import { parseArtboardDimension, parsePx, quantize } from './numbers.js';
 import {
   assertAbsolutePosition,
   ensureNoUnknownCriticalProperties,
@@ -520,13 +520,21 @@ export function parseDesignHtml(input: string): ParseOutput {
 
   const widthRaw = getAttr(artboard, 'data-width') ?? artboardDecls.get('width');
   const heightRaw = getAttr(artboard, 'data-height') ?? artboardDecls.get('height');
-  const width = widthRaw ? parsePx(widthRaw) : null;
-  const height = heightRaw ? parsePx(heightRaw) : null;
+  const width = widthRaw
+    ? getAttr(artboard, 'data-width') !== undefined
+      ? parseArtboardDimension(widthRaw)
+      : parsePx(widthRaw)
+    : null;
+  const height = heightRaw
+    ? getAttr(artboard, 'data-height') !== undefined
+      ? parseArtboardDimension(heightRaw)
+      : parsePx(heightRaw)
+    : null;
 
   if (width === null || height === null) {
     throw new DesignError(
       'INVALID_DOC',
-      'Artboard must specify width and height in px',
+      'Artboard must specify positive width and height (data attributes accept numbers or px)',
       'artboard',
     );
   }

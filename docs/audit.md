@@ -924,3 +924,10 @@ caps longer runs at two, still trimming leading/trailing breaks. The plain-text
 editor uses that same normalizer, so Enter/paste results agree with save/reload.
 Five core regressions cover counts, styled Arabic and round trips; two web tests
 cover Arabic/English newlines and literal-HTML plain-text paste. Contract updated.
+
+### R4 — Artboard input units
+
+Artboard data attributes accept strict positive decimal numbers with or without
+`px`; serialization and prompt examples still use `px`. CSS fallback width/height
+continues to require units. Fifteen regressions cover accepted forms, canonical
+output, unsupported units, junk/nonfinite/negative values and dimension bounds.
