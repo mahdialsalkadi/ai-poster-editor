@@ -675,6 +675,7 @@ function TextSection({
           <Field label="تباعد الحروف">
             <NumberInput
               value={layer.style.letterSpacing}
+              ariaLabel="تباعد الحروف"
               disabled={requiresZeroLetterSpacing(layer.dir, inlineToPlain(layer.content))}
               min={LIMITS.text.minLetterSpacing}
               max={LIMITS.text.maxLetterSpacing}

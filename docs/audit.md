@@ -898,3 +898,21 @@ Parser and canonicalizer now share line-height 0.5–5 and Latin letter-spacing
 the parser, model canonicalizer and editor updates; the Inspector disables the
 field and parsing emits a specific warning. Removed both Arabic-template spacing
 overrides. Regression tests cover boundary round trips and Arabic/RTL detection.
+
+### P5 — Canvas interaction gaps
+
+Added background drag marquee with Shift-additive selection, measured text heights
+and rotated bounding-box intersection (hidden/locked layers excluded). Added an
+internal deep-copy layer clipboard with Ctrl/Cmd+C/V, fresh IDs, 20px incremental
+offsets, preserved stacking/assets and all-or-nothing layer-limit enforcement.
+Paste is one undo step. Text fields retain native plain-text paste. Space-drag
+and normal wheel/trackpad input pan the viewport; Ctrl/Cmd-wheel still zooms.
+Pointer cancellation, Escape, blur and unmount clean up gesture listeners. Existing
+Shift-click and alignment tools were retained, not reimplemented.
+
+Verification: 4 new web tests cover immutable copy, IDs/offset/stacking, full paste
+refusal, rotated/hidden/locked marquee bounds and immediate Arabic spacing reset.
+All 38 web tests and typecheck passed. Obscura DOM-event checks exercised marquee,
+copy/paste, 20px offset, undo/redo, both wheel axes and Space-drag without document
+movement. The Arabic spacing input was confirmed disabled in the rendered DOM.
+Full trusted-input E2E coverage remains Phase 4, not claimed here.

@@ -18,6 +18,7 @@ import {
   type SnapTargets,
 } from '../editor/snap.js';
 import { plainToInline } from '../editor/text.js';
+import { layersInMarquee, selectionRect, type SelectionRect } from '../editor/selection.js';
 import { LayerView, type Handle } from './LayerView.js';
 
 type StartBox = { left: number; top: number; width: number; height: number };
@@ -61,7 +62,26 @@ type RotateSession = {
   id: string;
 };
 
-type Session = MoveSession | ResizeSession | RotateSession;
+type PanSession = {
+  kind: 'pan';
+  pointerId: number;
+  startX: number;
+  startY: number;
+  before: DesignDoc;
+  pan: { x: number; y: number };
+};
+type MarqueeSession = {
+  kind: 'marquee';
+  pointerId: number;
+  startX: number;
+  startY: number;
+  before: DesignDoc;
+  scale: number;
+  origin: { left: number; top: number };
+  previous: string[];
+  additive: boolean;
+};
+type Session = MoveSession | ResizeSession | RotateSession | PanSession | MarqueeSession;
 
 /** Snap radius in screen pixels, converted to document units per gesture. */
 const SNAP_THRESHOLD = 6;
@@ -127,6 +147,46 @@ export function Canvas({
   const [textHeights, setTextHeights] = useState<Record<string, number>>({});
   const [fontTick, setFontTick] = useState(0);
   const [guides, setGuides] = useState<SnapLine[]>([]);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [spaceDown, setSpaceDown] = useState(false);
+  const spaceRef = useRef(false);
+  const [marquee, setMarquee] = useState<SelectionRect | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (
+        event.code !== 'Space' ||
+        (event.target as HTMLElement | null)?.closest(
+          'input, textarea, select, button, [contenteditable="true"], [role="dialog"]',
+        )
+      )
+        return;
+      event.preventDefault();
+      spaceRef.current = true;
+      setSpaceDown(true);
+    };
+    const up = (event: KeyboardEvent) => {
+      if (event.code === 'Space') {
+        spaceRef.current = false;
+        setSpaceDown(false);
+      }
+    };
+    const blur = () => {
+      spaceRef.current = false;
+      setSpaceDown(false);
+      cleanupRef.current?.();
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', blur);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', blur);
+      cleanupRef.current?.();
+    };
+  }, []);
 
   const registerRef = useCallback((id: string, element: HTMLDivElement | null) => {
     if (element) layerRefs.current.set(id, element);
@@ -193,8 +253,16 @@ export function Canvas({
     const stage = stageRef.current;
     if (!stage) return;
     const handleWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
+      if ((event.target as HTMLElement | null)?.closest('textarea, input')) return;
       event.preventDefault();
+      if (!event.ctrlKey && !event.metaKey) {
+        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? stage.clientHeight : 1;
+        setPan((current) => ({
+          x: current.x - event.deltaX * unit,
+          y: current.y - event.deltaY * unit,
+        }));
+        return;
+      }
       const factor = Math.exp(-event.deltaY * 0.0015);
       const next = Math.min(2, Math.max(0.08, scale * factor));
       onZoomChange(Math.round(next * 1000) / 1000);
@@ -205,6 +273,7 @@ export function Canvas({
 
   const beginSession = useCallback(
     (session: Session) => {
+      cleanupRef.current?.();
       sessionRef.current = session;
       setGuides([]);
       document.body.classList.add('is-dragging');
@@ -215,9 +284,20 @@ export function Canvas({
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         window.removeEventListener('pointercancel', onCancel);
+        window.removeEventListener('keydown', onKeyCancel);
+        cleanupRef.current = null;
         document.body.classList.remove('is-dragging');
         setGuides([]);
+        setMarquee(null);
         if (!current) return;
+        if (current.kind === 'pan') {
+          if (revert) setPan(current.pan);
+          return;
+        }
+        if (current.kind === 'marquee') {
+          if (revert) onSelectionChange(current.previous);
+          return;
+        }
         if (revert) onUpdate(() => current.before, { history: false });
         else onCommit(current.before);
       }
@@ -226,6 +306,26 @@ export function Canvas({
         const current = sessionRef.current;
         if (!current || event.pointerId !== current.pointerId) return;
         event.preventDefault();
+
+        if (current.kind === 'pan') {
+          setPan({
+            x: current.pan.x + event.clientX - current.startX,
+            y: current.pan.y + event.clientY - current.startY,
+          });
+          return;
+        }
+        if (current.kind === 'marquee') {
+          const rect = selectionRect(
+            current.startX,
+            current.startY,
+            (event.clientX - current.origin.left) / current.scale,
+            (event.clientY - current.origin.top) / current.scale,
+          );
+          setMarquee(rect);
+          const ids = layersInMarquee(current.before, rect, textHeights);
+          onSelectionChange(current.additive ? [...new Set([...current.previous, ...ids])] : ids);
+          return;
+        }
 
         if (current.kind === 'move') {
           const dx = (event.clientX - current.startX) / current.scale;
@@ -389,8 +489,13 @@ export function Canvas({
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onCancel);
+      function onKeyCancel(event: KeyboardEvent) {
+        if (event.key === 'Escape') cleanup(true);
+      }
+      window.addEventListener('keydown', onKeyCancel);
+      cleanupRef.current = () => cleanup(true);
     },
-    [onCommit, onUpdate],
+    [onCommit, onUpdate, onSelectionChange, textHeights],
   );
 
   const startMove = useCallback(
@@ -519,25 +624,62 @@ export function Canvas({
     onEditingChange(null);
   }, [onEditingChange]);
 
-  const clearSelection = useCallback(() => {
-    onSelectionChange([]);
-    onEditingChange(null);
-  }, [onSelectionChange, onEditingChange]);
+  const startMarquee = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0 || event.target !== event.currentTarget) return;
+      const origin = artboardRef.current?.getBoundingClientRect();
+      if (!origin) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.shiftKey) onSelectionChange([]);
+      onEditingChange(null);
+      beginSession({
+        kind: 'marquee',
+        pointerId: event.pointerId,
+        startX: (event.clientX - origin.left) / scale,
+        startY: (event.clientY - origin.top) / scale,
+        before: doc,
+        scale,
+        origin,
+        previous: selection,
+        additive: event.shiftKey,
+      });
+    },
+    [onSelectionChange, onEditingChange, doc, scale, selection, beginSession],
+  );
 
   return (
     <div
-      className="stage"
+      className={`stage${spaceDown ? ' is-panning' : ''}`}
       ref={stageRef}
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) clearSelection();
+      onPointerDownCapture={(event) => {
+        if (
+          !spaceRef.current ||
+          event.button !== 0 ||
+          (event.target as HTMLElement).closest('textarea, input')
+        )
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        beginSession({
+          kind: 'pan',
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          before: doc,
+          pan,
+        });
       }}
+      onPointerDown={startMarquee}
     >
       <div
         className="artboard-frame"
-        style={{ width: doc.width * scale, height: doc.height * scale }}
-        onPointerDown={(event) => {
-          if (event.target === event.currentTarget) clearSelection();
+        style={{
+          width: doc.width * scale,
+          height: doc.height * scale,
+          transform: `translate(${pan.x}px, ${pan.y}px)`,
         }}
+        onPointerDown={startMarquee}
       >
         <div
           className="artboard"
@@ -551,9 +693,7 @@ export function Canvas({
             zoom: scale,
             background: fillToCss(doc.background),
           }}
-          onPointerDown={(event) => {
-            if (event.target === event.currentTarget) clearSelection();
-          }}
+          onPointerDown={startMarquee}
         >
           {doc.layers.map((layer) => (
             <LayerView
@@ -581,6 +721,9 @@ export function Canvas({
               aria-hidden="true"
             />
           ))}
+          {marquee ? (
+            <div className="marquee-selection" style={marquee} aria-hidden="true" />
+          ) : null}
           {showGrid && scale >= 0.28 ? (
             <div
               className="canvas-grid"

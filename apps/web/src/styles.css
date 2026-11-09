@@ -958,6 +958,19 @@ button:disabled {
     var(--shadow);
 }
 
+.stage.is-panning,
+.stage.is-panning .layer {
+  cursor: grab;
+}
+
+.marquee-selection {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--accent);
+  background: rgba(245, 165, 36, 0.14);
+  z-index: 10;
+}
+
 .artboard {
   position: relative;
   overflow: hidden;

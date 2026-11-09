@@ -33,6 +33,7 @@ import {
   type AssetEntry,
 } from './editor/assets.js';
 import { useDocHistory } from './editor/history.js';
+import { copyLayers, pasteLayers } from './editor/clipboard.js';
 import {
   DocumentConflictError,
   loadDocument,
@@ -301,6 +302,8 @@ export function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const layerClipboard = useRef<Layer[]>([]);
+  const pasteCount = useRef(0);
 
   const scale = Math.min(2, Math.max(0.08, fitScale * zoom));
 
@@ -660,8 +663,28 @@ export function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (modal || !storageReady || storageConflict) return;
       const mod = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
+
+      if (mod && key === 'c' && selection.length > 0) {
+        event.preventDefault();
+        layerClipboard.current = copyLayers(doc, selection);
+        pasteCount.current = 0;
+        return;
+      }
+      if (mod && key === 'v' && layerClipboard.current.length > 0) {
+        event.preventDefault();
+        const result = pasteLayers(doc, layerClipboard.current, (pasteCount.current + 1) * 20);
+        if (result.ids.length === 0) {
+          notify('error', 'وصلت إلى الحد الأقصى للطبقات');
+          return;
+        }
+        pasteCount.current += 1;
+        history.replace(result.doc);
+        setSelection(result.ids);
+        return;
+      }
 
       if (mod && key === 'z') {
         event.preventDefault();
@@ -745,7 +768,18 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [history, selection, deleteSelection, duplicateSelection, doc, saveNow]);
+  }, [
+    history,
+    selection,
+    deleteSelection,
+    duplicateSelection,
+    doc,
+    saveNow,
+    modal,
+    storageReady,
+    storageConflict,
+    notify,
+  ]);
 
   return (
     <div className="app" dir="rtl">
@@ -1039,6 +1073,20 @@ export function App() {
             </header>
             <div className="modal-body">
               <ul className="shortcut-list">
+                <li>
+                  <span>نسخ / لصق الطبقات</span>
+                  <kbd>Ctrl/Cmd</kbd>
+                  <kbd>C / V</kbd>
+                </li>
+                <li>
+                  <span>تحريك اللوحة</span>
+                  <kbd>Space</kbd>
+                  <span>+ سحب، أو عجلة الفأرة</span>
+                </li>
+                <li>
+                  <span>تحديد مستطيل</span>
+                  <span>سحب في الفراغ، Shift للإضافة</span>
+                </li>
                 <li>
                   <span>تراجع</span>
                   <kbd>Ctrl</kbd> <kbd>Z</kbd>
