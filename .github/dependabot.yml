@@ -13,8 +13,18 @@ updates:
     groups:
       production-dependencies:
         dependency-type: production
-      development-dependencies:
+      # Routine development bumps can land quickly. Majors (currently
+      # TypeScript 7, ESLint 10, Vite 8, Vitest 5, plugin-react 6 and friends)
+      # need separate review: typescript-eslint 8 rejects TypeScript 7 outright.
+      development-minor-patch:
         dependency-type: development
+        update-types:
+          - minor
+          - patch
+      development-major:
+        dependency-type: development
+        update-types:
+          - major
     commit-message:
       prefix: 'chore(deps)'
 
