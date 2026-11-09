@@ -124,7 +124,7 @@ describe('export API', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    app = await buildServer({ logger: false });
+    app = await buildServer({ logger: false, rateLimits: { exportPerMinute: 1_000 } });
   });
 
   afterAll(async () => {

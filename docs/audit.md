@@ -573,3 +573,39 @@ without element visitation, recursive SVG string-attribute records and rejection
 of non-string SVG attributes. Logs are
 `/tmp/opencode/poster-phase2-zod-{install,typecheck,audit,tests,build}.log` and
 `poster-phase2-zod-regressions.log`. **Dependency advisory: remediated.**
+
+### S1 — Access control, origin and limits
+
+Implemented server-side access control for AI, design, asset and export routes:
+
+- **Supabase Auth sessions:** `POST /api/auth/login` exchanges email/password
+  server-side with Supabase, then sets an HMAC-signed `HttpOnly`, `SameSite=Lax`
+  session cookie (and `Secure` in production). The cookie is not readable by web
+  JavaScript and is rotated when the access token nears expiry. JWT signatures are
+  verified with HS256 `SUPABASE_JWT_SECRET` or asymmetric keys fetched from the
+  Supabase JWKS endpoint; expiry, issuer and `authenticated` audience are checked.
+- **API key fallback:** `x-api-key` is compared in constant time with SHA-256
+  digests for trusted server-to-server clients.
+- **Production fail-fast:** the server refuses to start in production without
+  Supabase Auth or `API_ACCESS_KEY`, and requires `PUBLIC_ORIGIN`; explicit
+  `ALLOW_PUBLIC_API=true` is the only opt-out.
+- **Origin policy:** CORS reflects only `PUBLIC_ORIGIN` with credentials enabled
+  (production denies cross-origin by default), and cookie-authenticated writes with
+  a mismatched `Origin` are rejected with `FORBIDDEN`.
+- **Proxy policy:** `TRUST_PROXY` maps to Fastify's `trustProxy` (boolean, hop
+  count or trust value) instead of implicitly trusting forwarded addresses.
+- **Rate limits:** design, export and login routes now use in-memory sliding
+  windows keyed by authenticated principal plus peer address, in addition to the
+  existing AI per-IP/session limits. New `UNAUTHORIZED` (401) and `FORBIDDEN` (403)
+  error codes are part of the contracts.
+- `GET /api/health` remains public; all other API routes require a principal.
+  Logout clears the local cookie even if the provider is unreachable.
+
+Verification: 11 new server tests cover production refusal/opt-out, incomplete
+configuration, missing/wrong/correct API keys, public health, design rate limiting,
+login + cookie + `/me`, refresh rotation, tampered cookies, wrong token signatures,
+cross-origin session rejection, provider-login failure without leakage and logout.
+All **249 tests** (core 166, server 58, web 25), typecheck, lint, formatting and
+build pass. No new dependency was added (Node's `crypto` and `fetch` only).
+**S1 verdict: implemented and tested; the web sign-in panel and CSP are recorded in
+S5, and the Supabase project itself is not provisioned here.**

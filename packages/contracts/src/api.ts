@@ -7,6 +7,9 @@ export const API_ROUTES = {
   aiEdit: '/api/ai/edit',
   assets: '/api/assets',
   export: '/api/export',
+  authLogin: '/api/auth/login',
+  authLogout: '/api/auth/logout',
+  authMe: '/api/auth/me',
 } as const;
 
 export type ApiRoute = (typeof API_ROUTES)[keyof typeof API_ROUTES];
@@ -22,6 +25,8 @@ export const API_ERROR_STATUS: Readonly<Record<string, number>> = {
   AI_INVALID_OUTPUT: 502,
   SPEND_CAP_EXCEEDED: 402,
   RATE_LIMITED: 429,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
   NOT_FOUND: 404,
   INTERNAL_ERROR: 500,
 } as const;

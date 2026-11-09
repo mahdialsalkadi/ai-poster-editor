@@ -75,6 +75,8 @@ export const LIMITS = {
     aiEditPerMinutePerIp: 10,
     exportPerMinutePerIp: 10,
     uploadPerMinutePerIp: 20,
+    designPerMinute: 30,
+    loginPerMinutePerIp: 10,
   },
 } as const;
 

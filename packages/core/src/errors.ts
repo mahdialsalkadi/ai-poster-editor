@@ -9,6 +9,8 @@ export type ErrorCode =
   | 'AI_INVALID_OUTPUT'
   | 'SPEND_CAP_EXCEEDED'
   | 'RATE_LIMITED'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'INTERNAL_ERROR';
 

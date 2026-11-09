@@ -1,16 +1,17 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { Guard } from '../auth/guard.js';
 import { editDesignRequestSchema, generateDesignRequestSchema } from '@poster/contracts';
 import { DesignError, serializeDesignDoc } from '@poster/core';
 import type { AiRequestContext, AiService } from '../ai/service.js';
 import { requestIdOf } from '../errors.js';
 
 function contextOf(request: FastifyRequest): AiRequestContext {
-  const session = request.headers['x-session-id'];
-  const project = request.headers['x-project-id'];
+  const principal = request.auth;
+  const id = principal?.id ?? request.ip;
   return {
     ip: request.ip,
-    sessionId: typeof session === 'string' && session.length > 0 ? session : request.ip,
-    projectId: typeof project === 'string' && project.length > 0 ? project : 'default',
+    sessionId: id,
+    projectId: id,
   };
 }
 
@@ -22,9 +23,10 @@ function unavailable(): DesignError {
   );
 }
 
-export function aiRoutes(options: { ai: AiService | null }) {
+export function aiRoutes(options: { ai: AiService | null; guard: Guard }) {
   return async function register(app: FastifyInstance): Promise<void> {
     const service = options.ai;
+    app.addHook('preHandler', options.guard);
 
     app.post('/generate', async (request) => {
       if (!service) throw unavailable();

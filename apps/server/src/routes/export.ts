@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { Guard } from '../auth/guard.js';
 import { EXPORT_LIMITS, exportRequestSchema, type ExportRequest } from '@poster/contracts';
 import { LIMITS, canonicalizeDoc, DesignError } from '@poster/core';
 import type { ExportService } from '../export/service.js';
@@ -23,9 +24,11 @@ function assetName(fieldname: string): string {
  * `POST /api/export` takes multipart fields `options` and `doc` plus one binary
  * part per referenced asset (`asset:<id>`). See docs/contract.md §12.1.
  */
-export function exportRoutes(options: { service: ExportService }) {
+export function exportRoutes(options: { service: ExportService; guard: Guard; limit: Guard }) {
   return async (app: FastifyInstance): Promise<void> => {
     const { service } = options;
+    app.addHook('preHandler', options.guard);
+    app.addHook('preHandler', options.limit);
 
     app.post('/export', async (request, reply) => {
       if (!request.isMultipart()) {
