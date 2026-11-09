@@ -791,8 +791,9 @@ typecheck, tests (269) and build. No dependency version was changed and
 `pnpm-lock.yaml` is unchanged. The hosted Dependabot/CI behavior can only be
 confirmed after the next push.
 
-**S6 verdict: implemented and locally verified; hosted workflow/update behavior
-is pending the next push.**
+**S6 verdict: implemented; Dependabot created the grouped production and
+development PRs after the first push, and the blocking audit step passed in the
+hosted workflow recorded below.**
 
 ## Phase 2 verification — 9 November 2026
 
@@ -815,3 +816,24 @@ the CI matrix (Node 22 and latest) and is not a substitute for the hosted run.
 S1–S6 are implemented. Public deployment is still **not approved**: the
 container runtime, live Supabase sign-in, a live AI provider call, two-account
 isolation and TLS must pass the deployment checklist first. D4–D7 remain open.
+
+### Hosted CI verification — Phase 2
+
+With owner approval, the Phase 2 commits were pushed. The first run for
+`554b434` ([42588643100](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42588643100))
+failed at **Test** in both matrix jobs: the S4 renderer tests first ran in hosted
+CI there, and Ubuntu 24.04 restricts through AppArmor the unprivileged user
+namespaces Chromium's sandbox needs. Production keeps the sandbox enabled.
+
+`4af9fd3` enables those namespaces for the test job only, retains the documented
+seccomp fallback for hosts that cannot, and re-emits failing test lines as
+annotations because GitHub's raw log archive requires repository admin rights.
+
+[Run 42589192429](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42589192429)
+completed successfully at `4af9fd3eb8b538a11af7d61febb5752ad8e26d34` for Node 22
+and the latest available Node. Typecheck, lint, formatting, Chromium installation,
+Test, Build and the now-blocking `pnpm audit --prod` step all succeeded.
+Dependabot created grouped PR #1 (production dependencies) and PR #2
+(development dependencies); their branch runs predate the sandbox fix and need a
+rebase. No deployment or public exposure was performed, and `v0.1.0` is
+unchanged.

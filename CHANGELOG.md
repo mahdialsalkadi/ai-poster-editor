@@ -69,6 +69,12 @@ checkpoints; they do not imply approval for public deployment.
   and the internet. The proxy adds HSTS, `nosniff`, `Referrer-Policy` and
   `frame-ancestors 'none'`, with a body limit above the export limit.
 
+### Fixed
+
+- Hosted CI enables the unprivileged user namespaces Chromium's sandbox needs on
+  Ubuntu 24.04 instead of leaving the renderer tests red, and re-emits failed test
+  lines as annotations. The sandbox stays enabled in production.
+
 ## [0.1.0] - 2026-11-09
 
 Local baseline checkpoint before the remaining Phase 1 hardening work. MIT
