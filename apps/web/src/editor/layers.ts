@@ -1,5 +1,6 @@
 import {
   LIMITS,
+  requiresZeroLetterSpacing,
   type AllowedFont,
   type DesignDoc,
   type ImageLayer,
@@ -103,6 +104,14 @@ export function addLayer(doc: DesignDoc, layer: Layer): DesignDoc {
   return { ...doc, layers: [...doc.layers, layer] };
 }
 
+function normalizeTextSpacing(layer: Layer): Layer {
+  if (layer.type !== 'text' || layer.style.letterSpacing === 0) return layer;
+  const text = layer.content.map((node) => (node.kind === 'br' ? '\n' : node.text)).join('');
+  return requiresZeroLetterSpacing(layer.dir, text)
+    ? { ...layer, style: { ...layer.style, letterSpacing: 0 } }
+    : layer;
+}
+
 export function updateLayer(
   doc: DesignDoc,
   id: string,
@@ -111,7 +120,7 @@ export function updateLayer(
   let changed = false;
   const layers = doc.layers.map((layer) => {
     if (layer.id !== id) return layer;
-    const next = updater(layer);
+    const next = normalizeTextSpacing(updater(layer));
     if (next !== layer) changed = true;
     return next;
   });
@@ -127,7 +136,7 @@ export function updateLayers(
   let changed = false;
   const layers = doc.layers.map((layer) => {
     if (!selected.has(layer.id)) return layer;
-    const next = updater(layer);
+    const next = normalizeTextSpacing(updater(layer));
     if (next !== layer) changed = true;
     return next;
   });

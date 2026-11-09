@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseDesignHtml, serializeDesignDoc, type ShapeLayer, type TextLayer } from '../src/index';
+import {
+  canonicalizeDoc,
+  parseDesignHtml,
+  serializeDesignDoc,
+  type ShapeLayer,
+  type TextLayer,
+} from '../src/index';
 
 const artboard = (inner: string): string =>
   `<div class="artboard" data-width="400px" data-height="400px" style="background:#ffffff">${inner}</div>`;
@@ -25,6 +31,34 @@ describe('unsupported colors', () => {
     const { doc, warnings } = parseDesignHtml(artboard(shapeLayer(`background:${fill}`)));
     expect((doc.layers[0] as ShapeLayer).style.fill).toEqual({ kind: 'solid', color: '#00000000' });
     expect(warnings.some((item) => item.code === 'UNSUPPORTED_COLOR')).toBe(true);
+  });
+});
+
+describe('text spacing boundaries', () => {
+  it.each([
+    [0.1, -500],
+    [0.5, -100],
+    [5, 1000],
+    [20, 2000],
+  ])('round-trips line height %s and letter spacing %s', (lineHeight, letterSpacing) => {
+    const { doc } = parseDesignHtml(artboard(textLayer('font-family:Inter')));
+    const layer = doc.layers[0] as TextLayer;
+    layer.style.lineHeight = lineHeight!;
+    layer.style.letterSpacing = letterSpacing!;
+    expect(parseDesignHtml(serializeDesignDoc(doc)).doc).toEqual(canonicalizeDoc(doc));
+  });
+
+  it.each([
+    ['rtl', 'English'],
+    ['ltr', 'مرحبا'],
+    ['rtl', 'مرحبا'],
+  ])('removes spacing for %s %s', (dir, text) => {
+    const { doc, warnings } = parseDesignHtml(
+      artboard(textLayer('font-family:Cairo;letter-spacing:4px', text, `dir="${dir}"`)),
+    );
+    expect((doc.layers[0] as TextLayer).style.letterSpacing).toBe(0);
+    expect(warnings.some((item) => item.code === 'ARABIC_LETTER_SPACING_DROPPED')).toBe(true);
+    expect(parseDesignHtml(serializeDesignDoc(doc)).doc).toEqual(doc);
   });
 });
 

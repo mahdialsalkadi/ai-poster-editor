@@ -4,6 +4,7 @@ import {
   A4_SIZE,
   LIMITS,
   clamp,
+  requiresZeroLetterSpacing,
   type AllowedFont,
   type Border,
   type DesignDoc,
@@ -665,8 +666,8 @@ function TextSection({
           <Field label="تباعد الأسطر">
             <NumberInput
               value={layer.style.lineHeight}
-              min={0.6}
-              max={4}
+              min={LIMITS.text.minLineHeight}
+              max={LIMITS.text.maxLineHeight}
               step={0.05}
               onChange={(lineHeight) => patchStyle({ lineHeight })}
             />
@@ -674,6 +675,7 @@ function TextSection({
           <Field label="تباعد الحروف">
             <NumberInput
               value={layer.style.letterSpacing}
+              disabled={requiresZeroLetterSpacing(layer.dir, inlineToPlain(layer.content))}
               min={LIMITS.text.minLetterSpacing}
               max={LIMITS.text.maxLetterSpacing}
               step={0.5}

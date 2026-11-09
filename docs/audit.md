@@ -890,3 +890,11 @@ migration, save/reopen, stale-tab rejection, one winner from simultaneous writer
 backup recovery, injected QuotaExceededError propagation and atomic preservation
 of the previous document after the failed write. Web typecheck and all 34 web
 tests passed. No fake IndexedDB or new dependency was installed.
+
+### P5 — Arabic typography and round-trip limits
+
+Parser and canonicalizer now share line-height 0.5–5 and Latin letter-spacing
+−100–1000 limits. Arabic content or RTL direction forces zero letter-spacing in
+the parser, model canonicalizer and editor updates; the Inspector disables the
+field and parsing emits a specific warning. Removed both Arabic-template spacing
+overrides. Regression tests cover boundary round trips and Arabic/RTL detection.

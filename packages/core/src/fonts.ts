@@ -6,6 +6,10 @@ export function containsArabic(text: string): boolean {
   return ARABIC_RE.test(text);
 }
 
+export function requiresZeroLetterSpacing(dir: 'ltr' | 'rtl', text: string): boolean {
+  return dir === 'rtl' || containsArabic(text);
+}
+
 /**
  * Resolves a font stack against the allow-list.
  *

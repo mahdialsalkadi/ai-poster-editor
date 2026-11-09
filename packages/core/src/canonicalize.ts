@@ -1,6 +1,12 @@
 import { normalizeColor } from './color.js';
 import { DesignError } from './errors.js';
-import { containsArabic, fallbackFont, findAllowedFont, isArabicFont } from './fonts.js';
+import {
+  containsArabic,
+  fallbackFont,
+  findAllowedFont,
+  isArabicFont,
+  requiresZeroLetterSpacing,
+} from './fonts.js';
 import { LIMITS } from './limits.js';
 import { canonicalInlineText } from './text.js';
 import type {
@@ -104,10 +110,14 @@ function canonicalTextStyle(style: TextStyle, dir: 'ltr' | 'rtl', text: string):
     underline: style.underline,
     color: canonicalColor(style.color, 'style.color'),
     align: style.align,
-    lineHeight: quantize(Math.max(0.1, style.lineHeight)),
-    letterSpacing: quantize(
-      clamp(style.letterSpacing, LIMITS.text.minLetterSpacing, LIMITS.text.maxLetterSpacing),
+    lineHeight: quantize(
+      clamp(style.lineHeight, LIMITS.text.minLineHeight, LIMITS.text.maxLineHeight),
     ),
+    letterSpacing: requiresZeroLetterSpacing(dir, text)
+      ? 0
+      : quantize(
+          clamp(style.letterSpacing, LIMITS.text.minLetterSpacing, LIMITS.text.maxLetterSpacing),
+        ),
     textTransform: style.textTransform,
     ...(style.shadow ? { shadow: canonicalShadow(style.shadow, 'style.shadow') } : {}),
   };

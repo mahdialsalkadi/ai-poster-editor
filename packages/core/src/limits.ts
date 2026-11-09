@@ -30,6 +30,8 @@ export const LIMITS = {
     minFontSize: 1,
     maxLetterSpacing: 1_000,
     minLetterSpacing: -100,
+    minLineHeight: 0.5,
+    maxLineHeight: 5,
   },
   style: {
     maxDeclarationsPerLayer: 64,

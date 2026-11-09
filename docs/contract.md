@@ -183,7 +183,7 @@ trimmed. `br` at the start/end and consecutive `br` are collapsed.
 | `text-decoration` | `none`, `underline`                                  | none                                    |
 | `color`           | color                                                | `#000000`                               |
 | `text-align`      | `left`, `center`, `right`, `justify`, `start`, `end` | `left` (`start`/`end` resolve by `dir`) |
-| `line-height`     | unitless number > 0, or `normal`                     | 1.2                                     |
+| `line-height`     | unitless multiplier, clamped to 0.5..5, or `normal`  | 1.2                                     |
 | `letter-spacing`  | px, -100..1000                                       | 0                                       |
 | `text-transform`  | `none`, `uppercase`, `lowercase`, `capitalize`       | none                                    |
 | `text-shadow`     | one shadow, no spread                                | none                                    |
@@ -358,11 +358,10 @@ Rules:
 9. **Round trip**: `parse(serialize(doc))` equals `canonicalizeDoc(doc)` and
    `serialize(parse(serialize(doc)))` is byte-identical.
 
-Rule 9 is the required invariant and is tested for the generated supported-domain
-documents and fixtures. It is not yet established across every model value:
-current text parsing clamps some line-height/letter-spacing values more narrowly
-than canonicalization. Canonicalization can also clamp without producing parser
-warnings. Do not infer full boundary coverage from the current property tests.
+Rule 9 is tested for generated supported-domain documents, fixtures and text
+spacing boundaries. Parser and canonicalizer share the same limits. Arabic or
+RTL text always uses zero letter spacing; parsing nonzero spacing emits
+`ARABIC_LETTER_SPACING_DROPPED`. Canonicalization can clamp without parser warnings.
 
 ## 8. Limits
 

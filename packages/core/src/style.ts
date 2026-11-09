@@ -8,6 +8,7 @@ import {
   findAllowedFont,
   isArabicFont,
   normalizeFontWeight,
+  requiresZeroLetterSpacing,
 } from './fonts.js';
 import { LIMITS } from './limits.js';
 import type {
@@ -1143,16 +1144,24 @@ export function parseTextStyle(declarations: Declarations, ctx: StyleContext): T
     } else if (trimmedLh.endsWith('%')) {
       const pct = Number.parseFloat(trimmedLh.slice(0, -1));
       if (Number.isFinite(pct) && pct > 0) {
-        lineHeight = clampQuantized(pct / 100, 0.5, 5);
+        lineHeight = clampQuantized(
+          pct / 100,
+          LIMITS.text.minLineHeight,
+          LIMITS.text.maxLineHeight,
+        );
       }
     } else {
       const pxLh = parseFlexibleLength(trimmedLh, fontSize);
       if (pxLh !== null && trimmedLh.endsWith('px')) {
-        lineHeight = clampQuantized(pxLh / Math.max(1, fontSize), 0.5, 5);
+        lineHeight = clampQuantized(
+          pxLh / Math.max(1, fontSize),
+          LIMITS.text.minLineHeight,
+          LIMITS.text.maxLineHeight,
+        );
       } else {
         const numLh = parseNumber(trimmedLh);
         if (numLh !== null && numLh > 0) {
-          lineHeight = clampQuantized(numLh, 0.5, 5);
+          lineHeight = clampQuantized(numLh, LIMITS.text.minLineHeight, LIMITS.text.maxLineHeight);
         } else {
           pushWarning(
             ctx.warnings,
@@ -1175,7 +1184,11 @@ export function parseTextStyle(declarations: Declarations, ctx: StyleContext): T
     } else {
       const parsedLs = parseFlexibleLength(trimmedLs, fontSize);
       if (parsedLs !== null) {
-        letterSpacing = clampQuantized(parsedLs, -50, 200);
+        letterSpacing = clampQuantized(
+          parsedLs,
+          LIMITS.text.minLetterSpacing,
+          LIMITS.text.maxLetterSpacing,
+        );
       } else {
         pushWarning(
           ctx.warnings,
@@ -1186,6 +1199,17 @@ export function parseTextStyle(declarations: Declarations, ctx: StyleContext): T
         );
       }
     }
+  }
+
+  if (letterSpacing !== 0 && requiresZeroLetterSpacing(ctx.dir, ctx.textContent ?? '')) {
+    letterSpacing = 0;
+    pushWarning(
+      ctx.warnings,
+      'ARABIC_LETTER_SPACING_DROPPED',
+      'Nonzero letter-spacing was removed to preserve Arabic/RTL joining',
+      ctx.path,
+      ctx.layerId,
+    );
   }
 
   let textTransform: TextTransform = 'none';
