@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "test:e2e:serve": "tsx e2e/server.ts",
     "test:visual": "playwright test e2e/visual.spec.ts",
-    "update-goldens": "playwright test e2e/visual.spec.ts --update-snapshots",
+    "update-goldens": "UPDATE_GOLDENS=1 pnpm test:visual",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "audit:prod": "pnpm audit --prod",
     "typecheck": "pnpm -r typecheck && pnpm typecheck:e2e",

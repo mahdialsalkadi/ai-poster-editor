@@ -11,8 +11,10 @@ Locale is en-US, timezone UTC and fixture content has no timestamps or randomnes
 
 Comparison uses a per-pixel color threshold of **0.2** and at most **0.3%**
 different pixels, allowing small rasterization differences without masking layout
-or missing-content changes. Normal test runs (including CI) **never update**
-goldens, even if a file is missing.
+or missing-content changes. The comparator decodes raw pixels through the
+workspace's existing `sharp` dependency rather than Playwright's snapshot PNG
+decoder, which crashes on the current Node 27 alpha's class-based `Inflate`.
+Normal test runs (including CI) **never update** goldens, even if a file is missing.
 
 ```bash
 pnpm build
@@ -25,8 +27,7 @@ pnpm test:visual
 
 Regenerate on Linux using the pinned browser/fonts. A browser, font, model or
 renderer update requires reviewing the actual images, not merely accepting new
-snapshots to make CI green. Playwright's failure report contains expected/actual/
-diff images; the report and traces are ignored generated output.
+snapshots to make CI green. Playwright failure traces are ignored generated output.
 
 These are exporter regressions on three reference designs, not proof of universal
 pixel equality between all editor designs and every export format. The separate
