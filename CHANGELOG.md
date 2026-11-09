@@ -25,6 +25,15 @@ checkpoints; they do not imply approval for public deployment.
 
 ### Added
 
+- Marquee selection, tab-local layer copy/paste with incremental 20px offsets,
+  Space-drag/wheel pan and updated shortcut help.
+- IndexedDB document autosave with schema validation, one backup, corruption
+  recovery, atomic cross-tab revision checks and one-time localStorage migration.
+- Two English layouts; the gallery now has three English, two Arabic, the retained
+  bilingual design and a blank. Edit prompts explicitly require hex colors.
+- Regression tests for A4 PDF page geometry and Unicode-mapped vector text,
+  unsupported paint retries, typography/units, storage boundaries and interactions.
+
 - Editor app Content Security Policy via a Vite build-only plugin (`apps/web/src/csp.ts`)
   with tests; the built shell contains no inline scripts and the policy uses
   `default-src 'none'`, `script-src 'self'`, no `unsafe-eval`, and same-origin
@@ -70,6 +79,15 @@ checkpoints; they do not imply approval for public deployment.
   `frame-ancestors 'none'`, with a body limit above the export limit.
 
 ### Fixed
+
+- A4 now means 794x1123 CSS pixels, approximately 595x842 pt, not a 300-dpi raster
+  size interpreted as CSS geometry. Native vector PDF and embedded fonts remain.
+- Arabic/RTL letter spacing is zeroed and disabled; parser and canonicalizer share
+  text ranges. One internal blank line survives editing, save and reload.
+- Artboard data dimensions accept bare numbers or px while output retains px.
+- Invalid AI paint retries once across text, fills, borders, shadows and SVG.
+  Invalid radial fills cannot recursively reparse themselves.
+- Snapshot insertion/eviction is atomic and uses one shared browser-local cap.
 
 - Hosted CI enables the unprivileged user namespaces Chromium's sandbox needs on
   Ubuntu 24.04 instead of leaving the renderer tests red, and re-emits failed test

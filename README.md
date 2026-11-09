@@ -112,6 +112,10 @@ the verification record. Do not expose the build until that checklist passes.
 - Undo/redo, duplication, Design HTML copying, and HTML import that converts a
   broader HTML/CSS subset into positioned canonical layers. Import is not a
   browser-equivalent layout engine.
+- Marquee and Shift-click selection, an internal layer clipboard with 20px paste
+  offsets, Space-drag/wheel pan, and joined Arabic typography with blank lines.
+- Debounced IndexedDB document autosave, one validated backup, explicit corruption
+  recovery, one-time localStorage migration and atomic stale-tab write protection.
 - Optional OpenAI-compatible generation and selection-scoped edits, one retry
   for rejected output, usage reporting, browser-stored edit snapshots and a
   durable daily spend ledger.
@@ -159,6 +163,9 @@ for canonicalization, import behavior, security rules and current API behavior.
 | Open export                     | `Ctrl/Cmd + E`                                   |
 | Undo / redo                     | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z`          |
 | Duplicate selection             | `Ctrl/Cmd + D`                                   |
+| Copy / paste layers             | `Ctrl/Cmd + C` / `Ctrl/Cmd + V`                  |
+| Pan canvas                      | `Space` + drag, or wheel/trackpad                |
+| Marquee selection               | Drag empty canvas; `Shift` adds to selection     |
 | Zoom in / out / fit             | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
 | Edit text on canvas             | Double-click, `Enter` or `F2`                    |
 | Commit / cancel inline text     | `Ctrl/Cmd + Enter` or blur / `Escape`            |
@@ -168,8 +175,9 @@ for canonicalization, import behavior, security rules and current API behavior.
 | Shortcut sheet                  | `?`                                              |
 | Clear selection / close dialog  | `Escape`                                         |
 
-Ctrl/Cmd-wheel zoom is supported. Layer copy/paste, marquee selection and canvas
-pan are not implemented. Inline text uses a `textarea`, not rich-HTML paste.
+Ctrl/Cmd-wheel zoom is supported. The layer clipboard is internal to the editor
+tab; text fields retain native plain-text paste. Inline text uses a `textarea`,
+not rich-HTML paste.
 
 ## Tests and checks
 
@@ -182,13 +190,13 @@ pnpm build
 pnpm audit --prod
 ```
 
-The current test suite has **269 tests**:
+The current test suite has **324 tests**:
 
-| Package | Tests | Files | Main coverage                                                                              |
-| ------- | ----- | ----- | ------------------------------------------------------------------------------------------ |
-| Core    | 166   | 12    | Parser/security corpus, canonical round trips, merge, import, HTML goldens and performance |
-| Server  | 76    | 9     | Auth, mock AI, durable spend, limits, export formats/assets/cache/isolation and queue      |
-| Web     | 27    | 4     | Snapping, fills, templates and web content security policy                                 |
+| Package | Tests | Files | Main coverage                                                                                       |
+| ------- | ----- | ----- | --------------------------------------------------------------------------------------------------- |
+| Core    | 201   | 14    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance     |
+| Server  | 80    | 9     | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
+| Web     | 43    | 7     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills and CSP           |
 
 The parser performance test enforces p95 <200 ms for a 200-layer, approximately
 56.4 KiB document. It does not establish a 1–3 ms guarantee or a full-200-KiB
@@ -215,16 +223,21 @@ and pnpm resolves no version published less than a day ago (only the data-only
 - **Dependencies:** Zod was upgraded to the patched 4.6.6 release; `pnpm audit --prod`
   currently reports no known vulnerabilities. Dependency and release-age gates must
   stay in CI as new advisories appear.
-- **Persistence:** documents use debounced `localStorage`; image assets and up to
-  20 AI pre-edit snapshots use IndexedDB. Snapshot restore is available in the AI
-  panel. There is no backup/recovery flow or multi-tab overwrite protection.
-- **PDF:** selectable native text and embedded fonts were verified for a Latin
-  probe, but the 2480x3508 A4 preset exports at the wrong physical paper size.
-  Print-quality Arabic fidelity and editor/export visual parity remain unverified.
-- **Editor:** no marquee, layer clipboard or pan; Arabic letter spacing remains
-  enabled; consecutive blank lines collapse; interface chrome is fixed Arabic/RTL.
-- **Gallery/import:** four designed templates plus a blank, not five finished
-  language-balanced layouts. Broader HTML/CSS import is best-effort and lossy.
+- **Persistence:** IndexedDB data is browser-local, not cloud backup or collaborative
+  editing. Clearing site data removes documents/assets/snapshots. Corrupt documents
+  pause saving for an explicit recovery choice; stale tabs must copy their work or
+  reload. The seven Node storage tests validate the boundary; actual IndexedDB
+  transactions and dialogs were checked separately in Chromium, not CI E2E yet.
+- **PDF:** the 794x1123 CSS-pixel A4 preset produces an approximately 595x842 pt
+  vector page with embedded/selectable Latin text. Older 2480x3508 documents are
+  not silently resized. Print-quality Arabic fidelity and visual parity remain
+  unverified.
+- **Editor:** the layer clipboard is tab-local and marquee uses rotated bounding
+  boxes. Interface chrome remains fixed Arabic/RTL; a language toggle is undecided.
+- **Gallery/import:** three English and two Arabic layouts, one retained bilingual
+  layout and a blank. Broader HTML/CSS import remains best-effort and lossy.
+- **AI provider:** OpenAI and OpenAI-compatible APIs only; the optional Anthropic
+  adapter is deferred. Unsupported output colors trigger the existing one retry.
 - **Configuration:** export/upload/rate limits currently use constants in
   `packages/core/src/limits.ts`, not environment overrides. The example environment
   file only lists settings the server actually reads.
@@ -249,13 +262,13 @@ screenshots/        Historical manual verification captures, not visual tests
 
 ## Milestone status
 
-| Baseline milestone | Existing implementation                                        | Remaining qualification                                  |
-| ------------------ | -------------------------------------------------------------- | -------------------------------------------------------- |
-| 1                  | Core contract, parser, serializer, merge and tests             | Broader robustness/coverage gates remain                 |
-| 2–4                | Canvas, selection, transforms, inline editing and inspector    | Editor gaps listed above remain                          |
-| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Container runtime verification remains                   |
-| 6                  | Local assets, export formats and autosave                      | Upload API, isolation, persistence and PDF sizing remain |
-| 7                  | Gradients, gallery, shortcuts and docs                         | Gallery/language balance and product polish remain       |
+| Baseline milestone | Existing implementation                                        | Remaining qualification                                   |
+| ------------------ | -------------------------------------------------------------- | --------------------------------------------------------- |
+| 1                  | Core contract, parser, serializer, merge and tests             | Broader robustness/coverage gates remain                  |
+| 2–4                | Canvas, selection, transforms, inline editing and inspector    | Trusted-input E2E and visual-regression gates remain      |
+| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Container runtime verification remains                    |
+| 6                  | Local assets, export formats and IndexedDB autosave            | Upload stub, asset preflight and deployment checks remain |
+| 7                  | Gradients, balanced gallery, shortcuts and docs                | Coverage/visual gates and release readiness remain        |
 
 These are functional implementations, not a claim that all original acceptance
 criteria or public-release gates are complete. See [CHANGELOG.md](CHANGELOG.md)

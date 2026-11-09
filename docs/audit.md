@@ -974,3 +974,47 @@ quota error aborts the whole transaction instead of being mistaken for corrupt
 old data. Obscura fault injection confirmed a backup-only QuotaExceededError
 propagates and preserves the current revision. A no-op-save check confirmed an
 identical document/title neither changes the revision nor rotates the backup.
+
+## Phase 3 review checkpoint — 10 November 2026
+
+| Finding                    | Current verdict                        | Evidence                                                                                                            |
+| -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| R4 · Units                 | CLOSED                                 | `artboard-units.test.ts`: 15 acceptance/rejection/canonical-output tests                                            |
+| P1 · Colors                | CLOSED                                 | Existing CSS table retained; retry policy and all paint channels tested                                             |
+| P2 · PDF                   | CLOSED for CSS-size/vector requirement | A4 preset regression checks page size, embedded font and extractable Latin text                                     |
+| P3 · Autosave              | CLOSED locally                         | Seven Node boundary tests plus actual Chromium migration, atomicity, quota, recovery and conflict checks            |
+| P4 · Snapshots             | CLOSED locally                         | UI restore/reload, raw 20-entry cap with 30 simultaneous writes; no server store                                    |
+| P5 · Editor                | CLOSED for requested gaps              | Unit geometry/clipboard tests and browser interaction checks; existing alignment retained                           |
+| P6 · Blank lines           | CLOSED                                 | Five core/two web tests; shared normalization and updated contract                                                  |
+| P7 · Anthropic             | OPTIONAL, DEFERRED by written verdict  | Existing OpenAI-compatible scope retained; no adapter or dependency added                                           |
+| P8 · Gallery/prompts/fonts | CLOSED                                 | Three English/two Arabic plus retained bilingual/blank, prompt test, canonical templates and 11 shipped OFL notices |
+
+Final local gates: `pnpm build`, `pnpm typecheck`, `pnpm lint`,
+`pnpm format:check`, `pnpm test` and `pnpm audit --prod` all **PASS**. The
+suite has **324 tests**: core 201/14 files, server 80/9 files, web 43/7 files.
+Build copied **11/11** font notices; bundled language-subset woff2 files remain.
+The existing >500 kB Vite chunk warning remains, as do non-fatal dependency
+annotation warnings. `git diff --check` passes. Dependencies and lockfile are
+unchanged.
+
+Additional browser UI verification deliberately corrupted the isolated origin's
+current record, observed the recovery prompt before any save, restored the backup,
+then simulated another tab saving. Explicit save in the stale editor displayed
+the conflict dialog and visible save-error state without overwriting the winner.
+Browser interaction probes use dispatched DOM events; they do not replace the
+trusted-input E2E/visual regression suites planned in Phase 4.
+
+Environment: Linux, Node **22.23.1**, pnpm **12.16.1**, pinned Playwright 1.65.0.
+Node is below the manifest's **>=22.23.4** floor; local success does not certify
+the supported Node CI matrix. These commits are local, so no new hosted CI result
+is claimed. The original archive/progress report remain unchanged.
+
+**Stop here for phase review.** No dependencies were added, no commits pushed,
+no release tag created, no provider billed and no deployment attempted. Phase 4
+still owns asset header/aggregate/style-byte enforcement, queue-full HTTP 429,
+hostile-HTML fuzzing/full-200-KiB performance, coverage thresholds, trusted-input
+E2E and three-design visual gates. Phase 5 owns redacted logs, metrics, runbook,
+staging smoke and release tagging. Docker daemon/TLS/live Supabase and live AI
+deployment checks remain open; public exposure is still not approved. Fixed
+Arabic/RTL chrome and the optional Anthropic adapter remain explicit non-goals
+of this checkpoint.

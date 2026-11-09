@@ -194,14 +194,13 @@ infers `rtl` and emits `RTL_DIRECTION_INFERRED`. An explicit `dir` is preserved
 by canonicalization.
 
 If Arabic text is paired with a Latin-only font, the parser substitutes an
-Arabic-capable font and emits `FONT_SCRIPT_MISMATCH`. Arabic letter spacing is
-currently accepted without a dedicated warning and the UI does not disable it;
-avoid nonzero spacing because it can break cursive joining.
+Arabic-capable font and emits `FONT_SCRIPT_MISMATCH`. Arabic content or RTL
+direction forces zero letter spacing, with `ARABIC_LETTER_SPACING_DROPPED` when
+parsing a nonzero value. The editor disables the spacing field for those layers.
 
 The parser also accepts keyword font sizes and converts supported relative
-lengths to px. It normalizes percentage/px line height to a multiplier. Current
-text parsing clamps line height to 0.5..5 and letter spacing to -50..200, which is
-narrower than some canonical model values; see the round-trip qualification in §7.
+lengths to px. It normalizes percentage/px line height to a multiplier. Parser and
+canonicalizer share line-height 0.5..5 and Latin letter-spacing -100..1000 limits.
 
 ### 3.3 Allowed fonts
 
@@ -343,8 +342,9 @@ Rules:
    table in `packages/core/src/color.ts` includes `orange`, `gold`, `navy` and
    `rebeccapurple`; supported hex, `rgb()`/`rgba()` and `hsl()`/`hsla()` input is
    converted too. Unsupported text colors warn and use opaque `#000000`;
-   unsupported shape fills warn and use transparent black. Such warnings do not
-   currently trigger an AI retry. Direct invalid model colors fail canonicalization.
+   unsupported shape fills warn and use transparent black. Unsupported paint
+   emits `UNSUPPORTED_COLOR` and triggers the AI's one retry (manual imports keep
+   the safe fallbacks). Direct invalid model colors fail canonicalization.
 2. **Numbers** are rounded to two decimals with a stable epsilon; `-0` becomes
    `0`. Angles are normalized to `[0, 360)`.
 3. **Geometry** is clamped to the limits. `width`/`height` are at least 1.
@@ -734,7 +734,8 @@ returns is trusted either:
 
 **One retry.** Rejected parsed output is retried once with the validation error
 appended to the prompt (`LIMITS.ai.retries`), then fails with `AI_INVALID_OUTPUT`.
-Warnings alone do not retry. Some transport failures, including no-text replies,
+`UNSUPPORTED_COLOR` warnings also reject the attempt; other warnings do not retry.
+Some transport failures, including no-text replies,
 throw before that validation retry path. There is no repair loop or hidden model.
 Provider calls have a configured timeout/token maximum; extracted output has a
 128 KiB check, generation a 60-layer check, and incoming Design HTML its core
@@ -817,6 +818,18 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
 - `apps/server/test/` — AI, auth, spend, API, export contract/cache and rendering tests
 
 ## 15. Contract changelog
+
+### 2026-11-10 — Phase 3 correctness and editor persistence
+
+- Artboard data dimensions accept positive numbers or px; output stays canonical px.
+- Shared typography limits, mandatory zero Arabic/RTL spacing and up to two internal
+  text breaks preserve canonical round trips and a single blank line.
+- Unsupported text/fill/border/shadow/SVG paint emits `UNSUPPORTED_COLOR`, which
+  triggers the existing one-retry AI policy without changing manual-import fallbacks.
+- The A4 UI preset uses 794x1123 CSS pixels and has vector/text/page-size tests.
+- Current documents and one backup use browser IndexedDB with migration, explicit
+  recovery and transaction-level stale-tab checks; no server document store was added.
+- Snapshot cap and eviction are browser-local and atomic across tabs.
 
 ### 2026-11-09 — Phase 2 access, spend and state changes
 
