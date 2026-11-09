@@ -49,7 +49,8 @@ Return only Design HTML. No markdown fences, no explanation.
    the request allows it. If you add one, use a new unique `data-id` and follow
    the generator contract.
 6. Use only the allowed fonts, colors, gradients, tags, and attributes from the
-   Design HTML contract.
+   Design HTML contract. Emit colors only as lowercase hex `#rrggbb` or
+   `#rrggbbaa`, including gradient stops, borders, shadows and inline spans.
 7. Keep Arabic text RTL and in an Arabic-capable font. Do not add letter-spacing
    to Arabic.
 8. Do not use external URLs, scripts, event handlers, `href`, CSS `url(...)`,

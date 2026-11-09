@@ -478,10 +478,170 @@ export function createBlankDoc(): DesignDoc {
   };
 }
 
+export function createSummitDoc(): DesignDoc {
+  return {
+    schemaVersion: 1,
+    width: 1080,
+    height: 1350,
+    background: { kind: 'solid', color: '#f3f0e8' },
+    layers: [
+      shapeLayer(
+        'panel',
+        'Cobalt panel',
+        { left: 80, top: 80, width: 920, height: 760 },
+        { fill: { kind: 'solid', color: '#253fce' }, radius: 24 },
+      ),
+      textLayer(
+        'kicker',
+        'Series',
+        [{ kind: 'text', text: 'IDEAS WORTH BUILDING' }],
+        { fontFamily: 'Inter', fontSize: 24, fontWeight: 700, letterSpacing: 3 },
+        { left: 130, top: 140, width: 820 },
+        'ltr',
+      ),
+      textLayer(
+        'headline',
+        'Headline',
+        [{ kind: 'text', text: 'Design' }, { kind: 'br' }, { kind: 'text', text: 'tomorrow.' }],
+        { fontFamily: 'Poppins', fontSize: 112, fontWeight: 700, lineHeight: 1.05 },
+        { left: 130, top: 290, width: 820 },
+        'ltr',
+      ),
+      shapeLayer(
+        'line',
+        'Lime accent',
+        { left: 130, top: 650, width: 180, height: 12 },
+        { fill: { kind: 'solid', color: '#d9f577' }, radius: 6 },
+      ),
+      textLayer(
+        'date',
+        'Date',
+        [{ kind: 'text', text: 'NOV 21 — 22 / 2026' }],
+        { fontFamily: 'Inter', fontSize: 30, fontWeight: 700, color: '#202020' },
+        { left: 80, top: 910, width: 920 },
+        'ltr',
+      ),
+      textLayer(
+        'body',
+        'Description',
+        [
+          { kind: 'text', text: 'Two days of talks, practical workshops' },
+          { kind: 'br' },
+          { kind: 'text', text: 'and conversations about better design.' },
+        ],
+        { fontFamily: 'Inter', fontSize: 32, lineHeight: 1.5, color: '#303030' },
+        { left: 80, top: 1000, width: 920 },
+        'ltr',
+      ),
+      textLayer(
+        'footer',
+        'Venue',
+        [{ kind: 'text', text: 'THE DESIGN SUMMIT · STUDIO HALL' }],
+        { fontFamily: 'Inter', fontSize: 22, fontWeight: 700, color: '#253fce', letterSpacing: 2 },
+        { left: 80, top: 1210, width: 920 },
+        'ltr',
+      ),
+    ],
+  };
+}
+
+export function createNatureDoc(): DesignDoc {
+  return {
+    schemaVersion: 1,
+    width: 1080,
+    height: 1350,
+    background: { kind: 'solid', color: '#102e25' },
+    layers: [
+      shapeLayer(
+        'sun',
+        'Sun',
+        { left: 650, top: 100, width: 300, height: 300 },
+        { fill: { kind: 'solid', color: '#f3c96a' }, radius: 150 },
+      ),
+      shapeLayer(
+        'hill',
+        'Green horizon',
+        { left: 80, top: 860, width: 920, height: 380 },
+        {
+          fill: {
+            kind: 'linear',
+            angle: 135,
+            stops: [
+              { color: '#416e50', pos: 0 },
+              { color: '#254f3b', pos: 100 },
+            ],
+          },
+          radius: 40,
+        },
+      ),
+      textLayer(
+        'kicker',
+        'Invitation',
+        [{ kind: 'text', text: 'A WEEKEND OUTSIDE' }],
+        { fontFamily: 'Inter', fontSize: 24, fontWeight: 700, letterSpacing: 3, color: '#f3c96a' },
+        { left: 80, top: 140, width: 540 },
+        'ltr',
+      ),
+      textLayer(
+        'headline',
+        'Headline',
+        [
+          { kind: 'text', text: 'Make room' },
+          { kind: 'br' },
+          { kind: 'text', text: 'for nature.' },
+        ],
+        {
+          fontFamily: 'Playfair Display',
+          fontSize: 108,
+          fontWeight: 700,
+          lineHeight: 1.15,
+          color: '#faf4e3',
+        },
+        { left: 80, top: 420, width: 920 },
+        'ltr',
+      ),
+      textLayer(
+        'body',
+        'Description',
+        [
+          { kind: 'text', text: 'Walk the trails. Restore a habitat.' },
+          { kind: 'br' },
+          { kind: 'text', text: 'Meet your local conservation community.' },
+        ],
+        { fontFamily: 'Inter', fontSize: 30, lineHeight: 1.6, color: '#faf4e3' },
+        { left: 80, top: 720, width: 920 },
+        'ltr',
+      ),
+      textLayer(
+        'date',
+        'Date',
+        [{ kind: 'text', text: 'SATURDAY / 28 NOVEMBER' }],
+        { fontFamily: 'Inter', fontSize: 30, fontWeight: 700, color: '#ffffff' },
+        { left: 130, top: 970, width: 820 },
+        'ltr',
+      ),
+      textLayer(
+        'footer',
+        'Meeting point',
+        [
+          { kind: 'text', text: '09:00 · RIVERSIDE PARK' },
+          { kind: 'br' },
+          { kind: 'text', text: 'All welcome. Bring water and sturdy shoes.' },
+        ],
+        { fontFamily: 'Inter', fontSize: 26, lineHeight: 1.6, color: '#ffffff' },
+        { left: 130, top: 1060, width: 820 },
+        'ltr',
+      ),
+    ],
+  };
+}
+
 export const TEMPLATES = [
-  { id: 'midnight', name: 'Midnight Gallery', doc: createMidnightDoc() },
-  { id: 'paper', name: 'Paper Studio', doc: createPaperDoc() },
-  { id: 'coffee', name: 'Coffee Mornings', doc: createCoffeeDoc() },
-  { id: 'neon', name: 'Neon Night', doc: createNeonDoc() },
-  { id: 'blank', name: 'Blank poster', doc: createBlankDoc() },
+  { id: 'midnight', name: 'Midnight Gallery', language: 'ar', doc: createMidnightDoc() },
+  { id: 'paper', name: 'Paper Studio', language: 'en', doc: createPaperDoc() },
+  { id: 'coffee', name: 'Coffee Mornings', language: 'ar', doc: createCoffeeDoc() },
+  { id: 'neon', name: 'Neon Night', language: 'mixed', doc: createNeonDoc() },
+  { id: 'summit', name: 'Design Summit', language: 'en', doc: createSummitDoc() },
+  { id: 'nature', name: 'Make Room for Nature', language: 'en', doc: createNatureDoc() },
+  { id: 'blank', name: 'Blank poster', language: 'none', doc: createBlankDoc() },
 ] as const;

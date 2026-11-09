@@ -931,3 +931,18 @@ Artboard data attributes accept strict positive decimal numbers with or without
 `px`; serialization and prompt examples still use `px`. CSS fallback width/height
 continues to require units. Fifteen regressions cover accepted forms, canonical
 output, unsupported units, junk/nonfinite/negative values and dimension bounds.
+
+### P8 — Prompts, templates and fonts
+
+Added two designed English layouts (Design Summit and Make Room for Nature).
+The gallery now has three English, two Arabic, the preserved bilingual Neon
+layout and a blank. Explicit language metadata avoids counting blank/bilingual
+entries as English. Tests assert the mix, English content and canonical HTML
+round trips for every layout. The edit system prompt explicitly requires hex
+colors for fills, stops, borders, shadows and spans; canonical px/scoped wrappers
+and existing design-quality rules remain intact.
+
+Fontsource already supplies the Latin/Arabic woff2 subsets used by both web and
+export. No font binaries or license text were replaced, and no font dependency
+was added. The final build checks all 11 OFL notices in the distribution. Further
+font-bundle reduction is optimization, not an unimplemented subset requirement.

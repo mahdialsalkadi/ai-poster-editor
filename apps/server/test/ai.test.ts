@@ -12,7 +12,7 @@ import { AiService, type AiServiceOptions } from '../src/ai/service.js';
 import { DailySpendLedger } from '../src/ai/spend.js';
 import { SlidingWindowLimiter } from '../src/ai/rate-limit.js';
 import { providerConfigFromEnv, type AiMessage, type AiProvider } from '../src/ai/provider.js';
-import { extractDesignHtml } from '../src/ai/prompt.js';
+import { extractDesignHtml, systemPrompt } from '../src/ai/prompt.js';
 import { buildServer } from '../src/app.js';
 
 const context = { ip: '203.0.113.9', sessionId: 'session-1', projectId: 'project-1' };
@@ -87,6 +87,14 @@ function serviceWith(replies: string[], options: Partial<AiServiceOptions> = {})
 }
 
 describe('AI service', () => {
+  it('keeps canonical units and hex-only colors explicit in both prompts', () => {
+    for (const kind of ['generate', 'edit'] as const) {
+      const prompt = systemPrompt(kind);
+      expect(prompt).toContain('data-width="1080px"');
+      expect(prompt).toContain('#rrggbb');
+      expect(prompt).toContain('#rrggbbaa');
+    }
+  });
   it('retries unsupported colors and accepts named CSS colors without retry', async () => {
     const { service, calls } = serviceWith([
       designHtml({ color: 'not-a-color' }),
