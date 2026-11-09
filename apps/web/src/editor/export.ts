@@ -93,7 +93,7 @@ export async function exportDesign(input: ExportInput): Promise<ExportResult> {
 
   let response: Response;
   try {
-    response = await fetch('/api/export', { method: 'POST', body: form });
+    response = await fetch('/api/export', { method: 'POST', body: form, credentials: 'include' });
   } catch {
     return { ok: false, message: 'تعذر الاتصال بالخادم. تأكد من تشغيل واجهة API.' };
   }

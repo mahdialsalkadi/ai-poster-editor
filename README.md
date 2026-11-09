@@ -141,13 +141,13 @@ pnpm build
 pnpm audit --prod
 ```
 
-The current test suite has **264 tests**:
+The current test suite has **269 tests**:
 
 | Package | Tests | Files | Main coverage                                                                              |
 | ------- | ----- | ----- | ------------------------------------------------------------------------------------------ |
 | Core    | 166   | 12    | Parser/security corpus, canonical round trips, merge, import, HTML goldens and performance |
-| Server  | 70    | 7     | Auth, mock AI, durable spend, limits, export formats/assets/cache and queue                |
-| Web     | 25    | 3     | Snapping, fills and templates                                                              |
+| Server  | 76    | 9     | Auth, mock AI, durable spend, limits, export formats/assets/cache/isolation and queue      |
+| Web     | 27    | 4     | Snapping, fills, templates and web content security policy                                 |
 
 The parser performance test enforces p95 <200 ms for a 200-layer, approximately
 56.4 KiB document. It does not establish a 1–3 ms guarantee or a full-200-KiB
@@ -162,10 +162,11 @@ release readiness until resolved or explicitly assessed.
 ## Known limitations
 
 - **Public-launch security blockers:** access control, route rate limits, scoped
-  export caching and browser-only edit snapshots are in place, but the web
-  sign-in panel, app CSP, container/renderer isolation and a blocking audit gate
-  are not complete. Offline browser contexts and an export CSP are not a hardened
-  worker boundary.
+  export caching, browser-only edit snapshots, the web sign-in panel, app CSP and
+  the sandboxed renderer worker are in place. Remaining blockers are the container
+  deployment isolation, a blocking CI audit gate and the dependency
+  minimum-release-age policy; offline browser contexts and an export CSP are not a
+  hardened worker boundary.
 - **Spend limits:** the daily total persists in one atomically written file and is
   enforced per attempt, but it assumes a single API replica and manually configured
   prices. Multiple replicas need a shared billing store.
@@ -209,7 +210,7 @@ screenshots/        Historical manual verification captures, not visual tests
 | ------------------ | -------------------------------------------------------------- | -------------------------------------------------------- |
 | 1                  | Core contract, parser, serializer, merge and tests             | Broader robustness/coverage gates remain                 |
 | 2–4                | Canvas, selection, transforms, inline editing and inspector    | Editor gaps listed above remain                          |
-| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Public deployment isolation remains                      |
+| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Container deployment and launch gates remain             |
 | 6                  | Local assets, export formats and autosave                      | Upload API, isolation, persistence and PDF sizing remain |
 | 7                  | Gradients, gallery, shortcuts and docs                         | Gallery/language balance and product polish remain       |
 

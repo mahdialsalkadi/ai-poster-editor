@@ -1,3 +1,4 @@
+import type { AuthUser } from '@poster/contracts';
 import type { Warning } from '@poster/core';
 
 /**
@@ -41,25 +42,19 @@ const ROUTES = {
   generate: '/api/ai/generate',
   edit: '/api/ai/edit',
   health: '/api/health',
+  authLogin: '/api/auth/login',
+  authLogout: '/api/auth/logout',
+  authMe: '/api/auth/me',
 } as const;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-async function postJson<T>(
-  path: string,
-  body: unknown,
-  signal?: AbortSignal,
-): Promise<ApiResult<T>> {
+async function sendJson<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      ...(signal ? { signal } : {}),
-    });
+    response = await fetch(path, { credentials: 'include', ...init });
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === 'AbortError') {
       return {
@@ -113,6 +108,22 @@ async function postJson<T>(
     warnings: envelope.warnings ?? [],
     requestId: envelope.requestId ?? '',
   };
+}
+
+function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<ApiResult<T>> {
+  return sendJson<T>(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
+  });
+}
+
+function getJson<T>(path: string): Promise<ApiResult<T>> {
+  return sendJson<T>(path, {
+    method: 'GET',
+    headers: { accept: 'application/json' },
+  });
 }
 
 export type AiUsage = {
@@ -173,4 +184,18 @@ export async function checkHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export type AuthSessionUser = AuthUser;
+
+export function currentUser(): Promise<ApiResult<{ user: AuthUser }>> {
+  return getJson<{ user: AuthUser }>(ROUTES.authMe);
+}
+
+export function login(email: string, password: string): Promise<ApiResult<{ user: AuthUser }>> {
+  return postJson<{ user: AuthUser }>(ROUTES.authLogin, { email, password });
+}
+
+export function logout(): Promise<ApiResult<{ ok: boolean; method: string }>> {
+  return postJson<{ ok: boolean; method: string }>(ROUTES.authLogout, {});
 }

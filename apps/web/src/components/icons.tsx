@@ -7,6 +7,7 @@ export type IconName =
   | 'uploads'
   | 'layers'
   | 'sparkles'
+  | 'user'
   | 'undo'
   | 'redo'
   | 'save'
@@ -94,6 +95,12 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M12 3.5 13.7 9l5.3 1.7-5.3 1.7L12 18l-1.7-5.6L5 10.7 10.3 9 12 3.5Z" />
       <path d="m18.5 15 .8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5 20c.8-3.5 3.5-5.5 7-5.5s6.2 2 7 5.5" />
     </>
   ),
   undo: (

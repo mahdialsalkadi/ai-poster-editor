@@ -23,6 +23,20 @@ checkpoints; they do not imply approval for public deployment.
 - Scoped linting away from local tooling/captures and fixed three baseline lint
   errors without changing application behavior.
 
+### Added
+
+- Editor app Content Security Policy via a Vite build-only plugin (`apps/web/src/csp.ts`)
+  with tests; the built shell contains no inline scripts and the policy uses
+  `default-src 'none'`, `script-src 'self'`, no `unsafe-eval`, and same-origin
+  `connect-src`. The reverse proxy must add `frame-ancestors 'none'`.
+- Web sign-in UI (Supabase email/password via the server's HttpOnly session) with
+  credentialed API calls, account dialog, TopBar entry, export/AI 401 handling and
+  `TextInput` type/email/password support.
+- Internal HTTP export worker service (`apps/server/src/export/worker-server.ts`,
+  `apps/server/src/worker.ts`) behind `POST /render` and `GET /health`, optional
+  bearer token (`EXPORT_WORKER_TOKEN`) and queue; the API selects it with
+  `EXPORT_WORKER_URL`.
+
 ### Security
 
 - Added Supabase Auth email/password sign-in with HMAC-signed HttpOnly session

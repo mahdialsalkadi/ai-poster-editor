@@ -1,5 +1,6 @@
 import { DesignError, LIMITS } from '@poster/core';
 import { chromium, type Browser, type BrowserContext } from 'playwright';
+import type { BrowserRenderJobPayload } from './worker-protocol.js';
 
 export type RenderedExport = {
   bytes: Buffer;
@@ -8,16 +9,7 @@ export type RenderedExport = {
   contentType: string;
 };
 
-export type BrowserRenderJob = {
-  html: string;
-  width: number;
-  height: number;
-  format: 'png' | 'jpeg' | 'pdf';
-  scale: 1 | 2 | 3;
-  quality: number;
-  /** Explicit per job so the worker needs no environment variables. */
-  sandbox: boolean;
-};
+export type BrowserRenderJob = BrowserRenderJobPayload;
 
 let browserPromise: Promise<Browser> | null = null;
 

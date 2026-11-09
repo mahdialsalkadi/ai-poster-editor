@@ -5,6 +5,7 @@ import type { ExportOptions } from '@poster/contracts';
 import { DesignError, LIMITS, type DesignDoc, type ErrorCode } from '@poster/core';
 import { serializeForExport, type ExportAssets } from './serialize.js';
 import type { BrowserRenderJob, RenderedExport } from './renderer-core.js';
+import type { RemoteRenderJob } from './worker-protocol.js';
 
 const ERROR_CODES = new Set<ErrorCode>([
   'SECURITY_VIOLATION',
@@ -254,6 +255,76 @@ function worker(): ExportWorker {
   return shared;
 }
 
+function remoteCode(value: unknown): ErrorCode {
+  return typeof value === 'string' && ERROR_CODES.has(value as ErrorCode)
+    ? (value as ErrorCode)
+    : 'EXPORT_FAILED';
+}
+
+/**
+ * Sends a job to the HTTP worker container. This path exists for deployments
+ * where the renderer must be a separate, no-egress container.
+ */
+export async function renderRemote(
+  job: RemoteRenderJob,
+  url: string,
+  options: { token?: string; timeoutMs?: number } = {},
+): Promise<RenderedExport> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? LIMITS.export.timeoutMs);
+  try {
+    const response = await fetch(`${url.replace(/\/$/, '')}/render`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/octet-stream',
+        ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+      },
+      body: JSON.stringify(job),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const payload: unknown = await response.json().catch(() => null);
+      const error =
+        typeof payload === 'object' && payload !== null && 'error' in payload
+          ? (payload as { error?: { code?: unknown; message?: unknown; path?: unknown } }).error
+          : undefined;
+      throw new DesignError(
+        remoteCode(error?.code),
+        typeof error?.message === 'string' ? error.message : 'The export worker failed',
+        typeof error?.path === 'string' ? error.path : 'export',
+      );
+    }
+    const width = Number(response.headers.get('x-export-width'));
+    const height = Number(response.headers.get('x-export-height'));
+    const contentType = response.headers.get('content-type');
+    if (!Number.isInteger(width) || !Number.isInteger(height) || !contentType) {
+      throw new DesignError(
+        'EXPORT_FAILED',
+        'The export worker returned an invalid result',
+        'export',
+      );
+    }
+    return {
+      bytes: Buffer.from(await response.arrayBuffer()),
+      width,
+      height,
+      contentType,
+    };
+  } catch (cause) {
+    if (cause instanceof DesignError) throw cause;
+    throw new DesignError(
+      'EXPORT_FAILED',
+      controller.signal.aborted
+        ? 'The export worker timed out'
+        : 'The export worker could not be reached',
+      'export',
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Sends the serialized document to the renderer process. HTML exports are pure
  * serialization and never start a browser.
@@ -275,13 +346,24 @@ export async function renderDesign(input: {
     };
   }
 
-  return worker().render({
+  const job: RemoteRenderJob = {
     html,
     width: doc.width,
     height: doc.height,
     format: options.format,
     scale: options.scale,
     quality: options.quality,
+  };
+  const remote = process.env.EXPORT_WORKER_URL?.trim();
+  if (remote) {
+    const token = process.env.EXPORT_WORKER_TOKEN?.trim() || undefined;
+    return renderRemote(job, remote, {
+      timeoutMs: LIMITS.export.timeoutMs,
+      ...(token ? { token } : {}),
+    });
+  }
+  return worker().render({
+    ...job,
     sandbox: process.env.EXPORT_CHROMIUM_SANDBOX !== 'false',
   });
 }

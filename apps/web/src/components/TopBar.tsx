@@ -22,6 +22,8 @@ export type TopBarProps = {
   onToggleAi: () => void;
   aiActive: boolean;
   aiBusy: boolean;
+  accountLabel: string;
+  onAccount: () => void;
 };
 
 function saveLabel(state: SaveState, lastSavedAt: number | null): string {
@@ -108,6 +110,8 @@ export function TopBar({
   onToggleAi,
   aiActive,
   aiBusy,
+  accountLabel,
+  onAccount,
 }: TopBarProps) {
   return (
     <header className="topbar">
@@ -140,6 +144,15 @@ export function TopBar({
           <IconButton icon="play" label="معاينة التصميم" onClick={onPreview} />
           <IconButton icon="more" label="اختصارات لوحة المفاتيح" onClick={onHelp} />
         </div>
+        <button
+          type="button"
+          className="button button--account"
+          onClick={onAccount}
+          title="الحساب وتسجيل الدخول"
+        >
+          <Icon name="user" size={16} />
+          <span>{accountLabel}</span>
+        </button>
         <button
           type="button"
           className={`button button--ai${aiActive ? ' is-active' : ''}`}

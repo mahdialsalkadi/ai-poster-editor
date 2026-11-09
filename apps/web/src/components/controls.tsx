@@ -106,6 +106,9 @@ export function TextInput({
   dir,
   mono = false,
   ariaLabel,
+  type = 'text',
+  autoComplete,
+  required = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -115,10 +118,14 @@ export function TextInput({
   dir?: 'ltr' | 'rtl';
   mono?: boolean;
   ariaLabel?: string;
+  type?: 'text' | 'email' | 'password';
+  autoComplete?: string;
+  required?: boolean;
 }) {
   return (
     <input
       className={`text-input${mono ? ' text-input--mono' : ''}`}
+      type={type}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
@@ -126,6 +133,8 @@ export function TextInput({
       disabled={disabled}
       dir={dir}
       aria-label={ariaLabel}
+      autoComplete={autoComplete}
+      required={required}
       spellCheck={false}
     />
   );

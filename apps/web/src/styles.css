@@ -2025,3 +2025,45 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.button--account span {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-panel {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.auth-form,
+.auth-session {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-identity {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.auth-error {
+  margin: 0;
+  color: var(--danger, #f87171);
+  font-size: 12px;
+  line-height: 1.6;
+}

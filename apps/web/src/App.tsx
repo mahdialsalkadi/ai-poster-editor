@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { AuthUser } from '@poster/contracts';
 import {
   importDesignDocument,
   parseDesignHtml,
@@ -13,6 +14,7 @@ import {
   type TextLayer,
   type Warning,
 } from '@poster/core';
+import { AccountDialog } from './components/AccountDialog.js';
 import { Canvas } from './components/Canvas.js';
 import { IconButton } from './components/controls.js';
 import { DocPreview } from './components/DocPreview.js';
@@ -22,7 +24,7 @@ import { LeftRail, type PanelId } from './components/LeftRail.js';
 import { Toasts, type ToastItem, type ToastTone } from './components/Toasts.js';
 import { TopBar, type SaveState } from './components/TopBar.js';
 import { WarningsBar } from './components/WarningsBar.js';
-import { editDesign, generateDesign, type AiUsage } from './editor/api.js';
+import { currentUser, editDesign, generateDesign, type AiUsage } from './editor/api.js';
 import {
   createAssetFromBase64,
   createAssetFromFile,
@@ -288,13 +290,15 @@ export function App() {
   const [showGrid, setShowGrid] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
-  const [modal, setModal] = useState<'preview' | 'help' | 'export' | null>(null);
+  const [modal, setModal] = useState<'preview' | 'help' | 'export' | 'account' | null>(null);
   const [prompt, setPrompt] = useState('');
   const [language, setLanguage] = useState<'auto' | 'ar' | 'en'>('auto');
   const [style, setStyle] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [lastUsage, setLastUsage] = useState<AiUsage | null>(null);
   const [snapshots, setSnapshots] = useState<StoredSnapshot[]>([]);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
   const scale = Math.min(2, Math.max(0.08, fitScale * zoom));
@@ -306,6 +310,16 @@ export function App() {
       setToasts((current) => current.filter((item) => item.id !== id));
     }, 4200);
   }, []);
+
+  const refreshAuth = useCallback(async () => {
+    const result = await currentUser();
+    setAuthUser(result.ok ? result.data.user : null);
+    setAuthReady(true);
+  }, []);
+
+  useEffect(() => {
+    void refreshAuth();
+  }, [refreshAuth]);
 
   const assetUrls = useMemo(() => {
     const map: Record<string, string> = {};
@@ -466,6 +480,7 @@ export function App() {
     });
     setAiBusy(false);
     if (!result.ok) {
+      if (result.error.status === 401) setModal('account');
       notify('error', result.error.message);
       return;
     }
@@ -493,6 +508,7 @@ export function App() {
       });
       setAiBusy(false);
       if (!result.ok) {
+        if (result.error.status === 401) setModal('account');
         notify('error', result.error.message);
         return;
       }
@@ -699,6 +715,8 @@ export function App() {
         onToggleAi={() => setPanel((current) => (current === 'ai' ? null : 'ai'))}
         aiActive={panel === 'ai'}
         aiBusy={aiBusy}
+        accountLabel={authUser?.email ?? (authReady ? 'دخول' : 'الحساب')}
+        onAccount={() => setModal('account')}
       />
 
       <div className="workspace">
@@ -867,7 +885,29 @@ export function App() {
       />
 
       {modal === 'export' ? (
-        <ExportDialog doc={doc} assets={assets} name={name} onClose={() => setModal(null)} />
+        <ExportDialog
+          doc={doc}
+          assets={assets}
+          name={name}
+          onUnauthorized={() => setModal('account')}
+          onClose={() => setModal(null)}
+        />
+      ) : null}
+
+      {modal === 'account' ? (
+        <AccountDialog
+          user={authUser}
+          onClose={() => setModal(null)}
+          onSignedIn={(user) => {
+            setAuthUser(user);
+            setModal(null);
+            notify('success', 'تم تسجيل الدخول');
+          }}
+          onSignedOut={() => {
+            void refreshAuth();
+            notify('success', 'تم تسجيل الخروج');
+          }}
+        />
       ) : null}
 
       {modal === 'preview' ? (

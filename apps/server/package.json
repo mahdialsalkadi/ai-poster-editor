@@ -8,6 +8,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -b",
     "start": "node dist/index.js",
+    "start:worker": "node dist/worker.js",
+    "dev:worker": "tsx src/worker.ts",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run"
   },

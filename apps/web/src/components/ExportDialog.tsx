@@ -31,10 +31,11 @@ export type ExportDialogProps = {
   doc: DesignDoc;
   assets: readonly AssetEntry[];
   name: string;
+  onUnauthorized: () => void;
   onClose: () => void;
 };
 
-export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) {
+export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: ExportDialogProps) {
   const [format, setFormat] = useState<ExportFormat>('png');
   const [scale, setScale] = useState<ExportScale>(2);
   const [quality, setQuality] = useState(92);
@@ -83,6 +84,7 @@ export function ExportDialog({ doc, assets, name, onClose }: ExportDialogProps) 
     if (!result.ok) {
       setOutput(null);
       setError(result.message);
+      if (result.code === 'UNAUTHORIZED') onUnauthorized();
       return;
     }
     setOutput(result.data);

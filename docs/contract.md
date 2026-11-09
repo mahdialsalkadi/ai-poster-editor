@@ -447,8 +447,13 @@ The parser does not execute scripts, load resources or write to the DOM. This
 does not prove resource isolation or eliminate the need to validate parsed model
 data, apply API limits and address dependency advisories. The web renders React
 children and validated SVG nodes from `DesignDoc`; it does not inject Design HTML
-with `innerHTML`. App CSP and public-service containment remain unimplemented.
-The importer (§1.1) has a different dropping/conversion policy from this parser.
+with `innerHTML`. The editor shell now carries the strict build-time app CSP
+(`default-src 'none'`, `script-src 'self'`, no inline scripts, same-origin
+`connect-src`) from `apps/web/src/csp.ts`, delivered through a Vite build-only
+plugin; `frame-ancestors 'none'` is an HTTP header from the reverse proxy. Public
+deployment additionally requires the container worker, origin/proxy policy and
+rate limits described in §12 and `docs/security.md`. The importer (§1.1) has a
+different dropping/conversion policy from this parser.
 
 ## 10. Warnings
 
@@ -813,6 +818,16 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
   20-entry and 64 MiB cache bounds and the missing request-content match.
 - Recorded the durable single-replica spend ledger, per-attempt reservations,
   required prices, `AI_DISABLED` and settlement logging.
+
+### 2026-11-09 — Phase 2 web boundary, renderer worker and documentation updates
+
+- Documented the strict editor app CSP (`default-src 'none'`, `script-src 'self'`,
+  no inline scripts, no `'unsafe-eval'`, same-origin `connect-src`,
+  `frame-ancestors 'none'` from the reverse proxy) delivered by the Vite
+  build-only plugin.
+- Documented the internal HTTP export worker protocol (`GET /health`, `POST
+/render` with the Zod-validated job, optional bearer token) and the
+  `EXPORT_WORKER_URL` selection.
 
 ### 2026-11-09 — Documentation corrections, no schema/runtime change
 

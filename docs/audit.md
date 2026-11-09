@@ -691,3 +691,40 @@ tests now exercise the real worker for PNG/JPEG/PDF. `pnpm build` emits the work
 entry. The sandbox launched successfully in this Linux environment. **S4 verdict:
 implemented and tested for the process boundary; container egress/cgroup
 enforcement and hosted-CI sandbox verification remain in S5/Phase 2 verification.**
+
+### S5 — Web content security policy and sign-in UI
+
+The editor shell now ships a strict Content Security Policy through a Vite
+build-only plugin (`apps/web/src/csp.ts`, injected by `apps/web/vite.config.ts`).
+The policy is `default-src 'none'`, `script-src 'self'`, `style-src 'self'
+'unsafe-inline'`, `img-src 'self' data: blob:`, `font-src 'self' data:`,
+`connect-src 'self'`, `worker-src 'self' blob:`, `manifest-src 'self'`,
+`object-src 'none'`, `base-uri 'none'`, `form-action 'self'`. It allows no inline
+scripts and no `'unsafe-eval'`, which is required for the React build. Inline
+styles remain allowed because React writes style attributes for layer geometry.
+The policy is injected at build time only; dev mode omits it so Vite's React
+refresh preamble works. It assumes same-origin `/api` (the reverse proxy topology
+in the deployment example); split-origin deployments must add the API origin.
+
+`frame-ancestors 'none'` is delivered as an HTTP header by the reverse proxy
+because browsers ignore it in a meta tag.
+
+Verification: `apps/web/src/csp.test.ts` (2 tests) assert the policy blocks inline
+scripts and unsafe-eval, allows only same-origin connections for images/fonts, and
+injects once into the app shell. The built `apps/web/dist/index.html` was inspected
+and contains the strict policy with an external module-only script. All web tests,
+typecheck and build pass.
+
+The web sign-in UI is implemented: auth client helpers (`currentUser`, `login`,
+`logout`) with credentialed fetch, an `AccountDialog` with an email/password form,
+a TopBar account button, app-level auth state that resolves the current user on
+mount, 401 handling that opens the account dialog, and the export dialog's
+unauthorized hook. AI and export calls send credentials. Without Supabase
+credentials the server reports public mode and the UI shows it.
+
+Verification: web typecheck, build and tests pass (27 web tests including the 2 CSP
+tests); no component tests were added and no new dependency was added.
+
+**S5 verdict: implemented and tested for the editor app CSP and the web sign-in
+UI. Remaining Phase 2 work: container deployment isolation (S4/S6), reverse proxy
+TLS configuration and the blocking audit/release-age gates.**
