@@ -37,7 +37,6 @@ import {
   type Prices,
 } from './spend.js';
 import { SlidingWindowLimiter } from './rate-limit.js';
-import { SnapshotStore, type Snapshot } from './snapshots.js';
 
 export type AiRequestContext = { ip: string; sessionId: string; projectId: string };
 
@@ -45,7 +44,6 @@ export type AiServiceOptions = {
   provider: AiProvider;
   prices: Prices;
   ledger: DailySpendLedger;
-  snapshots: SnapshotStore;
   maxOutputTokens: number;
   timeoutMs: number;
   generateLimiter?: SlidingWindowLimiter | undefined;
@@ -83,7 +81,6 @@ export class AiService {
   private readonly provider: AiProvider;
   private readonly prices: Prices;
   private readonly ledger: DailySpendLedger;
-  private readonly snapshots: SnapshotStore;
   private readonly maxOutputTokens: number;
   private readonly timeoutMs: number;
   private readonly generateLimiter: SlidingWindowLimiter;
@@ -94,7 +91,6 @@ export class AiService {
     this.provider = options.provider;
     this.prices = options.prices;
     this.ledger = options.ledger;
-    this.snapshots = options.snapshots;
     this.maxOutputTokens = options.maxOutputTokens;
     this.timeoutMs = options.timeoutMs;
     this.generateLimiter =
@@ -106,10 +102,6 @@ export class AiService {
     this.sessionLimiter =
       options.sessionLimiter ??
       new SlidingWindowLimiter(LIMITS.rateLimit.aiGeneratePerHourPerSession, 3_600_000);
-  }
-
-  getSnapshot(id: string): Snapshot | null {
-    return this.snapshots.get(id);
   }
 
   async generate(
@@ -191,16 +183,14 @@ export class AiService {
         throw new DesignError('AI_INVALID_OUTPUT', 'The edit exceeds the layer limit', 'ai');
       }
 
-      const snapshot = this.snapshots.save(context.projectId, base);
       return {
-        value: { designHtml: serializeDesignDoc(merged.doc), snapshotId: snapshot.id },
+        value: { designHtml: serializeDesignDoc(merged.doc) },
         warnings: merged.warnings,
       };
     });
 
     return {
       designHtml: result.value.designHtml,
-      snapshotId: result.value.snapshotId,
       warnings: result.warnings,
       usage: result.usage,
     };
@@ -357,7 +347,6 @@ export function createAiServiceFromEnv(
       outputPerMTok: requiredPrice(env, 'AI_OUTPUT_USD_PER_MTOK'),
     },
     ledger,
-    snapshots: new SnapshotStore(),
     maxOutputTokens: config.maxOutputTokens,
     timeoutMs: config.timeoutMs,
   });

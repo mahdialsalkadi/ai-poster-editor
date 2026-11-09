@@ -632,3 +632,34 @@ call. All **257 tests** (core 166, server 66, web 25), typecheck and lint pass.
 `FileSpendStore` is the documented one piece of durable server state; multiple
 replicas sharing a path are not supported. **S2 verdict: implemented and tested
 for a single API replica.**
+
+### S3 — Server state and export caching
+
+Server-side edit snapshots are removed. `SnapshotStore`, the in-process project
+map, `snapshotId` in the edit response/contracts and `GET /api/ai/snapshots/:id`
+no longer exist, so an AI request cannot grow per-project server memory and one
+caller cannot read another caller's saved document. The AI routes now derive
+session/project identity from the authenticated principal.
+
+The web stores pre-edit documents in IndexedDB (`poster.assets` version 2,
+`snapshots` store): at most 20 entries, newest first, written only after a
+successful edit response and before the merged document is applied. The AI panel
+lists the five most recent entries with times and instructions and can restore
+one; a successful restore deletes that entry and remains undoable in editor
+history. Storage failures are swallowed so they cannot fail an edit. Snapshots
+are local-only and disappear with site data; there is no server copy.
+
+Export idempotency is now scoped by authenticated principal + peer address +
+key, with a 10-minute TTL, at most 20 entries, a 64 MiB aggregate byte budget,
+oldest-first eviction and no caching of a single result larger than the budget.
+The cache remains memory-only and does not compare the request body, so a client
+that reuses one key for a different document receives its own earlier result.
+
+Verification: 5 new `export-cache` tests cover caller/IP scoping, TTL expiry,
+entry eviction, byte-budget eviction, oversized-result refusal and keyless
+requests. All **261 tests** pass (core 166, server 70, web 25), as do typecheck,
+lint, formatting and build. The IndexedDB path is covered by typecheck/build and
+a written verdict only: the Node test environment has no IndexedDB and no
+dependency was added for it. Manual browser restore remains to be exercised when
+the sign-in UI and a configured provider exist. **S3 verdict: server snapshots
+and unbounded caller-keyed export state removed; cache is bounded and scoped.**

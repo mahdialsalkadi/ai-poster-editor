@@ -43,9 +43,7 @@ export const generatedDesignResponseSchema = z.object({
   usage: aiUsageSchema,
 });
 
-export const editDesignResponseSchema = generatedDesignResponseSchema.extend({
-  snapshotId: z.string().min(1),
-});
+export const editDesignResponseSchema = generatedDesignResponseSchema;
 
 export type GenerateDesignRequest = z.infer<typeof generateDesignRequestSchema>;
 export type EditDesignRequest = z.infer<typeof editDesignRequestSchema>;

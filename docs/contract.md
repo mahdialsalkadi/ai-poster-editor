@@ -539,7 +539,9 @@ The contracts package defines request/response schemas and error envelopes:
 - `POST /api/design/merge` — base + patch + selection -> merged document
 - `POST /api/ai/generate` — prompt -> Design HTML
 - `POST /api/ai/edit` — instruction + selection -> patch -> merge
-- `GET /api/ai/snapshots/:id` — retrieve an in-memory pre-edit snapshot
+- `POST /api/auth/login` — email/password -> server-set HttpOnly session cookie
+- `POST /api/auth/logout` — clear the local session cookie
+- `GET /api/auth/me` — current authenticated principal
 - `POST /api/assets` — currently a stub returning `UNSUPPORTED_FEATURE` (HTTP 422);
   the editor uploads/stores images locally instead
 - `GET /api/assets/limits` — supported image types and per-image limits
@@ -548,11 +550,15 @@ The contracts package defines request/response schemas and error envelopes:
 - `GET /api/export/limits` — the export limits below
 - `GET /api/health` — process health, version and selected configured limits
 
-These routes currently have no authentication. `PUBLIC_ORIGIN` restricts CORS
-when set, but CORS is not access control; without it the server reflects origins.
-There is no configured trusted-proxy policy. AI session/project identity is
-caller-supplied `x-session-id`/`x-project-id`, defaulting to request IP/`default`.
-The web currently sends neither identifier. Public deployment remains blocked.
+`GET /api/health` and `POST /api/auth/login` are public; the remaining routes
+require a verified Supabase access token, the signed session cookie or
+`x-api-key`. `POST /api/auth/logout` also works without a session so it can
+always clear a stale cookie. Production refuses to start without access control
+unless `ALLOW_PUBLIC_API=true`.
+`PUBLIC_ORIGIN` restricts credentialed CORS; cookie-authenticated writes with a
+mismatched `Origin` are rejected. `TRUST_PROXY` controls whether forwarded
+addresses are trusted instead of falling back to the direct peer. AI identity is
+the authenticated principal rather than caller-supplied headers.
 
 Every non-2xx response uses the error envelope:
 
@@ -594,11 +600,13 @@ The request is `multipart/form-data`:
 A referenced asset with no part fails `ASSET_UNRESOLVED`; a part for an
 unreferenced id is ignored. The document is canonicalized and validated
 before file parts are copied into request buffers. Repeated requests with the
-same `idempotencyKey` return a stored result instead of rendering again. The
-current cache is global to the service, FIFO-bounded to 20 entries, memory-only,
-and has no TTL, aggregate byte budget, caller scope or request-content match.
-Another caller reusing a key can receive the original caller's result. This is
-an open security defect, not the intended public API ownership policy.
+same `idempotencyKey` from the same principal and peer address return the stored
+result instead of rendering again. The memory-only cache is scoped by
+authenticated principal plus IP, expires entries after 10 minutes, allows at most
+20 entries and 64 MiB in total, and evicts oldest-first. Results larger than the
+byte budget are not cached. The key is not matched against request content, so a
+caller that reuses one key for a different document can still receive its own
+earlier result; clients must use a fresh key per output.
 
 **Asset re-validation.** Supplied bytes are never trusted. For each asset the
 server checks bytes, sniffs the real type with `file-type` (`image/png`,
@@ -663,8 +671,8 @@ yet. Neither an end-to-end timeout nor visual equality with the editor is proven
 `AI_BASE_URL`, `AI_API_KEY`). Accepted selectors are `openai` and
 `openai-compatible`; missing/unsupported configuration disables the service and
 routes answer `UNSUPPORTED_FEATURE`. The files in `prompts/` supply the system
-prompts. Generation returns canonical Design HTML, editing returns merged Design
-HTML plus `snapshotId`, and snapshot retrieval validates the stored document.
+prompts. Generation returns canonical Design HTML; editing returns merged Design
+HTML. Snapshot history is kept by the browser rather than the API.
 
 **Provider boundary.** The service calls `AiProvider.complete`. The current
 transport sends `AI_API_KEY` in an outbound authorization header, not in a prompt
@@ -701,13 +709,12 @@ limits. These checks are not a single end-to-end deadline or a streaming respons
 memory limit. Edit output uses the document layer ceiling rather than generation's
 60-layer ceiling.
 
-**Snapshot before edit.** A valid edit stores the canonical pre-edit document in
-memory, keyed by caller-controlled project ID, with 20 snapshots per project and
-oldest-first eviction. IDs are predictable timestamp/counter strings. There is
-no ownership check, TTL, global byte/count cap or durable storage, and the web
-does not retain/list/restore snapshot IDs yet. Retrieval uses `validateDesignDoc`,
-but that is not authorization. Restart, eviction or a missing UI can prevent
-recovery; do not promise that every edit is durably reversible.
+**Browser snapshots.** Before applying a valid edit, the web app stores the
+canonical pre-edit document in IndexedDB (`snapshots`, at most 20 entries,
+newest first). The AI panel lists recent entries and restores one, deleting that
+entry after a successful restore. Snapshots never leave the browser and the
+server keeps none. They are lost when site data is cleared and are a convenience,
+not durable version history or a collaborative conflict mechanism.
 
 **Daily spend cap.** The spent total is persisted per UTC day in a small JSON file
 (`AI_SPEND_LEDGER_PATH`, default `.data/ai-spend.json`). Writes replace the file by
@@ -773,10 +780,21 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
 - `packages/core/test/` — `core`, `security`, `limits`, `properties` (fast-check),
   `golden`, `merge-scoped`, `svg-casing`, `import`, `style-edge-cases`, `untrusted`
   and `perf` suites
-- `apps/server/src/` — API routes, AI/accounting/snapshots and export implementation
-- `apps/server/test/` — AI, API, export contract and rendering tests
+- `apps/server/src/` — API routes, auth, AI accounting and export implementation
+- `apps/server/test/` — AI, auth, spend, API, export contract/cache and rendering tests
 
 ## 15. Contract changelog
+
+### 2026-11-09 — Phase 2 access, spend and state changes
+
+- Added the Supabase-backed auth routes and documented which routes are public,
+  how the session cookie/API key are accepted and the production fail-fast rule.
+- Removed server snapshot storage and `GET /api/ai/snapshots/:id`; snapshot
+  history now lives in browser IndexedDB with a restore list in the AI panel.
+- Scoped export idempotency to principal + IP and documented the 10-minute TTL,
+  20-entry and 64 MiB cache bounds and the missing request-content match.
+- Recorded the durable single-replica spend ledger, per-attempt reservations,
+  required prices, `AI_DISABLED` and settlement logging.
 
 ### 2026-11-09 — Documentation corrections, no schema/runtime change
 

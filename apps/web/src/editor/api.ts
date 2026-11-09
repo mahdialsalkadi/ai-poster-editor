@@ -129,7 +129,7 @@ export type GeneratedDesign = {
   usage: AiUsage;
 };
 
-export type EditedDesign = GeneratedDesign & { snapshotId: string };
+export type EditedDesign = GeneratedDesign;
 
 export type GenerateDesignInput = {
   prompt: string;

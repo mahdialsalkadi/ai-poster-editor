@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AiUsage } from '../editor/api.js';
+import type { StoredSnapshot } from '../editor/storage.js';
 import { Button, Field, Segmented, Spinner, TextArea, TextInput } from './controls.js';
 import { Icon } from './icons.js';
 
@@ -17,6 +18,8 @@ export type AiPanelProps = {
   selectionCount: number;
   onEdit: (instruction: string) => void;
   lastUsage: AiUsage | null;
+  snapshots: StoredSnapshot[];
+  onRestoreSnapshot: (id: string) => void;
 };
 
 export function AiPanel({
@@ -33,6 +36,8 @@ export function AiPanel({
   selectionCount,
   onEdit,
   lastUsage,
+  snapshots,
+  onRestoreSnapshot,
 }: AiPanelProps) {
   const [instruction, setInstruction] = useState('');
 
@@ -147,8 +152,38 @@ export function AiPanel({
         عدّل التحديد
       </Button>
       <p className="ai-note">
-        تعديل التحديد يرسل فقط الطبقات المحددة إلى الخادم، مع الحفاظ على ترتيب الطبقات.
+        يُرسل التصميم الكامل داخل كتلة بيانات غير موثوقة، ويُطبَّق التعديل على الطبقات المحددة فقط
+        مع الحفاظ على ترتيب الطبقات.
       </p>
+
+      {snapshots.length > 0 ? (
+        <div className="ai-snapshots">
+          <div className="ai-divider" />
+          <strong className="ai-snapshots-title">النسخ السابقة</strong>
+          <ul>
+            {snapshots.slice(0, 5).map((snapshot) => (
+              <li key={snapshot.id}>
+                <div>
+                  <time dateTime={new Date(snapshot.createdAt).toISOString()}>
+                    {new Intl.DateTimeFormat('ar', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    }).format(snapshot.createdAt)}
+                  </time>
+                  <span title={snapshot.instruction}>{snapshot.instruction}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  onClick={() => onRestoreSnapshot(snapshot.id)}
+                  title="استعادة التصميم قبل هذا التعديل"
+                >
+                  استعادة
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

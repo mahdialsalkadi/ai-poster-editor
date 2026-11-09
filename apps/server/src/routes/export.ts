@@ -125,7 +125,10 @@ export function exportRoutes(options: { service: ExportService; guard: Guard; li
       }
 
       const parsedRequest = parseFields();
-      const result = await service.export(parsedRequest, uploaded);
+      const result = await service.export(parsedRequest, uploaded, {
+        principalId: request.auth?.id ?? 'anonymous',
+        ip: request.ip,
+      });
 
       return reply
         .header('content-type', result.contentType)

@@ -72,7 +72,8 @@ reverse proxy to expose this development setup.
   broader HTML/CSS subset into positioned canonical layers. Import is not a
   browser-equivalent layout engine.
 - Optional OpenAI-compatible generation and selection-scoped edits, one retry
-  for rejected output, usage reporting and in-memory snapshots/spend accounting.
+  for rejected output, usage reporting, browser-stored edit snapshots and a
+  durable daily spend ledger.
 - Local image upload and IndexedDB asset storage. Export uploads only referenced
   image bytes for server-side revalidation; `POST /api/assets` remains a stub.
 - PNG/JPEG export at 1x/2x/3x, native vector PDF and self-contained HTML export.
@@ -140,12 +141,12 @@ pnpm build
 pnpm audit --prod
 ```
 
-The current test suite has **257 tests**:
+The current test suite has **261 tests**:
 
 | Package | Tests | Files | Main coverage                                                                              |
 | ------- | ----- | ----- | ------------------------------------------------------------------------------------------ |
 | Core    | 166   | 12    | Parser/security corpus, canonical round trips, merge, import, HTML goldens and performance |
-| Server  | 47    | 4     | Mock AI, spend refusal, basic limits, snapshots, export formats/assets and queue           |
+| Server  | 70    | 7     | Auth, mock AI, durable spend, limits, export formats/assets/cache and queue                |
 | Web     | 25    | 3     | Snapping, fills and templates                                                              |
 
 The parser performance test enforces p95 <200 ms for a 200-layer, approximately
@@ -160,19 +161,20 @@ release readiness until resolved or explicitly assessed.
 
 ## Known limitations
 
-- **Public-launch security blockers:** no authentication, incomplete route rate
-  limits, caller-readable snapshots, unscoped export idempotency, no app CSP and
-  insufficient renderer/deployment isolation. Offline browser contexts and an
-  export CSP are not a hardened worker boundary.
+- **Public-launch security blockers:** access control, route rate limits, scoped
+  export caching and browser-only edit snapshots are in place, but the web
+  sign-in panel, app CSP, container/renderer isolation and a blocking audit gate
+  are not complete. Offline browser contexts and an export CSP are not a hardened
+  worker boundary.
 - **Spend limits:** the daily total persists in one atomically written file and is
   enforced per attempt, but it assumes a single API replica and manually configured
   prices. Multiple replicas need a shared billing store.
 - **Dependencies:** Zod was upgraded to the patched 4.6.6 release; `pnpm audit --prod`
   currently reports no known vulnerabilities. Dependency and release-age gates must
   stay in CI as new advisories appear.
-- **Persistence:** documents use debounced `localStorage`; only image assets use
-  IndexedDB. There is no backup/recovery flow or multi-tab overwrite protection.
-  Server snapshots are in memory and have no editor list/restore UI.
+- **Persistence:** documents use debounced `localStorage`; image assets and up to
+  20 AI pre-edit snapshots use IndexedDB. Snapshot restore is available in the AI
+  panel. There is no backup/recovery flow or multi-tab overwrite protection.
 - **PDF:** selectable native text and embedded fonts were verified for a Latin
   probe, but the 2480x3508 A4 preset exports at the wrong physical paper size.
   Print-quality Arabic fidelity and editor/export visual parity remain unverified.
@@ -203,13 +205,13 @@ screenshots/        Historical manual verification captures, not visual tests
 
 ## Milestone status
 
-| Baseline milestone | Existing implementation                                     | Remaining qualification                                  |
-| ------------------ | ----------------------------------------------------------- | -------------------------------------------------------- |
-| 1                  | Core contract, parser, serializer, merge and tests          | Broader robustness/coverage gates remain                 |
-| 2–4                | Canvas, selection, transforms, inline editing and inspector | Editor gaps listed above remain                          |
-| 5                  | Provider, scoped edits, snapshots and spend accounting      | Public-service safety and snapshot UX remain             |
-| 6                  | Local assets, export formats and autosave                   | Upload API, isolation, persistence and PDF sizing remain |
-| 7                  | Gradients, gallery, shortcuts and docs                      | Gallery/language balance and product polish remain       |
+| Baseline milestone | Existing implementation                                        | Remaining qualification                                  |
+| ------------------ | -------------------------------------------------------------- | -------------------------------------------------------- |
+| 1                  | Core contract, parser, serializer, merge and tests             | Broader robustness/coverage gates remain                 |
+| 2–4                | Canvas, selection, transforms, inline editing and inspector    | Editor gaps listed above remain                          |
+| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Public deployment isolation remains                      |
+| 6                  | Local assets, export formats and autosave                      | Upload API, isolation, persistence and PDF sizing remain |
+| 7                  | Gradients, gallery, shortcuts and docs                         | Gallery/language balance and product polish remain       |
 
 These are functional implementations, not a claim that all original acceptance
 criteria or public-release gates are complete. See [CHANGELOG.md](CHANGELOG.md)

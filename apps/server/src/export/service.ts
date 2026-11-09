@@ -16,17 +16,82 @@ export type ExportResult = {
   contentType: string;
 };
 
-type Cached = { bytes: Buffer; result: ExportResult };
+type Cached = { bytes: Buffer; result: ExportResult; storedAt: number };
+
+export type ExportCaller = { principalId: string; ip: string };
+
+export type ExportServiceOptions = {
+  maxEntries?: number;
+  maxBytes?: number;
+  ttlMs?: number;
+  now?: () => number;
+  render?: typeof renderDesign;
+};
 
 let counter = 0;
 
 export class ExportService {
   private readonly queue = new RenderQueue();
   private readonly cache = new Map<string, Cached>();
+  private readonly maxEntries: number;
+  private readonly maxBytes: number;
+  private readonly ttlMs: number;
+  private readonly now: () => number;
+  private readonly render: typeof renderDesign;
+  private cacheBytes = 0;
 
-  constructor(private readonly cacheSize: number = 20) {}
+  constructor(options: ExportServiceOptions = {}) {
+    this.maxEntries = options.maxEntries ?? LIMITS.export.cacheMaxEntries;
+    this.maxBytes = options.maxBytes ?? LIMITS.export.cacheMaxBytes;
+    this.ttlMs = options.ttlMs ?? LIMITS.export.cacheTtlMs;
+    this.now = options.now ?? Date.now;
+    this.render = options.render ?? renderDesign;
+  }
 
-  async export(request: ExportRequest, uploaded: Map<string, Buffer>): Promise<ExportResult> {
+  private cacheKey(caller: ExportCaller, idempotencyKey: string): string {
+    return `${caller.principalId}|${caller.ip}|${idempotencyKey}`;
+  }
+
+  private readCache(key: string): Cached | null {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+    if (this.now() - cached.storedAt > this.ttlMs) {
+      this.deleteCache(key);
+      return null;
+    }
+    return cached;
+  }
+
+  private deleteCache(key: string): void {
+    const cached = this.cache.get(key);
+    if (!cached) return;
+    this.cache.delete(key);
+    this.cacheBytes = Math.max(0, this.cacheBytes - cached.bytes.byteLength);
+  }
+
+  private writeCache(key: string, bytes: Buffer, result: ExportResult): void {
+    if (bytes.byteLength > this.maxBytes) return;
+    const at = this.now();
+    for (const [entryKey, entry] of this.cache) {
+      if (at - entry.storedAt > this.ttlMs) this.deleteCache(entryKey);
+    }
+    while (
+      this.cache.size >= this.maxEntries ||
+      this.cacheBytes + bytes.byteLength > this.maxBytes
+    ) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest === undefined) break;
+      this.deleteCache(oldest);
+    }
+    this.cache.set(key, { bytes, result, storedAt: at });
+    this.cacheBytes += bytes.byteLength;
+  }
+
+  async export(
+    request: ExportRequest,
+    uploaded: Map<string, Buffer>,
+    caller: ExportCaller,
+  ): Promise<ExportResult> {
     const doc = canonicalizeDoc(request.doc);
     const options = request.options;
 
@@ -49,8 +114,9 @@ export class ExportService {
     }
 
     const idempotencyKey = options.idempotencyKey;
-    if (idempotencyKey) {
-      const cached = this.cache.get(idempotencyKey);
+    const cacheKey = idempotencyKey ? this.cacheKey(caller, idempotencyKey) : null;
+    if (cacheKey) {
+      const cached = this.readCache(cacheKey);
       if (cached) return { ...cached.result, bytes: cached.bytes, cacheHit: true };
     }
 
@@ -62,7 +128,7 @@ export class ExportService {
     }
 
     const startedAt = Date.now();
-    const rendered = await this.queue.run(() => renderDesign({ doc, assets, options }));
+    const rendered = await this.queue.run(() => this.render({ doc, assets, options }));
     if (rendered.bytes.byteLength > LIMITS.export.maxResponseBytes) {
       throw new DesignError(
         'LIMIT_EXCEEDED',
@@ -84,14 +150,7 @@ export class ExportService {
       contentType: rendered.contentType,
     };
 
-    if (idempotencyKey) {
-      this.cache.set(idempotencyKey, { bytes: rendered.bytes, result });
-      while (this.cache.size > this.cacheSize) {
-        const oldest = this.cache.keys().next().value;
-        if (oldest === undefined) break;
-        this.cache.delete(oldest);
-      }
-    }
+    if (cacheKey) this.writeCache(cacheKey, rendered.bytes, result);
 
     return result;
   }

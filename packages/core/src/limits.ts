@@ -62,6 +62,9 @@ export const LIMITS = {
     maxAssets: 20,
     queueMax: 20,
     concurrency: 2,
+    cacheTtlMs: 10 * 60_000,
+    cacheMaxEntries: 20,
+    cacheMaxBytes: 64 * 1024 * 1024,
   },
   history: {
     maxSteps: 100,

@@ -11,7 +11,6 @@ import {
 import { AiService, type AiServiceOptions } from '../src/ai/service.js';
 import { DailySpendLedger } from '../src/ai/spend.js';
 import { SlidingWindowLimiter } from '../src/ai/rate-limit.js';
-import { SnapshotStore } from '../src/ai/snapshots.js';
 import { providerConfigFromEnv, type AiMessage, type AiProvider } from '../src/ai/provider.js';
 import { extractDesignHtml } from '../src/ai/prompt.js';
 import { buildServer } from '../src/app.js';
@@ -80,7 +79,6 @@ function serviceWith(replies: string[], options: Partial<AiServiceOptions> = {})
     provider,
     prices: { inputPerMTok: 0.15, outputPerMTok: 0.6 },
     ledger: new DailySpendLedger(5),
-    snapshots: new SnapshotStore(),
     maxOutputTokens: 16_000,
     timeoutMs: 2_000,
     ...options,
@@ -200,12 +198,9 @@ describe('AI service', () => {
     expect(reparsed.doc.layers.map((layer) => layer.id)).toEqual(['title', 'card']);
     expect(textColor(reparsed.doc, 'title')).toBe('#fb923c');
     expect(textColor(reparsed.doc, 'card')).toBeUndefined();
-
-    const snapshot = service.getSnapshot(result.snapshotId);
-    expect(snapshot ? textColor(snapshot.doc, 'title') : undefined).toBe('#ffffff');
   });
 
-  it('applies a scoped edit and snapshots the previous document', async () => {
+  it('applies a scoped edit without changing unselected layers', async () => {
     const { service } = serviceWith([designHtml({ color: '#38bdf8' })]);
     const result = await service.edit(editInput, context);
 
@@ -215,11 +210,6 @@ describe('AI service', () => {
     expect(doc.layers.some((layer) => layer.id === 'card')).toBe(true);
     expect(doc.width).toBe(600);
     expect(doc.height).toBe(800);
-
-    const snapshot = service.getSnapshot(result.snapshotId);
-    expect(snapshot).not.toBeNull();
-    expect(snapshot ? textColor(snapshot.doc, 'title') : undefined).toBe('#ffffff');
-    expect(snapshot?.projectId).toBe('project-1');
   });
 
   it('rejects new layers when the request does not allow them', async () => {
@@ -260,7 +250,6 @@ describe('AI service', () => {
       provider,
       prices: { inputPerMTok: 0.15, outputPerMTok: 0.6 },
       ledger: new DailySpendLedger(5),
-      snapshots: new SnapshotStore(),
       maxOutputTokens: 16_000,
       timeoutMs: 2_000,
     });
@@ -318,19 +307,15 @@ describe('AI routes', () => {
     expect(response.json().data.usage.model).toBe('fake-model-1');
   });
 
-  it('edits through the API and exposes the snapshot', async () => {
+  it('edits through the API and returns only the merged design', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/ai/edit',
       payload: editInput,
     });
     expect(response.statusCode).toBe(200);
-    const snapshotId: string = response.json().data.snapshotId;
-    expect(snapshotId).toMatch(/^snap-/);
-
-    const snapshot = await app.inject({ method: 'GET', url: `/api/ai/snapshots/${snapshotId}` });
-    expect(snapshot.statusCode).toBe(200);
-    expect(snapshot.json().data.doc.layers).toHaveLength(2);
+    expect(response.json().data).not.toHaveProperty('snapshotId');
+    expect(response.json().data.designHtml).toContain('data-id="title"');
   });
 
   it('answers SPEND_CAP_EXCEEDED with 402 before calling the provider', async () => {
@@ -347,11 +332,5 @@ describe('AI routes', () => {
     expect(response.json().error.code).toBe('SPEND_CAP_EXCEEDED');
     expect(capped.calls).toHaveLength(0);
     await cappedApp.close();
-  });
-
-  it('returns NOT_FOUND for an unknown snapshot', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/ai/snapshots/snap-missing' });
-    expect(response.statusCode).toBe(404);
-    expect(response.json().error.code).toBe('NOT_FOUND');
   });
 });

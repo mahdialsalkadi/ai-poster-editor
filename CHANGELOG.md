@@ -25,8 +25,19 @@ checkpoints; they do not imply approval for public deployment.
 
 ### Security
 
-- Production audit reports high-severity Zod advisory GHSA-mrhx-c7xc-m3w5. No
-  dependency upgrade is included here; public deployment remains blocked.
+- Added Supabase Auth email/password sign-in with HMAC-signed HttpOnly session
+  cookies, HS256/JWKS token verification, constant-time API-key fallback,
+  production startup refusal without access control, `PUBLIC_ORIGIN` CORS/origin
+  checks, `TRUST_PROXY` and principal-plus-IP rate limits.
+- Persisted the daily AI spend ledger with atomic file replacement, per-attempt
+  reservations for retries, mandatory prices, `AI_DISABLED` and settlement
+  logging; corrupt ledgers fail closed.
+- Removed server-side edit snapshots and their API route. The web now keeps up to
+  20 pre-edit snapshots in IndexedDB with a restore list in the AI panel.
+- Scoped export idempotency cache entries by principal and IP and bounded them
+  with a 10-minute TTL, 20-entry/64 MiB caps and oldest-first eviction.
+- Upgraded Zod to patched 4.6.6; `pnpm audit --prod` reports no known
+  vulnerabilities.
 
 ## [0.1.0] - 2026-11-09
 

@@ -32,7 +32,16 @@ import {
   type AssetEntry,
 } from './editor/assets.js';
 import { useDocHistory } from './editor/history.js';
-import { deleteAssetRecord, loadAssetRecords, saveAssetRecord } from './editor/storage.js';
+import {
+  createSnapshotId,
+  deleteAssetRecord,
+  deleteSnapshotRecord,
+  loadAssetRecords,
+  loadSnapshotRecords,
+  saveAssetRecord,
+  saveSnapshotRecord,
+  type StoredSnapshot,
+} from './editor/storage.js';
 import {
   ELEMENT_LABELS,
   addLayer,
@@ -285,6 +294,7 @@ export function App() {
   const [style, setStyle] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [lastUsage, setLastUsage] = useState<AiUsage | null>(null);
+  const [snapshots, setSnapshots] = useState<StoredSnapshot[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
 
   const scale = Math.min(2, Math.max(0.08, fitScale * zoom));
@@ -342,6 +352,7 @@ export function App() {
   // Restores the asset library from IndexedDB so `asset:` layers survive a reload.
   useEffect(() => {
     let cancelled = false;
+    void loadSnapshotRecords().then(setSnapshots);
     void loadAssetRecords().then((restored) => {
       if (cancelled) {
         restored.forEach(revokeAsset);
@@ -487,6 +498,13 @@ export function App() {
       }
       try {
         const parsed = parseDesignHtml(result.data.designHtml);
+        await saveSnapshotRecord({
+          id: createSnapshotId(),
+          createdAt: Date.now(),
+          instruction,
+          designHtml: serializeDesignDoc(doc),
+        });
+        setSnapshots(await loadSnapshotRecords());
         history.replace(parsed.doc);
         setWarnings(parsed.warnings);
         setLastUsage(result.data.usage);
@@ -496,6 +514,24 @@ export function App() {
       }
     },
     [doc, history, notify, selection],
+  );
+
+  const handleRestoreSnapshot = useCallback(
+    async (id: string) => {
+      const record = snapshots.find((item) => item.id === id);
+      if (!record) return;
+      try {
+        const parsed = parseDesignHtml(record.designHtml);
+        history.replace(parsed.doc);
+        setWarnings(parsed.warnings);
+        await deleteSnapshotRecord(id);
+        setSnapshots((current) => current.filter((item) => item.id !== id));
+        notify('success', 'تمت استعادة النسخة السابقة');
+      } catch {
+        notify('error', 'النسخة السابقة غير صالحة');
+      }
+    },
+    [snapshots, history, notify],
   );
 
   const copyHtml = useCallback(async () => {
@@ -724,6 +760,8 @@ export function App() {
             selectionCount: selection.length,
             onEdit: handleEdit,
             lastUsage,
+            snapshots,
+            onRestoreSnapshot: handleRestoreSnapshot,
           }}
         />
 

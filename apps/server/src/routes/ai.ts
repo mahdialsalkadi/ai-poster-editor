@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Guard } from '../auth/guard.js';
 import { editDesignRequestSchema, generateDesignRequestSchema } from '@poster/contracts';
-import { DesignError, serializeDesignDoc } from '@poster/core';
+import { DesignError } from '@poster/core';
 import type { AiRequestContext, AiService } from '../ai/service.js';
 import { requestIdOf } from '../errors.js';
 
@@ -40,25 +40,6 @@ export function aiRoutes(options: { ai: AiService | null; guard: Guard }) {
       const body = editDesignRequestSchema.parse(request.body);
       const data = await service.edit(body, contextOf(request));
       return { data, requestId: requestIdOf(request) };
-    });
-
-    app.get('/snapshots/:id', async (request) => {
-      if (!service) throw unavailable();
-      const params = request.params as { id?: unknown };
-      const id = typeof params.id === 'string' ? params.id : '';
-      const snapshot = service.getSnapshot(id);
-      if (!snapshot) {
-        throw new DesignError('NOT_FOUND', 'Snapshot not found', 'snapshotId');
-      }
-      return {
-        data: {
-          snapshotId: snapshot.id,
-          createdAt: snapshot.createdAt,
-          doc: snapshot.doc,
-          designHtml: serializeDesignDoc(snapshot.doc),
-        },
-        requestId: requestIdOf(request),
-      };
     });
   };
 }

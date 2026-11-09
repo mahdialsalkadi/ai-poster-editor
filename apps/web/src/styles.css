@@ -1976,3 +1976,52 @@ kbd {
     display: none;
   }
 }
+
+.ai-snapshots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-snapshots-title {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ai-snapshots ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-snapshots li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ai-snapshots li div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ai-snapshots time {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.ai-snapshots li span {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

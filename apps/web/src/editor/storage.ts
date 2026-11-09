@@ -6,8 +6,11 @@ import type { AssetEntry } from './assets.js';
  * stored; object URLs are created fresh on load.
  */
 const DB_NAME = 'poster.assets';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'assets';
+const SNAPSHOT_STORE = 'snapshots';
+
+export const MAX_SNAPSHOTS = 20;
 
 type StoredAsset = {
   id: string;
@@ -36,6 +39,10 @@ function openDatabase(): Promise<IDBDatabase | null> {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(SNAPSHOT_STORE)) {
+        const store = db.createObjectStore(SNAPSHOT_STORE, { keyPath: 'id' });
+        store.createIndex('createdAt', 'createdAt');
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => resolve(null);
@@ -122,6 +129,101 @@ export async function loadAssetRecords(): Promise<AssetEntry[]> {
       }));
   } catch {
     return [];
+  } finally {
+    db.close();
+  }
+}
+
+export type StoredSnapshot = {
+  id: string;
+  createdAt: number;
+  instruction: string;
+  designHtml: string;
+};
+
+export function createSnapshotId(): string {
+  const random =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `snap-${random}`;
+}
+
+function validSnapshot(value: unknown): value is StoredSnapshot {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Partial<StoredSnapshot>;
+  return (
+    typeof record.id === 'string' &&
+    typeof record.createdAt === 'number' &&
+    Number.isFinite(record.createdAt) &&
+    typeof record.instruction === 'string' &&
+    typeof record.designHtml === 'string'
+  );
+}
+
+/**
+ * Keeps the pre-edit document in the browser, not on the server. The newest
+ * entry is always the snapshot taken immediately before the most recent AI edit.
+ */
+export async function saveSnapshotRecord(record: StoredSnapshot): Promise<void> {
+  const db = await openDatabase();
+  if (!db) return;
+  try {
+    const reading = db.transaction(SNAPSHOT_STORE, 'readonly');
+    const readingDone = transactionDone(reading);
+    const existing = await requestResult(
+      reading.objectStore(SNAPSHOT_STORE).getAll() as IDBRequest<StoredSnapshot[]>,
+    );
+    await readingDone;
+    const evict = (existing ?? [])
+      .filter(validSnapshot)
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .slice(0, Math.max(0, (existing?.length ?? 0) + 1 - MAX_SNAPSHOTS));
+
+    const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
+    const done = transactionDone(tx);
+    const store = tx.objectStore(SNAPSHOT_STORE);
+    for (const entry of evict) store.delete(entry.id);
+    store.put(record);
+    await done;
+  } catch {
+    // Snapshotting is a convenience; a storage failure must not fail the edit.
+  } finally {
+    db.close();
+  }
+}
+
+export async function loadSnapshotRecords(): Promise<StoredSnapshot[]> {
+  const db = await openDatabase();
+  if (!db) return [];
+  try {
+    const tx = db.transaction(SNAPSHOT_STORE, 'readonly');
+    const done = transactionDone(tx);
+    const records = await requestResult(
+      tx.objectStore(SNAPSHOT_STORE).getAll() as IDBRequest<StoredSnapshot[]>,
+    );
+    await done;
+    return (records ?? [])
+      .filter(validSnapshot)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, MAX_SNAPSHOTS);
+  } catch {
+    return [];
+  } finally {
+    db.close();
+  }
+}
+
+export async function deleteSnapshotRecord(id: string): Promise<void> {
+  const db = await openDatabase();
+  if (!db) return;
+  try {
+    const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
+    const done = transactionDone(tx);
+    tx.objectStore(SNAPSHOT_STORE).delete(id);
+    await done;
+  } catch {
+    // Ignore; the entry is no longer shown after a reload.
   } finally {
     db.close();
   }
