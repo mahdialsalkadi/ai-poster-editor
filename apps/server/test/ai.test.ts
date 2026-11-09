@@ -87,6 +87,29 @@ function serviceWith(replies: string[], options: Partial<AiServiceOptions> = {})
 }
 
 describe('AI service', () => {
+  it('retries unsupported colors and accepts named CSS colors without retry', async () => {
+    const { service, calls } = serviceWith([
+      designHtml({ color: 'not-a-color' }),
+      designHtml({ color: 'orange' }),
+    ]);
+    const result = await service.generate(generateInput, context);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.at(-1)?.content).toContain('Unsupported color');
+    expect(textColor(parseDesignHtml(result.designHtml).doc, 'title')).toBe('#ffa500');
+  });
+
+  it('rejects unsupported colors after one retry for generation and edits', async () => {
+    for (const kind of ['generate', 'edit'] as const) {
+      const { service, calls } = serviceWith([designHtml({ color: 'not-a-color' })]);
+      await expect(
+        kind === 'generate'
+          ? service.generate(generateInput, context)
+          : service.edit(editInput, context),
+      ).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+      expect(calls).toHaveLength(2);
+    }
+  });
+
   it('generates canonical Design HTML with usage', async () => {
     const { service } = serviceWith([designHtml()]);
     const result = await service.generate(generateInput, context);

@@ -287,7 +287,7 @@ function collectInlineNodes(
         } else {
           pushWarning(
             ctx.warnings,
-            'UNSUPPORTED_VALUE',
+            'UNSUPPORTED_COLOR',
             `Invalid span color: ${cRaw}`,
             ctx.path,
             ctx.layerId,

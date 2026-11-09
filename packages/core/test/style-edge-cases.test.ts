@@ -10,6 +10,24 @@ const textLayer = (style: string, content = 'Hello', attrs = ''): string =>
 const shapeLayer = (style: string): string =>
   `<div data-id="s" data-layer="S" data-type="shape" style="position:absolute;left:0px;top:0px;width:50px;height:50px;${style}"></div>`;
 
+describe('unsupported colors', () => {
+  it('keeps text visible and reports a machine-readable warning', () => {
+    const { doc, warnings } = parseDesignHtml(artboard(textLayer('color:not-a-color')));
+    expect((doc.layers[0] as TextLayer).style.color).toBe('#000000');
+    expect(warnings.some((item) => item.code === 'UNSUPPORTED_COLOR')).toBe(true);
+  });
+
+  it.each([
+    'not-a-color',
+    'linear-gradient(90deg, wrong 0%, white 100%)',
+    'radial-gradient(circle, wrong, white)',
+  ])('drops an invalid fill without recursion: %s', (fill) => {
+    const { doc, warnings } = parseDesignHtml(artboard(shapeLayer(`background:${fill}`)));
+    expect((doc.layers[0] as ShapeLayer).style.fill).toEqual({ kind: 'solid', color: '#00000000' });
+    expect(warnings.some((item) => item.code === 'UNSUPPORTED_COLOR')).toBe(true);
+  });
+});
+
 describe('text-shadow spread', () => {
   it('drops a fourth length and reports it', () => {
     const { doc, warnings } = parseDesignHtml(

@@ -604,7 +604,7 @@ export function parseFill(raw: string, ctx: StyleContext, property = 'background
     if (!stops) {
       pushWarning(
         ctx.warnings,
-        'UNSUPPORTED_VALUE',
+        'UNSUPPORTED_COLOR',
         `Invalid linear-gradient in ${property}: ${raw}`,
         ctx.path,
         ctx.layerId,
@@ -664,7 +664,7 @@ export function parseFill(raw: string, ctx: StyleContext, property = 'background
   const embeddedGradientMatch = /((?:repeating-)?(?:linear|radial|conic)-gradient\([^)]+\))/i.exec(
     trimmed,
   );
-  if (embeddedGradientMatch) {
+  if (embeddedGradientMatch && embeddedGradientMatch[1] !== trimmed) {
     return parseFill(embeddedGradientMatch[1]!, ctx, property);
   }
 
@@ -677,7 +677,7 @@ export function parseFill(raw: string, ctx: StyleContext, property = 'background
 
   pushWarning(
     ctx.warnings,
-    'UNSUPPORTED_VALUE',
+    'UNSUPPORTED_COLOR',
     `Unsupported ${property}: ${raw}`,
     ctx.path,
     ctx.layerId,
@@ -748,7 +748,7 @@ export function parseBorder(raw: string, ctx: StyleContext): Border | undefined 
   if (width === null || width <= 0 || style === null || color === null) {
     pushWarning(
       ctx.warnings,
-      'UNSUPPORTED_VALUE',
+      color === null ? 'UNSUPPORTED_COLOR' : 'UNSUPPORTED_VALUE',
       `Unsupported border: ${raw}`,
       ctx.path,
       ctx.layerId,
@@ -1101,7 +1101,7 @@ export function parseTextStyle(declarations: Declarations, ctx: StyleContext): T
     } else {
       pushWarning(
         ctx.warnings,
-        'UNSUPPORTED_VALUE',
+        'UNSUPPORTED_COLOR',
         `Invalid text color: ${colorRaw}`,
         ctx.path,
         ctx.layerId,

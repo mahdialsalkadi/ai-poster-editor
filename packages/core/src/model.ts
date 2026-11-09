@@ -197,6 +197,7 @@ export type WarningSeverity = 'info' | 'warning';
 export type WarningCode =
   | 'UNSUPPORTED_PROPERTY'
   | 'UNSUPPORTED_VALUE'
+  | 'UNSUPPORTED_COLOR'
   | 'PERCENTAGE_DROPPED'
   | 'FONT_FALLBACK'
   | 'FONT_SCRIPT_MISMATCH'

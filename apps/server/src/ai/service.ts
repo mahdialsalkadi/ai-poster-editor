@@ -275,7 +275,15 @@ export class AiService {
       }
 
       try {
-        return { ...interpret(html), usage: this.finishUsage(usage) };
+        const result = interpret(html);
+        if (result.warnings.some((item) => item.code === 'UNSUPPORTED_COLOR')) {
+          throw new DesignError(
+            'AI_INVALID_OUTPUT',
+            'Unsupported color in AI output; use only #rrggbb or #rrggbbaa colors',
+            'ai',
+          );
+        }
+        return { ...result, usage: this.finishUsage(usage) };
       } catch (cause) {
         lastError = toInvalidOutput(cause);
       }

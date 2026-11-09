@@ -837,3 +837,22 @@ Dependabot created grouped PR #1 (production dependencies) and PR #2
 (development dependencies); their branch runs predate the sandbox fix and need a
 rebase. No deployment or public exposure was performed, and `v0.1.0` is
 unchanged.
+
+## Phase 3 execution — 10 November 2026
+
+Continued from `b2afb23`, which is byte-identical to the supplied archive. The
+local checkout was fast-forwarded; untracked `tools/` and private `.env` remain
+untouched. No deployment or paid provider calls are authorized by this phase.
+Docker's daemon is still unavailable. Phase 2 runtime caveats remain in force.
+
+### P1 — Unsupported color policy
+
+Retained the existing full named-color table and safe parser fallbacks. Invalid
+text/span/fill/border colors now emit `UNSUPPORTED_COLOR`; AI generation and
+scoped edits reject that warning through the existing one-retry, per-attempt
+spend path. Invalid radial fills no longer recurse into themselves. This follows
+the plan's reject-and-retry policy; manual imports retain safe fallbacks.
+
+Verification: core regression tests cover opaque text fallback and invalid solid,
+linear and radial fills; mocked AI tests cover successful correction, accepted
+CSS names and rejection after exactly two attempts for generation and edits.
