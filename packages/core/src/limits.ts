@@ -65,6 +65,7 @@ export const LIMITS = {
     cacheTtlMs: 10 * 60_000,
     cacheMaxEntries: 20,
     cacheMaxBytes: 64 * 1024 * 1024,
+    workerHeapMb: 512,
   },
   history: {
     maxSteps: 100,

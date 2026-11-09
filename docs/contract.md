@@ -625,19 +625,37 @@ subsets (some families have only 400). The result
 has no external reference of any kind and is the only thing the renderer
 receives — never the editor DOM, never the asset URLs.
 
-**Rendering.** Playwright uses a shared Chromium instance with a fresh context
-per request: document JavaScript is disabled, service workers are blocked and
-the context is offline. The exported document has CSP `default-src 'none'` with
-inline styles and data fonts/images. Trusted driver evaluation still runs to
-wait for `document.fonts.ready`; "JavaScript-free" does not mean all evaluation
-is disabled.
+**Rendering.** The canonical document is serialized in the API process and sent
+to a long-lived renderer process over Node IPC; HTML exports are serialization
+only and never start a browser. The worker is spawned with a scrubbed environment
+containing only `HOME`, `TMPDIR`, `TMP`, `TEMP` and `PLAYWRIGHT_BROWSERS_PATH`:
+provider/API keys, Supabase secrets and cookie keys are absent. Its Node heap is
+capped with `--max-old-space-size=512`; container-level CPU/memory limits belong
+to deployment and are not enforced by the process itself.
 
-This is not yet a hardened worker boundary. Launch does not explicitly scrub
-the environment or enable Chromium's sandbox; installed Playwright defaults add
-`--no-sandbox` unless enabled. No abort-all request interception, container egress
-denial or CPU/memory limits are configured. A per-operation timeout rejects and
-closes the context; it does not kill the process tree or bound queue/launch time.
-Required deployment-level containment is pending Phase 2.
+Playwright uses a shared Chromium instance with a fresh context per request:
+document JavaScript is disabled, service workers are blocked, the context is
+offline, and a route handler aborts every `http(s)` request. Only `data:` URLs
+are continued, because images and fonts are embedded. The exported document also
+carries CSP `default-src 'none'` with inline styles and data fonts/images.
+Chromium's sandbox is explicitly enabled (`chromiumSandbox: true`). In Docker it
+needs unprivileged user namespaces or an equivalent capability/seccomp setup;
+`EXPORT_CHROMIUM_SANDBOX=false` is only for a disposable worker container with no
+network egress when the platform cannot run the sandbox. Do not use that opt-out
+for a long-lived worker with network access.
+
+Each job has a 15-second total deadline. A timeout or worker crash kills the
+worker's process group (including Chromium children) and the next job starts a
+fresh process; jobs are serialized so one hung render cannot overlap another.
+Pinned versions are Playwright 1.65.0 and its Chromium 158.0.8127.18 (revision
+1254). Deployment must pin the same image/digest. What "JavaScript-free" means
+here: no page-authored script executes, no service worker runs, no external
+request or navigation is allowed, and the only driver evaluation is the fixed
+string `document.fonts.ready`; it does not mean the Chromium process has no
+JavaScript engine or that all trusted Playwright evaluation is impossible.
+
+Container egress denial and cgroup limits are supplied by the deployment described
+in `docs/security.md`; they are not claimed to be active when running `pnpm dev`.
 
 **Output.**
 

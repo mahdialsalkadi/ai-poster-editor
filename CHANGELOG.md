@@ -36,6 +36,10 @@ checkpoints; they do not imply approval for public deployment.
   20 pre-edit snapshots in IndexedDB with a restore list in the AI panel.
 - Scoped export idempotency cache entries by principal and IP and bounded them
   with a 10-minute TTL, 20-entry/64 MiB caps and oldest-first eviction.
+- Moved Chromium rendering into a separate worker process with a scrubbed
+  environment, an explicitly enabled sandbox, abort-all request interception, a
+  15-second total deadline and process-group kill on timeout. Playwright is pinned
+  to 1.65.0.
 - Upgraded Zod to patched 4.6.6; `pnpm audit --prod` reports no known
   vulnerabilities.
 

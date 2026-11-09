@@ -1,60 +1,262 @@
-import { DesignError, LIMITS } from '@poster/core';
-import { chromium, type Browser, type BrowserContext } from 'playwright';
+import { fork, type ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { ExportOptions } from '@poster/contracts';
-import type { DesignDoc } from '@poster/core';
-import type { ExportAssets } from './serialize.js';
-import { serializeForExport } from './serialize.js';
+import { DesignError, LIMITS, type DesignDoc, type ErrorCode } from '@poster/core';
+import { serializeForExport, type ExportAssets } from './serialize.js';
+import type { BrowserRenderJob, RenderedExport } from './renderer-core.js';
 
-export type RenderedExport = {
-  bytes: Buffer;
-  width: number;
-  height: number;
-  contentType: string;
+const ERROR_CODES = new Set<ErrorCode>([
+  'SECURITY_VIOLATION',
+  'INVALID_DOC',
+  'LIMIT_EXCEEDED',
+  'UNSUPPORTED_FEATURE',
+  'DUPLICATE_ID',
+  'ASSET_UNRESOLVED',
+  'EXPORT_FAILED',
+  'AI_INVALID_OUTPUT',
+  'SPEND_CAP_EXCEEDED',
+  'RATE_LIMITED',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'INTERNAL_ERROR',
+]);
+
+/** Only non-secret values needed by Node/Playwright are forwarded to the worker. */
+const WORKER_ENV_KEYS = ['HOME', 'TMPDIR', 'TMP', 'TEMP', 'PLAYWRIGHT_BROWSERS_PATH'] as const;
+
+export function workerEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {};
+  for (const key of WORKER_ENV_KEYS) {
+    const value = source[key];
+    if (value) environment[key] = value;
+  }
+  return environment;
+}
+
+type Pending = {
+  resolve: (result: RenderedExport) => void;
+  reject: (cause: DesignError) => void;
+  timer: NodeJS.Timeout;
 };
 
-let browserPromise: Promise<Browser> | null = null;
+type WorkerReply =
+  | {
+      type: 'result';
+      id: number;
+      result: { bytes: Buffer | Uint8Array; width: number; height: number; contentType: string };
+    }
+  | {
+      type: 'error';
+      id: number;
+      error: { code: unknown; message: unknown; path?: unknown };
+    };
 
-function browser(): Promise<Browser> {
-  if (!browserPromise) {
-    browserPromise = chromium.launch().catch((cause: unknown) => {
-      browserPromise = null;
-      throw new DesignError('EXPORT_FAILED', 'The export browser could not start', 'export', {
-        reason: cause instanceof Error ? cause.message : 'unknown',
-      });
-    });
-  }
-  return browserPromise;
+export type ExportWorkerOptions = {
+  timeoutMs?: number;
+  /** Test seam: override the worker module and its Node arguments. */
+  entry?: string;
+  args?: string[];
+  execArgv?: string[];
+  sandbox?: boolean;
+  heapMb?: number;
+};
+
+function resolveEntry(heapMb: number): { path: string; execArgv: string[] } {
+  const heap = `--max-old-space-size=${heapMb}`;
+  const compiled = fileURLToPath(new URL('./worker-entry.js', import.meta.url));
+  if (existsSync(compiled)) return { path: compiled, execArgv: [heap] };
+  return {
+    path: fileURLToPath(new URL('./worker-entry.ts', import.meta.url)),
+    execArgv: [heap, '--import', 'tsx'],
+  };
 }
 
-export async function closeExportBrowser(): Promise<void> {
-  const pending = browserPromise;
-  browserPromise = null;
-  if (!pending) return;
-  const instance = await pending.catch(() => null);
-  await instance?.close();
-}
-
-function withTimeout<T>(promise: Promise<T>, path: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new DesignError('EXPORT_FAILED', 'The export worker timed out', path));
-    }, LIMITS.export.timeoutMs);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (cause: unknown) => {
-        clearTimeout(timer);
-        reject(cause);
-      },
-    );
-  });
+function isReply(value: unknown): value is WorkerReply {
+  if (typeof value !== 'object' || value === null) return false;
+  const reply = value as Partial<WorkerReply>;
+  return (reply.type === 'result' || reply.type === 'error') && typeof reply.id === 'number';
 }
 
 /**
- * Renders the self-contained document in a fresh, JavaScript-free context. The
- * page is the only input: no editor DOM and no network (contract §12.1).
+ * A single long-lived renderer process. Jobs are serialized, each one has a
+ * total deadline, and a timeout/crash kills the whole process group so Chromium
+ * children cannot survive. The next job starts a fresh worker.
+ */
+export class ExportWorker {
+  private child: ChildProcess | null = null;
+  private readonly pending = new Map<number, Pending>();
+  private nextId = 1;
+  private tail: Promise<unknown> = Promise.resolve();
+  private closed = false;
+  private readonly timeoutMs: number;
+  private readonly entry: { path: string; args: string[]; execArgv: string[] };
+  private readonly sandbox: boolean;
+  private readonly heapMb: number;
+
+  constructor(options: ExportWorkerOptions = {}) {
+    this.timeoutMs = options.timeoutMs ?? LIMITS.export.timeoutMs;
+    this.heapMb = options.heapMb ?? LIMITS.export.workerHeapMb;
+    this.entry = options.entry
+      ? {
+          path: options.entry,
+          args: options.args ?? [],
+          execArgv: options.execArgv ?? [`--max-old-space-size=${this.heapMb}`],
+        }
+      : { ...resolveEntry(this.heapMb), args: [] };
+    this.sandbox = options.sandbox ?? process.env.EXPORT_CHROMIUM_SANDBOX !== 'false';
+  }
+
+  render(job: BrowserRenderJob): Promise<RenderedExport> {
+    const run = (): Promise<RenderedExport> => this.runOnce(job);
+    const result = this.tail.then(run, run);
+    this.tail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  private runOnce(job: BrowserRenderJob): Promise<RenderedExport> {
+    if (this.closed) {
+      return Promise.reject(
+        new DesignError('EXPORT_FAILED', 'The export worker is closed', 'export'),
+      );
+    }
+    const child = this.ensureChild();
+    const id = this.nextId;
+    this.nextId += 1;
+
+    return new Promise<RenderedExport>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        this.killChild();
+        reject(new DesignError('EXPORT_FAILED', 'The export worker timed out', 'export'));
+      }, this.timeoutMs);
+      this.pending.set(id, { resolve, reject, timer });
+      try {
+        child.send({ type: 'render', id, job });
+      } catch (cause) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        this.killChild();
+        reject(
+          new DesignError('EXPORT_FAILED', 'The export worker could not be reached', 'export', {
+            reason: cause instanceof Error ? cause.message : 'unknown',
+          }),
+        );
+      }
+    });
+  }
+
+  private ensureChild(): ChildProcess {
+    if (this.child) return this.child;
+    const child = fork(this.entry.path, this.entry.args, {
+      env: workerEnvironment(),
+      execArgv: this.entry.execArgv,
+      detached: process.platform !== 'win32',
+      serialization: 'advanced',
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+    });
+    this.child = child;
+    child.on('message', (message: unknown) => this.handleMessage(message));
+    child.on('exit', () => this.handleExit());
+    child.on('error', () => this.handleExit());
+    // Drain stderr so a noisy child cannot block on a full pipe.
+    child.stderr?.resume();
+    return child;
+  }
+
+  private handleMessage(message: unknown): void {
+    if (!isReply(message)) return;
+    const pending = this.pending.get(message.id);
+    if (!pending) return;
+    this.pending.delete(message.id);
+    clearTimeout(pending.timer);
+
+    if (message.type === 'result') {
+      const { bytes, width, height, contentType } = message.result;
+      if (
+        (bytes instanceof Uint8Array || Buffer.isBuffer(bytes)) &&
+        typeof width === 'number' &&
+        typeof height === 'number' &&
+        typeof contentType === 'string'
+      ) {
+        pending.resolve({ bytes: Buffer.from(bytes), width, height, contentType });
+        return;
+      }
+      pending.reject(
+        new DesignError('EXPORT_FAILED', 'The export worker returned an invalid result', 'export'),
+      );
+      return;
+    }
+
+    const code =
+      typeof message.error.code === 'string' && ERROR_CODES.has(message.error.code as ErrorCode)
+        ? (message.error.code as ErrorCode)
+        : 'EXPORT_FAILED';
+    const text =
+      typeof message.error.message === 'string'
+        ? message.error.message
+        : 'The export worker failed';
+    const path = typeof message.error.path === 'string' ? message.error.path : 'export';
+    pending.reject(new DesignError(code, text, path));
+  }
+
+  private handleExit(): void {
+    this.child = null;
+    const error = new DesignError(
+      'EXPORT_FAILED',
+      'The export worker exited unexpectedly',
+      'export',
+    );
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+  }
+
+  private killChild(): void {
+    const child = this.child;
+    this.child = null;
+    if (!child?.pid) return;
+    try {
+      if (process.platform === 'win32') child.kill('SIGKILL');
+      else process.kill(-child.pid, 'SIGKILL');
+    } catch {
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        // Already gone.
+      }
+    }
+  }
+
+  async close(): Promise<void> {
+    this.closed = true;
+    const error = new DesignError('EXPORT_FAILED', 'The export worker is closed', 'export');
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+    this.killChild();
+    await this.tail.catch(() => undefined);
+  }
+}
+
+let shared: ExportWorker | null = null;
+
+function worker(): ExportWorker {
+  shared ??= new ExportWorker();
+  return shared;
+}
+
+/**
+ * Sends the serialized document to the renderer process. HTML exports are pure
+ * serialization and never start a browser.
  */
 export async function renderDesign(input: {
   doc: DesignDoc;
@@ -73,60 +275,19 @@ export async function renderDesign(input: {
     };
   }
 
-  let context: BrowserContext | undefined;
-  try {
-    const instance = await browser();
-    context = await instance.newContext({
-      viewport: { width: doc.width, height: doc.height },
-      deviceScaleFactor: options.format === 'pdf' ? 2 : options.scale,
-      javaScriptEnabled: false,
-      offline: true,
-      serviceWorkers: 'block',
-    });
-    const page = await context.newPage();
-    page.setDefaultTimeout(LIMITS.export.timeoutMs);
+  return worker().render({
+    html,
+    width: doc.width,
+    height: doc.height,
+    format: options.format,
+    scale: options.scale,
+    quality: options.quality,
+    sandbox: process.env.EXPORT_CHROMIUM_SANDBOX !== 'false',
+  });
+}
 
-    await withTimeout(page.setContent(html, { waitUntil: 'load' }), 'export');
-    // Runs in the page; the string form keeps the server's `lib` free of DOM types.
-    await withTimeout(page.evaluate('document.fonts.ready'), 'export');
-
-    if (options.format === 'pdf') {
-      const bytes = await withTimeout(
-        page.pdf({
-          // Playwright wants px/in/cm/mm; 1 CSS px = 0.75pt = 1/96in.
-          width: `${((doc.width * 0.75) / 72).toFixed(4)}in`,
-          height: `${((doc.height * 0.75) / 72).toFixed(4)}in`,
-          printBackground: true,
-          margin: { top: '0', right: '0', bottom: '0', left: '0' },
-          pageRanges: '1',
-        }),
-        'export',
-      );
-      return { bytes, width: doc.width, height: doc.height, contentType: 'application/pdf' };
-    }
-
-    const bytes = await withTimeout(
-      options.format === 'jpeg'
-        ? page.screenshot({
-            type: 'jpeg',
-            quality: Math.round(options.quality * 100),
-            animations: 'disabled',
-            caret: 'hide',
-          })
-        : page.screenshot({ type: 'png', animations: 'disabled', caret: 'hide' }),
-      'export',
-    );
-
-    return {
-      bytes,
-      width: doc.width * options.scale,
-      height: doc.height * options.scale,
-      contentType: options.format === 'jpeg' ? 'image/jpeg' : 'image/png',
-    };
-  } catch (cause) {
-    if (cause instanceof DesignError) throw cause;
-    throw new DesignError('EXPORT_FAILED', 'The export renderer failed', 'export');
-  } finally {
-    await context?.close().catch(() => undefined);
-  }
+export async function closeExportBrowser(): Promise<void> {
+  const current = shared;
+  shared = null;
+  await current?.close();
 }

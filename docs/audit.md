@@ -663,3 +663,31 @@ a written verdict only: the Node test environment has no IndexedDB and no
 dependency was added for it. Manual browser restore remains to be exercised when
 the sign-in UI and a configured provider exist. **S3 verdict: server snapshots
 and unbounded caller-keyed export state removed; cache is bounded and scoped.**
+
+### S4 — Export isolation
+
+The Chromium renderer now runs in a separate long-lived Node process. The API
+serializes the self-contained design and sends only the HTML plus geometry over
+IPC; HTML-format exports never start a browser. The worker is forked with a
+scrubbed environment containing only `HOME`, `TMPDIR`, `TMP`, `TEMP` and
+`PLAYWRIGHT_BROWSERS_PATH`, so `AI_API_KEY`, `API_ACCESS_KEY`, Supabase and cookie
+secrets are absent. Its Node heap is capped at 512 MiB; container CPU/memory
+limits remain deployment work.
+
+Chromium is launched with `chromiumSandbox: true` (default), document JavaScript
+disabled, service workers blocked and the context offline. A context route aborts
+every non-`data:` request, while the serialized document retains its
+`default-src 'none'` CSP. Jobs are serialized and have a 15-second total deadline;
+a timeout or worker crash kills the detached worker's process group, including
+Chromium children, and the next job spawns a fresh worker. Playwright is pinned to
+exactly 1.65.0, whose bundled Chromium is 158.0.8127.18 (revision 1254). The
+"JavaScript-free" meaning and the Docker sandbox caveat are documented in
+contract §12.1 and `.env.example`.
+
+Verification: 3 new `export-worker` tests check environment scrubbing, that a page
+referencing a reachable local HTTP server makes zero requests, and that a hanging
+worker plus its grandchild are killed at the deadline. The existing 11 export API
+tests now exercise the real worker for PNG/JPEG/PDF. `pnpm build` emits the worker
+entry. The sandbox launched successfully in this Linux environment. **S4 verdict:
+implemented and tested for the process boundary; container egress/cgroup
+enforcement and hosted-CI sandbox verification remain in S5/Phase 2 verification.**

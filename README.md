@@ -141,7 +141,7 @@ pnpm build
 pnpm audit --prod
 ```
 
-The current test suite has **261 tests**:
+The current test suite has **264 tests**:
 
 | Package | Tests | Files | Main coverage                                                                              |
 | ------- | ----- | ----- | ------------------------------------------------------------------------------------------ |
