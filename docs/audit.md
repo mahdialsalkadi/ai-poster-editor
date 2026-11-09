@@ -456,3 +456,20 @@ the core/contracts/server dependency paths. It reports a patched version of
 this phase. The advisory must be evaluated/remediated before public deployment;
 an advisory CI step is not a security clearance. Local logs are
 `/tmp/opencode/poster-phase1-install.log` and `poster-phase1-advisories.log`.
+
+### README cleanup
+
+The README now has one quick start and one copy of each reference section. It
+uses the manifest's Node >=22.23.4 requirement, the measured 235-test inventory,
+qualified milestone status and a prominent known-limitations/public-launch
+warning. It accurately distinguishes local uploads from the stubbed upload API,
+canonical parsing from broader import, native PDF from physical A4 sizing, and
+implemented CI from an unverified hosted result.
+
+The quick start explicitly loads `.env` and binds the API to loopback rather
+than implying the bare scripts load it. Verification used `.env.example` (not
+the private `.env`) with a spare loopback port: the documented Node/tsx startup
+returned HTTP 200 and `status: ok` from `/api/health`. The listener was confirmed
+as 127.0.0.1 and shut down after the check. The web dev command's Vite CLI was
+also verified; the MIT/font notice and CI badge checks still pass. Existing
+development servers were not stopped or rebound.

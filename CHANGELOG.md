@@ -7,6 +7,9 @@ checkpoints; they do not imply approval for public deployment.
 
 ### Changed
 
+- Replaced the duplicated README with one loopback-only quick start, accurate
+  test/milestone statements, the declared Node requirement and explicit public
+  deployment limitations.
 - Added a GitHub Actions workflow for Node 22 and the latest Node, pnpm 12.16.1,
   frozen installs, typecheck, lint, formatting, tests and build. Production audit
   is initially advisory; the README badge now reports the actual workflow.

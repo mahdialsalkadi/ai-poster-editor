@@ -1,97 +1,87 @@
 # AI Poster Editor
 
-An Arabic-first poster editor built around a strict **Design HTML** contract.
-One canonical document is the source of truth for parsing, editing, AI patches
-and export: the editor, the server and the model all speak the same restricted
-language, and the invariants are enforced in `packages/core`.
-
-## Status
-
 [![CI](https://github.com/mahdialsalkadi/ai-poster-editor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mahdialsalkadi/ai-poster-editor/actions/workflows/ci.yml)
-[![Milestone 7](https://img.shields.io/badge/Milestone-7-complete-blue)](https://github.com/mahdialsalkadi/ai-poster-editor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-**Milestones 1–7** are complete and gated. The shared core is the foundation:
+An Arabic-first poster editor built around **Design HTML**. The editor, AI
+pipeline and exporter share a canonical `DesignDoc`, with parsing, validation,
+serialization and scoped merging in `packages/core`.
 
-- pnpm workspace with `packages/core`, `packages/contracts`, `apps/web` and
-  `apps/server`;
-- typed model, central limits, parse5 allow-list parser, css-tree style parser,
-  canonical serializer, canonicalizer, zod runtime schema, `mergeDesignDoc` and
-  `mergeScopedEdit`;
-- security rejections are covered by tests: escaped CSS (`\75rl(`, `u\72l(`),
-  mixed case (`URL(`), `@import`, `expression()`, `javascript:`,
-  protocol-relative `//` URLs, remote SVG paint servers, and the full banned-tag
-  corpus including `object`, `embed`, `meta`, `base`, `<use>` and
-  `<foreignObject>`;
-- fast-check property tests prove `parse(serialize(doc))` deep-equals the
-  canonical document, plus byte-stable serialization and warning-free re-parsing;
-- golden files for three sample designs (`packages/core/test/fixtures/golden`);
-- a measured parse benchmark (see Tests).
-
-`apps/web` now boots into a working editor shell. The canvas renders the
-canonical document, and the layers panel, marquee-free selection, direct
-manipulation (move, resize, rotate) and inline text entry all write back to the
-same `DesignDoc`. Text is edited on canvas with a double click, `Enter` or `F2`,
-committed with `Ctrl+Enter` or blur, and cancelled with `Escape`; the cap of
-10,000 codepoints is enforced there too, and clearing a text field is treated as
-a cancel rather than an invisible layer. The properties panel edits typography
-(family, size, weight, spacing, alignment, direction, transform, italic,
-underline, shadow, colour), fills, borders, corners, image fit and crop,
-layer order, alignment and artboard size and background. Gestures are committed as a single undo step, arrow keys and
-`Ctrl+Z`/`Ctrl+Shift+Z` are wired, and dragging snaps to artboard and layer
-edges and centers with visible guide lines. Designs persist to `localStorage`
-and can be imported from Design HTML.
-
-AI runs through one OpenAI-compatible provider (`AI_PROVIDER`, `AI_MODEL`,
-`AI_API_KEY`): generation returns canonical Design HTML, selection-scoped
-editing merges a patch with `mergeScopedEdit` and snapshots the previous
-document, invalid output is retried once with the validator error, and each
-call reserves its worst-case cost against `AI_DAILY_SPEND_CAP_USD` before the
-provider is contacted. With no provider configured the routes answer
-`UNSUPPORTED_FEATURE`. Export runs off the same document: the browser posts the canonical doc plus only the referenced image bytes as `multipart/form-data`, and Playwright renders a self-contained HTML copy in an isolated, JavaScript-free context at 1x/2x/3x as PNG or JPEG, as a PDF page sized to the artboard, or as the HTML file itself. Hidden layers are omitted, fonts and images are inlined, output is bounded by 40 MP / 40 MiB / 15 s with a queue of 20 and concurrency 2, and uploaded images persist in IndexedDB so `asset:` layers survive a reload.
-
-Milestone 7 completes the editor surface: gradient stops are clamped and sorted to the canonical order (and can be reversed in one click), the gallery ships five original 1080×1350 layouts, and the shortcut map covers save, export, duplicate, undo/redo, zoom, fit and the help sheet.
+> **Development only: do not expose this build publicly.** Public deployment is
+> the target, with sign-in-protected AI and exports, but authentication and the
+> required security hardening are not implemented yet. See
+> [Known limitations](#known-limitations) and the [audit](docs/audit.md).
 
 ## Requirements
 
-- Node.js >= 22 (verified on 26.13.0)
-- pnpm 12.16.1 (`npm i -g pnpm@12.16.1`)
+- Node.js **>=22.23.4**, matching `package.json`.
+- pnpm **12.16.1** (`npm install --global pnpm@12.16.1`).
+- Playwright's Chromium for raster/PDF exports and server export tests. On a
+  supported Linux distribution, add `--with-deps` to the browser installation
+  command if system libraries are missing.
 
-pnpm 12 rejects packages younger than its minimum release age. `caniuse-lite`
-publishes data-only updates daily, so it is exempted in `pnpm-workspace.yaml`;
-every other dependency stays under the default policy.
+CI checks Node 22 and the latest available Node. The workflow badge reports
+GitHub's actual result; local checks do not imply that a hosted run has passed.
+The lockfile and pnpm minimum-release-age policy are retained. Only the
+data-only `caniuse-lite` package is exempt from that age policy.
 
 ## Quick start
 
+Run these commands from the repository root:
+
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
+pnpm typecheck
 pnpm --filter @poster/server exec playwright install chromium
-pnpm --filter @poster/core test
-pnpm -r typecheck
-pnpm lint
+cp -n .env.example .env
 ```
 
-Run the API:
+The copy keeps an existing `.env`. Edit it locally; leave `AI_PROVIDER` empty
+unless you intend to use a paid or local OpenAI-compatible provider. Typecheck
+builds the shared packages needed by the API and web app.
+
+Start the API in one terminal:
 
 ```bash
-cp .env.example .env
-pnpm --filter @poster/server dev
+HOST=127.0.0.1 node --env-file=.env --import tsx apps/server/src/index.ts
 ```
 
-## Repository layout
+This command explicitly loads the environment file and restricts the listener
+to loopback. The bare server `dev`/`start` scripts do not load `.env` themselves;
+use an explicit environment loader or export variables before using them.
+The web dev proxy expects API port **3001**. Set `PUBLIC_ORIGIN` to the exact
+editor origin if you change the URL.
 
+Start the editor in a second terminal:
+
+```bash
+pnpm --filter @poster/web dev --host 127.0.0.1
 ```
-packages/
-  core/        Design HTML parser, serializer, canonicalizer, schema, merge
-  contracts/   Shared API request/response and error envelopes
-apps/
-  web/         Vite + React editor shell (milestones 2–7)
-  server/      Fastify API: AI generation and isolated export (milestones 5–6)
-prompts/       System prompts for the Design HTML generator and editor
-docs/          Design HTML contract and architecture decision records
-```
+
+Open <http://127.0.0.1:5173>. API health is available at
+<http://127.0.0.1:3001/api/health>. Do not use a public bind address, tunnel or
+reverse proxy to expose this development setup.
+
+## What works
+
+- Model-based React rendering, layer selection, Shift-click multi-select,
+  move/resize/rotate, snapping, alignment and distribution.
+- Arabic/English text layers, RTL inference, 11 self-hosted font families,
+  native plain-text inline editing, typography, fills, gradients and SVG layers.
+- Undo/redo, duplication, Design HTML copying, and HTML import that converts a
+  broader HTML/CSS subset into positioned canonical layers. Import is not a
+  browser-equivalent layout engine.
+- Optional OpenAI-compatible generation and selection-scoped edits, one retry
+  for rejected output, usage reporting and in-memory snapshots/spend accounting.
+- Local image upload and IndexedDB asset storage. Export uploads only referenced
+  image bytes for server-side revalidation; `POST /api/assets` remains a stub.
+- PNG/JPEG export at 1x/2x/3x, native vector PDF and self-contained HTML export.
+  Hidden layers are omitted and fonts/images are embedded.
 
 ## Design HTML
+
+The canonical interchange form is a single `.artboard` containing positioned
+text, shape, image or SVG layers. Artboard attributes serialize with `px`:
 
 ```html
 <div class="artboard" data-width="1080px" data-height="1350px" style="background:#0f172a">
@@ -114,212 +104,129 @@ const { doc, warnings } = parseDesignHtml(html);
 const canonicalHtml = serializeDesignDoc(doc);
 ```
 
-## Contract highlights
-
-- **Canonical round trip:** `parse(serialize(doc))` deep-equals `doc` for
-  canonical documents, and the second serialization is byte-identical.
-- **Limits:** 200 KiB, 200 layers, 10k codepoints per text layer, 2k SVG nodes,
-  40 MP exports. All limits live in `packages/core/src/limits.ts`.
-- **Security:** parse5 + allow-lists; `asset:` image scheme; no scripts, event
-  handlers, external references, or `innerHTML` of untrusted HTML.
-- **Scoped AI merge:** only selected layers may change; missing selected layers
-  are preserved; new layers are inserted above the highest selected layer;
-  artboard size and background are immutable.
-- **RTL:** Arabic text is inferred as RTL when `dir` is missing; Latin-only fonts
-  fall back to Cairo; letter-spacing on Arabic is reported.
-
-Full details: [`docs/contract.md`](docs/contract.md).
+`parseDesignHtml` handles the restricted interchange form; the editor's
+`importDesignDocument` path also handles full exported HTML and broader HTML/CSS
+input. These are different boundaries. See the [contract](docs/contract.md)
+for canonicalization, import behavior, security rules and current API behavior.
 
 ## Editor shortcuts
 
-| Action                         | Shortcut                                         |
-| ------------------------------ | ------------------------------------------------ |
-| Save now                       | `Ctrl/Cmd + S`                                   |
-| Open export                    | `Ctrl/Cmd + E`                                   |
-| Undo / redo                    | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z`          |
-| Duplicate selection            | `Ctrl/Cmd + D`                                   |
-| Zoom in / out / fit            | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
-| Edit text on canvas            | `Enter` or `F2`                                  |
-| Nudge / nudge 10px             | arrows / `Shift` + arrows                        |
-| Delete selection               | `Delete`                                         |
-| Shortcut sheet                 | `?`                                              |
-| Clear selection / close dialog | `Esc`                                            |
+| Action                          | Shortcut                                         |
+| ------------------------------- | ------------------------------------------------ |
+| Save now                        | `Ctrl/Cmd + S`                                   |
+| Open export                     | `Ctrl/Cmd + E`                                   |
+| Undo / redo                     | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z`          |
+| Duplicate selection             | `Ctrl/Cmd + D`                                   |
+| Zoom in / out / fit             | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
+| Edit text on canvas             | Double-click, `Enter` or `F2`                    |
+| Commit / cancel inline text     | `Ctrl/Cmd + Enter` or blur / `Escape`            |
+| Nudge / nudge 10px              | arrows / `Shift` + arrows                        |
+| Toggle a layer in the selection | `Shift` + click                                  |
+| Delete selection                | `Delete` or `Backspace`                          |
+| Shortcut sheet                  | `?`                                              |
+| Clear selection / close dialog  | `Escape`                                         |
 
-## Tests
+Ctrl/Cmd-wheel zoom is supported. Layer copy/paste, marquee selection and canvas
+pan are not implemented. Inline text uses a `textarea`, not rich-HTML paste.
 
-`@poster/core` currently runs 151 tests across 10 files, including the golden
-files, the security corpus, limits, untrusted-data wrapping and fast-check
-properties.
-
-Measured on the development machine with `pnpm --filter @poster/core test`
-(`test/perf.test.ts`), parsing a 200-layer / 56.4 KiB document:
-
-```
-p50 = 18.61 ms   p95 = 56.59 ms   min = 13.34 ms   max = 109.42 ms
-```
-
-The spec's "1–3 ms" figure was not reproduced and should be treated as
-unverified. The export path is not claimed to be pixel-identical to the editor
-either: milestone 6 verifies formats, dimensions and self-containment, not visual equality.
-
-## Milestones
-
-| Milestone | Scope                                                              | Status |
-| --------- | ------------------------------------------------------------------ | ------ |
-| 1         | `packages/core` contract, parser, serializer, merge, tests         | done   |
-| 2         | Static rendering, artboard viewport, layers panel, selection       | done   |
-| 3         | Moveable transforms, snapping, undo/redo                           | done   |
-| 4         | Inline text editing, properties panel                              | done   |
-| 5         | AI provider, prompts, snapshots, daily spend cap                   | done   |
-| 6         | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave         | done   |
-| 7         | Gradient normalization, template gallery, shortcuts, documentation | done   |
-
-## Original work
-
-All code, copy, icons and visual identity in this repository are original. No
-code, asset, icon, template or branding from any other design product is
-included. See [`docs/adr/0001-clean-room-canva-parity.md`](docs/adr/0001-clean-room-canva-parity.md).
-
-## Getting started
-
-The canonical document is the single source of truth. Parse it, edit it, patch it
-with AI, and export it — the editor, the server and the model never disagree.
+## Tests and checks
 
 ```bash
-# 1. Install
-pnpm install
-
-# 2. Chromium for Playwright-based export tests
-pnpm --filter @poster/server exec playwright install chromium
-
-# 3. Quick health check
-pnpm --filter @poster/core test
-pnpm -r typecheck
+pnpm typecheck
 pnpm lint
-
-# 4. Start the API (copy .env.example → .env first)
-cp .env.example .env
-pnpm --filter @poster/server dev -- --port 3001
-
-# 5. Start the editor (proxies API calls to :3001)
-pnpm --filter @poster/web dev
+pnpm format:check
+pnpm test
+pnpm build
+pnpm audit --prod
 ```
 
-The editor boots at http://127.0.0.1:5173 and the API at http://127.0.0.1:3001.
+The current test suite has **235 tests**:
 
-## Contributing a new template
+| Package | Tests | Files | Main coverage                                                                              |
+| ------- | ----- | ----- | ------------------------------------------------------------------------------------------ |
+| Core    | 163   | 11    | Parser/security corpus, canonical round trips, merge, import, HTML goldens and performance |
+| Server  | 47    | 4     | Mock AI, spend refusal, basic limits, snapshots, export formats/assets and queue           |
+| Web     | 25    | 3     | Snapping, fills and templates                                                              |
 
-New templates live in `apps/web/src/sample.ts` as functions that return a
-`DesignDoc` at 1080×1350. Each template is verified by
-`apps/web/src/sample.test.ts`: the canonicalizer must round-trip the document,
-and all fields must be well-formed (clamped stops, sorted colors, sorted stops,
-valid fonts, sane sizes). Add the factory to `TEMPLATES` and run the web test
-suite before pushing.
+The parser performance test enforces p95 <200 ms for a 200-layer, approximately
+56.4 KiB document. It does not establish a 1–3 ms guarantee or a full-200-KiB
+performance budget. HTML goldens and saved screenshots are not automated visual
+comparisons. There is no E2E suite or editor/export visual-equivalence gate yet.
+
+`pnpm format` applies the project's formatter. Byte-exact HTML fixtures, captured
+evidence, generated output/lockfile and local tooling are intentionally excluded.
+The production audit step is advisory in Phase 1; its warnings still block public
+release readiness until resolved or explicitly assessed.
+
+## Known limitations
+
+- **Public-launch security blockers:** no authentication, incomplete route rate
+  limits, caller-readable snapshots, unscoped export idempotency, no app CSP and
+  insufficient renderer/deployment isolation. Offline browser contexts and an
+  export CSP are not a hardened worker boundary.
+- **Spend limits:** the ledger resets on restart, is independent per server,
+  reserves only one attempt despite retrying, and uses manually configured prices.
+  It is not a reliable public-service spending ceiling yet.
+- **Dependency advisory:** `pnpm audit --prod` reports high-severity Zod issue
+  [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+  No dependency upgrade is included in Phase 1.
+- **Persistence:** documents use debounced `localStorage`; only image assets use
+  IndexedDB. There is no backup/recovery flow or multi-tab overwrite protection.
+  Server snapshots are in memory and have no editor list/restore UI.
+- **PDF:** selectable native text and embedded fonts were verified for a Latin
+  probe, but the 2480x3508 A4 preset exports at the wrong physical paper size.
+  Print-quality Arabic fidelity and editor/export visual parity remain unverified.
+- **Editor:** no marquee, layer clipboard or pan; Arabic letter spacing remains
+  enabled; consecutive blank lines collapse; interface chrome is fixed Arabic/RTL.
+- **Gallery/import:** four designed templates plus a blank, not five finished
+  language-balanced layouts. Broader HTML/CSS import is best-effort and lossy.
+- **Configuration:** several advertised export/upload/rate environment variables
+  are not consumed; the constants in `packages/core/src/limits.ts` currently apply.
+
+See [docs/audit.md](docs/audit.md) for evidence, current verdicts and remaining
+decisions. Work proceeds one phase at a time; Phase 1 repository hygiene does
+not close the Phase 2 security findings.
 
 ## Repository layout
 
-```
-packages/
-  core/        Design HTML parser, serializer, canonicalizer, schema, merge
-  contracts/   Shared API request/response and error envelopes
-apps/
-  web/         Vite + React editor shell (milestones 2–7)
-  server/      Fastify API: AI generation and isolated export (milestones 5–7)
-prompts/       System prompts for the Design HTML generator and editor
-docs/          Design HTML contract and architecture decision records
-screenshots/   Visual verification captures for milestone 6 and 7
-```
-
-## Design HTML
-
-```html
-<div class="artboard" data-width="1080px" data-height="1350px" style="background:#0f172a">
-  <div
-    data-id="headline"
-    data-layer="Headline"
-    data-type="text"
-    dir="rtl"
-    style="position:absolute;left:80px;top:120px;width:920px;font-family:'Cairo';font-size:96px;font-weight:700;color:#ffffff;text-align:right;line-height:1.25;letter-spacing:0px"
-  >
-    عنوان رئيسي
-  </div>
-</div>
+```text
+packages/core/       Canonical model, parsing, import, serialization and merge
+packages/contracts/ Shared API schemas and error envelopes
+apps/web/           Vite + React editor
+apps/server/        Fastify API, AI service and Playwright exporter
+prompts/            Generator and scoped-edit system prompts
+docs/               Contract, audit and architecture decisions
+.github/workflows/  CI
+screenshots/        Historical manual verification captures, not visual tests
 ```
 
-```ts
-import { parseDesignHtml, serializeDesignDoc } from '@poster/core';
+## Milestone status
 
-const { doc, warnings } = parseDesignHtml(html);
-const canonicalHtml = serializeDesignDoc(doc);
-```
+| Baseline milestone | Existing implementation                                     | Remaining qualification                                  |
+| ------------------ | ----------------------------------------------------------- | -------------------------------------------------------- |
+| 1                  | Core contract, parser, serializer, merge and tests          | Broader robustness/coverage gates remain                 |
+| 2–4                | Canvas, selection, transforms, inline editing and inspector | Editor gaps listed above remain                          |
+| 5                  | Provider, scoped edits, snapshots and spend accounting      | Public-service safety and snapshot UX remain             |
+| 6                  | Local assets, export formats and autosave                   | Upload API, isolation, persistence and PDF sizing remain |
+| 7                  | Gradients, gallery, shortcuts and docs                      | Gallery/language balance and product polish remain       |
 
-## Contract highlights
+These are functional implementations, not a claim that all original acceptance
+criteria or public-release gates are complete. See [CHANGELOG.md](CHANGELOG.md)
+for the `v0.1.0` baseline checkpoint and subsequent changes.
 
-- **Canonical round trip:** `parse(serialize(doc))` deep-equals `doc` for
-  canonical documents, and the second serialization is byte-identical.
-- **Limits:** 200 KiB, 200 layers, 10k codepoints per text layer, 2k SVG nodes,
-  40 MP exports. All limits live in `packages/core/src/limits.ts`.
-- **Security:** parse5 + allow-lists; `asset:` image scheme; no scripts, event
-  handlers, external references, or `innerHTML` of untrusted HTML.
-- **Scoped AI merge:** only selected layers may change; missing selected layers
-  are preserved; new layers are inserted above the highest selected layer;
-  artboard size and background are immutable.
-- **Gradients:** stops are clamped to `[0,100]`, sorted ascending, and can be
-  reversed from the fill inspector in one click.
-- **RTL:** Arabic text is inferred as RTL when `dir` is missing; Latin-only fonts
-  fall back to Cairo; letter-spacing on Arabic is reported.
+## Contributing a template
 
-Full details: [`docs/contract.md`](docs/contract.md).
+Templates are `DesignDoc` factories in `apps/web/src/sample.ts`, registered in
+`TEMPLATES`. Follow the canonical model and run `pnpm --filter @poster/web test`;
+`sample.test.ts` checks template structure and round trips. The current gallery
+uses 1080x1350 artboards.
 
-## Editor shortcuts
+## Original work and license
 
-| Action                         | Shortcut                                         |
-| ------------------------------ | ------------------------------------------------ |
-| Save now                       | `Ctrl/Cmd + S`                                   |
-| Open export                    | `Ctrl/Cmd + E`                                   |
-| Undo / redo                    | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z`          |
-| Duplicate selection            | `Ctrl/Cmd + D`                                   |
-| Zoom in / out / fit            | `Ctrl/Cmd + +` / `Ctrl/Cmd + −` / `Ctrl/Cmd + 0` |
-| Edit text on canvas            | `Enter` or `F2`                                  |
-| Nudge / nudge 10px             | arrows / `Shift` + arrows                        |
-| Delete selection               | `Delete`                                         |
-| Shortcut sheet                 | `?`                                              |
-| Clear selection / close dialog | `Esc`                                            |
+Project code, copy, icons and layouts are original; no code, branding or templates
+from another design product are included. The bundled third-party fonts are
+listed separately. See the [architecture decision](docs/adr/0001-clean-room-canva-parity.md).
 
-## Tests
-
-`@poster/core` currently runs 151 tests across 10 files, including the golden
-files, the security corpus, limits, untrusted-data wrapping and fast-check
-properties. The web app adds 25 tests (snapping, gradients, templates).
-
-Measured on the development machine with `pnpm --filter @poster/core test`
-(`test/perf.test.ts`), parsing a 200-layer / 56.4 KiB document:
-
-```
-p50 = 18.61 ms   p95 = 56.59 ms   min = 13.34 ms   max = 109.42 ms
-```
-
-The spec's "1–3 ms" figure was not reproduced and should be treated as
-unverified. The export path is not claimed to be pixel-identical to the editor
-either: milestone 6 verifies formats, dimensions and self-containment, not visual equality.
-
-## Milestones
-
-| Milestone | Scope                                                              | Status |
-| --------- | ------------------------------------------------------------------ | ------ |
-| 1         | `packages/core` contract, parser, serializer, merge, tests         | done   |
-| 2         | Static rendering, artboard viewport, layers panel, selection       | done   |
-| 3         | Moveable transforms, snapping, undo/redo                           | done   |
-| 4         | Inline text editing, properties panel                              | done   |
-| 5         | AI provider, prompts, snapshots, daily spend cap                   | done   |
-| 6         | Asset upload, isolated export (PNG/JPG/PDF/HTML), autosave         | done   |
-| 7         | Gradient normalization, template gallery, shortcuts, documentation | done   |
-
-All milestones are on the `main` branch: https://github.com/mahdialsalkadi/ai-poster-editor.
-
-## License
-
-Original project code is licensed under the [MIT License](LICENSE).
-Bundled fonts remain under the SIL Open Font License 1.1; their copyright
-notices and license texts ship with the web build. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for all 11 font families.
+Original project code is [MIT licensed](LICENSE). Fonts retain OFL-1.1; their
+upstream copyright notices and license texts ship with the web build. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for all 11 families.
