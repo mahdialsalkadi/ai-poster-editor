@@ -19,6 +19,11 @@ const shapeLayer = (id: string, top = 300): string =>
   `<div data-id="${id}" data-layer="${id}" data-type="shape" style="position:absolute;left:10px;top:${top}px;width:20px;height:20px;background:#333333"></div>`;
 
 describe('mergeScopedEdit', () => {
+  it('rejects duplicate patch IDs instead of trying to remint an ambiguous edit', () => {
+    expect(() =>
+      mergeScopedEdit(base(), patchHtml(shapeLayer('fresh') + shapeLayer('fresh')), ['b']),
+    ).toThrow(expect.objectContaining({ code: 'DUPLICATE_ID' }));
+  });
   it('replaces a selected layer in place and keeps z-order', () => {
     const doc = mergeScopedEdit(base(), patchHtml(textLayer('b', 'Edited')), ['b']).doc;
     expect(doc.layers.map((layer) => layer.id)).toEqual(['a', 'b', 'c']);

@@ -1070,3 +1070,23 @@ text/style content**, not comment padding, and enforces steady-state p95 <200 ms
 Targeted verification passed: six property tests plus the full-size performance
 test; observed p50 24.64 ms / p95 26.65 ms on this host. These measurements are
 local observations, not a universal latency claim or a replacement for CI.
+
+### T1 — Enforced coverage gates
+
+`pnpm test:coverage` instruments source modules rather than workspace `dist`
+copies, including contracts used by server tests. Exact per-file thresholds now
+require **90% lines/statements, 100% functions and 80% branches** for `parse.ts`,
+`style.ts`, `css-guard.ts`, `merge.ts` and `merge-scoped.ts`. The timing benchmark
+is deliberately excluded from instrumentation; normal `pnpm test` still runs the
+independent 200 KiB performance gate.
+
+Added 83 behavior tests for safe CSS conversions, warning/fallback paths, geometry,
+gradients, borders, image fitting and text styles, with assertions on results.
+Removed an unreachable scoped-merge ID-remint helper: unique parser-accepted patch
+IDs are either existing edits or genuinely new IDs, so the collision condition
+could never hold. An explicit duplicate-patch-ID test preserves the rejection rule.
+
+Coverage verification passed all 435 instrumented tests. Critical line coverage:
+parser **92.14%**, style **98.55%**, CSS guard **100%**, merge **91.08%**, scoped
+merge **100%**. Full measured source coverage is **84.73%**, not a claimed global
+90%. Lint and core typecheck passed. CI wiring follows with the browser gates.

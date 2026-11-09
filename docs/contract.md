@@ -524,8 +524,8 @@ Rules:
 - A changed `width` or `height` is refused with
   `MERGE_ARTBOARD_CHANGE_IGNORED`; the background always comes from the base
   document.
-- New ids are re-minted (`<id>_2`, `<id>_3`, ...) on collision. The parser
-  already rejects duplicate ids inside one output, so this guard is defensive.
+- New layers keep their unique ids. Duplicate ids inside one patch fail parsing;
+  an id already present in the base is an existing-layer edit, never a new layer.
 - Parse warnings are carried through, and the merged document is canonicalized
   again before it is returned.
 

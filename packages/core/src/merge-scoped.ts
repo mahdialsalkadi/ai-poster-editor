@@ -8,16 +8,6 @@ export type ScopedMergeOutput = {
   warnings: Warning[];
 };
 
-function mintId(base: string, taken: ReadonlySet<string>): string {
-  let counter = 2;
-  let candidate = `${base}_${counter}`;
-  while (taken.has(candidate)) {
-    counter += 1;
-    candidate = `${base}_${counter}`;
-  }
-  return candidate;
-}
-
 /**
  * Merges a selection-scoped AI edit into the current document.
  *
@@ -27,7 +17,7 @@ function mintId(base: string, taken: ReadonlySet<string>): string {
  * - a returned layer that matches a selected id replaces it in place;
  * - a selected layer that is missing from the output is kept, never deleted;
  * - an unknown id becomes a new layer placed directly above the highest
- *   selected layer, with a re-minted id if it collides;
+ *   selected layer; duplicate patch ids are rejected by the parser;
  * - the artboard size and background can never change.
  */
 export function mergeScopedEdit(
@@ -58,15 +48,13 @@ export function mergeScopedEdit(
     .filter((index) => index >= 0);
   const insertAt = selectedIndexes.length > 0 ? Math.max(...selectedIndexes) + 1 : layers.length;
 
-  const taken = new Set(layers.map((layer) => layer.id));
   const additions: Layer[] = [];
 
   for (const patchLayer of parsed.doc.layers) {
     const index = indexById.get(patchLayer.id);
 
     if (index === undefined) {
-      const id = taken.has(patchLayer.id) ? mintId(patchLayer.id, taken) : patchLayer.id;
-      taken.add(id);
+      const id = patchLayer.id;
       additions.push({ ...patchLayer, id });
       pushWarning(warnings, 'MERGE_NEW_LAYER', `Scoped edit added layer ${id}`, `layers.${id}`, id);
       continue;

@@ -12,6 +12,7 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "test:core": "pnpm --filter @poster/core test",
+    "test:coverage": "vitest run --coverage --exclude packages/core/test/perf.test.ts",
     "audit:prod": "pnpm audit --prod",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
