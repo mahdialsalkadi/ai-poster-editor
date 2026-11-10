@@ -1374,3 +1374,20 @@ evidence, subject to the documented response-deadline, in-memory limiter,
 single-replica ledger and request-ID caveats. Staging and production readiness
 remain unverified. Stop for review before Phase 7; no deployment, live AI call,
 release tag or cleanup of unrelated user files was performed.
+
+## Plan v1.2 — Phase 7 execution
+
+### G5 — Editor/export parity regression
+
+`e2e/visual.spec.ts:30-105` loads the same 600 × 800 English/Arabic/gradient
+model into the real editor and multipart PNG API, waits for fonts, confirms a
+1× unselected artboard and compares 4-channel pixels. A pixel differs when any
+channel changes by more than 51/255; at most 1.5% may differ. Playwright and
+Chromium versions remain pinned and both images are attached for review. As a
+negative control, hiding the card must exceed the same threshold. This covers
+one reference design, not every font, effect, image, SVG or browser.
+
+The four visual tests passed locally: the parity fixture measured 0.000%
+differing pixels at that threshold and the missing-card control measured 15.097%;
+the three existing exporter golden comparisons still passed. E2E typecheck and
+lint passed. These observations are for the local pinned browser environment.

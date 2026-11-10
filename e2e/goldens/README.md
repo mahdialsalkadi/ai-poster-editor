@@ -17,6 +17,14 @@ or missing-content changes, and avoids the Playwright PNG decoder's crash on
 Node 27 alpha's class-based `Inflate`. Normal test runs (including CI) **never
 update** goldens, even if a file is missing.
 
+The separate editor/export parity test loads a 600 × 800 design containing
+English, Arabic and a gradient into the real editor at 1×, then compares its
+unselected artboard screenshot with the real PNG export. It uses the same
+per-channel threshold (51 out of 255) with at most **1.5%** differing pixels.
+The test also hides the gradient card as a negative control and requires the
+comparison to fail that tolerance. Both images are attached to the test report.
+This is a regression check for one design, not a proof of parity for all designs.
+
 ```bash
 pnpm build
 pnpm test:visual
