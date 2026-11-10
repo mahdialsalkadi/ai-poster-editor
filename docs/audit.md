@@ -1727,3 +1727,52 @@ reviewed golden"` passed **17/17**.
 **Verdict: PASS.** The HUD tracks move/resize/rotate, distance badges appear only
 for genuinely equal gaps, every guide mounts in the unclipped overlay, and `Fit`
 restores zoom and pan together.
+
+### Phase 10C — File/Resize menus, contextual ribbon, anchored reflow, effects and format painter
+
+**What changed:**
+
+- `apps/web/src/editor/layers.ts` adds `magicResizeDoc`, the Canva-style reflow:
+  the artboard is clamped through `clampArtboardSize`, full-bleed shape/image
+  backdrops stretch by the independent factors, every other layer keeps a 9-zone
+  anchor derived from its centre third, text at least 60% wide rewraps inside
+  `max(24, round(0.07 * newWidth))` and scales its font by the uniform factor,
+  dividers stretch on one axis only, and radii scale by the same uniform factor.
+- `apps/web/src/editor/layers.ts` adds `applyTextEffectPreset` with the seven
+  presets; echo/splice/glitch insert locked `${id}__fx1`/`${id}__fx2` companion
+  text layers directly below the primary, and every other preset rewrites or
+  clears `style.shadow`, so no schema change is needed and the stack round-trips.
+- `apps/web/src/editor/layers.ts` adds `copyLayerStyle`/`applyCopiedStyle`: only
+  non-geometric style transfers, the target keeps its id, content and box, Arabic
+  text keeps its own font when the source direction differs, and
+  `requiresZeroLetterSpacing` re-zeroes spacing after the copy.
+- `apps/web/src/components/TopBar.tsx` adds the `[File ▾]` menu (new design,
+  save, import, copy HTML, preview, export, shortcuts) and the `[Resize ▾]`
+  popover with four social presets and custom W/H inputs
+  (`data-testid="resize-width|resize-height|resize-apply"`), closing on outside
+  pointer-down.
+- `apps/web/src/components/ContextualToolbar.tsx` renders the 48px ribbon
+  (`data-testid="context-toolbar"`) for any selection: font-size stepper, text
+  colour, the seven-effect select (`data-testid="text-effect"`), shape fill,
+  align left/centre/right, and copy/paste style buttons. `App.tsx` wires every
+  control to history so each change is one undo step.
+
+**Measured contract:**
+
+- `e2e/canvas.spec.ts` (test “File and Resize menus and the contextual ribbon
+  drive the document”) opens the File menu and asserts the panel lists Export,
+  applies a 900×900 custom resize and reopens the menu to find `900` retained,
+  then selects a fresh text layer, applies Glitch and asserts exactly one `__fx1`
+  and one `__fx2` companion in `.artboard`.
+- `apps/web/src/editor/interactions.test.ts` proves the full-bleed backdrop
+  stretches while the top-left badge keeps its `40,40` scaled offset and the
+  bottom-right badge stays pinned at `1800`, a wide headline rewraps to
+  `W1 - 2 * safeMargin` (1720 at 2000px wide) without changing its font, and
+  Glitch adds two locked companions that `none` removes again along with the
+  shadow.
+
+**Gates:** typecheck, lint, format, web unit tests 10 files, build and the full
+canvas E2E suite **6/6** passed locally.
+
+**Verdict: PASS.** Resize keeps visual anchors, effects need no schema change,
+and style transfer preserves Arabic invariants.

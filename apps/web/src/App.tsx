@@ -15,6 +15,7 @@ import {
 } from '@poster/core';
 import { AccountDialog } from './components/AccountDialog.js';
 import { Canvas } from './components/Canvas.js';
+import { ContextualToolbar } from './components/ContextualToolbar.js';
 import { IconButton } from './components/controls.js';
 import { DocPreview } from './components/DocPreview.js';
 import { ExportDialog } from './components/ExportDialog.js';
@@ -67,13 +68,19 @@ import {
   deleteLayers,
   duplicateLayers,
   estimatedLayerHeight,
+  applyCopiedStyle,
+  applyTextEffectPreset,
+  copyLayerStyle,
+  magicResizeDoc,
   reorderLayer,
   uniqueLayerId,
   updateLayer,
   updateLayers,
   type AlignTarget,
+  type CopiedStyle,
   type ElementKind,
   type ReorderMove,
+  type TextEffectPreset,
   type TextPreset,
 } from './editor/layers.js';
 import { plainToInline } from './editor/text.js';
@@ -321,6 +328,7 @@ export function App() {
   const [showBleed, setShowBleed] = useState(false);
   const [viewReset, setViewReset] = useState(0);
   const [zoomMenu, setZoomMenu] = useState(false);
+  const [styleClipboard, setStyleClipboard] = useState<CopiedStyle | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [modal, setModal] = useState<'preview' | 'help' | 'export' | 'account' | null>(null);
@@ -962,6 +970,16 @@ export function App() {
         <TopBar
           name={name}
           onNameChange={setName}
+          docWidth={doc.width}
+          docHeight={doc.height}
+          onNewDesign={() => {
+            history.reset(createBlankDoc());
+            setSelection([]);
+            setEditingId(null);
+          }}
+          onMagicResize={(width, height) =>
+            history.update((current) => magicResizeDoc(current, width, height))
+          }
           canUndo={history.canUndo}
           canRedo={history.canRedo}
           onUndo={history.undo}
@@ -1042,6 +1060,54 @@ export function App() {
               lastUsage,
               snapshots,
               onRestoreSnapshot: handleRestoreSnapshot,
+            }}
+          />
+
+          <ContextualToolbar
+            layers={doc.layers.filter((layer) => selection.includes(layer.id))}
+            effect={(() => {
+              const selected = doc.layers.find((layer) => layer.id === selection[0]);
+              if (!selected) return 'none';
+              if (doc.layers.some((layer) => layer.id === `${selected.id}__fx2`)) return 'glitch';
+              if (doc.layers.some((layer) => layer.id === `${selected.id}__fx1`)) return 'echo';
+              return selected.type === 'text' && selected.style.shadow ? 'softShadow' : 'none';
+            })()}
+            canPaste={styleClipboard !== null}
+            onTextStyle={(patch) =>
+              history.update((current) =>
+                updateLayers(current, selection, (layer) =>
+                  layer.type === 'text' ? { ...layer, style: { ...layer.style, ...patch } } : layer,
+                ),
+              )
+            }
+            onShapeColor={(color) =>
+              history.update((current) =>
+                updateLayers(current, selection, (layer) =>
+                  layer.type === 'shape' && layer.style.fill.kind === 'solid'
+                    ? { ...layer, style: { ...layer.style, fill: { kind: 'solid', color } } }
+                    : layer,
+                ),
+              )
+            }
+            onAlign={(target) =>
+              history.update((current) => alignLayers(current, selection, target))
+            }
+            onEffect={(preset: TextEffectPreset) => {
+              const id = selection[0];
+              if (id) history.update((current) => applyTextEffectPreset(current, id, preset));
+            }}
+            onCopyStyle={() => {
+              const layer = doc.layers.find((item) => item.id === selection[0]);
+              const copied = layer ? copyLayerStyle(layer) : null;
+              if (!copied) return;
+              setStyleClipboard(copied);
+              notify('success', t('styleCopied'));
+            }}
+            onPasteStyle={() => {
+              if (!styleClipboard) return;
+              history.update((current) =>
+                selection.reduce((next, id) => applyCopiedStyle(next, id, styleClipboard), current),
+              );
             }}
           />
 

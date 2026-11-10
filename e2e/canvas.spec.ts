@@ -222,3 +222,26 @@ test('the built editor blocks inline scripts and external image requests with CS
   expect(executed).toBe(false);
   expect(contacted).toBe(false);
 });
+
+test('File and Resize menus and the contextual ribbon drive the document', async ({ page }) => {
+  await openEditor(page);
+  await page.getByTestId('file-menu').click();
+  await expect(page.locator('.menu-panel')).toBeVisible();
+  await expect(page.locator('.menu-panel')).toContainText(/Export|تصدير/);
+  await page.getByTestId('file-menu').click();
+  await expect(page.locator('.menu-panel')).toHaveCount(0);
+
+  await page.getByTestId('resize-menu').click();
+  await page.getByTestId('resize-width').fill('900');
+  await page.getByTestId('resize-height').fill('900');
+  await page.getByTestId('resize-apply').click();
+  await page.getByTestId('resize-menu').click();
+  await expect(page.getByTestId('resize-width')).toHaveValue('900');
+  await page.getByTestId('resize-menu').click();
+
+  await page.keyboard.press('t');
+  await expect(page.getByTestId('context-toolbar')).toBeVisible();
+  await page.getByTestId('text-effect').selectOption('glitch');
+  await expect(page.locator('.artboard [data-layer-id$="__fx1"]')).toHaveCount(1);
+  await expect(page.locator('.artboard [data-layer-id$="__fx2"]')).toHaveCount(1);
+});

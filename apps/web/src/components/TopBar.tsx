@@ -8,6 +8,10 @@ export type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
 export type TopBarProps = {
   name: string;
   onNameChange: (name: string) => void;
+  docWidth: number;
+  docHeight: number;
+  onMagicResize: (width: number, height: number) => void;
+  onNewDesign: () => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -26,6 +30,13 @@ export type TopBarProps = {
   accountLabel: string;
   onAccount: () => void;
 };
+
+const RESIZE_PRESETS: [number, number][] = [
+  [1080, 1080],
+  [1080, 1350],
+  [1080, 1920],
+  [1920, 1080],
+];
 
 function saveLabel(
   state: SaveState,
@@ -107,6 +118,10 @@ function EditableTitle({ name, onChange }: { name: string; onChange: (name: stri
 export function TopBar({
   name,
   onNameChange,
+  docWidth,
+  docHeight,
+  onMagicResize,
+  onNewDesign,
   canUndo,
   canRedo,
   onUndo,
@@ -126,6 +141,31 @@ export function TopBar({
   onAccount,
 }: TopBarProps) {
   const { lang, setLang, t } = useI18n();
+  const [menu, setMenu] = useState<'file' | 'resize' | null>(null);
+  const [resizeWidth, setResizeWidth] = useState(String(docWidth));
+  const [resizeHeight, setResizeHeight] = useState(String(docHeight));
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenu(null);
+    };
+    window.addEventListener('pointerdown', onPointer);
+    return () => window.removeEventListener('pointerdown', onPointer);
+  }, [menu]);
+
+  useEffect(() => {
+    if (menu !== 'resize') return;
+    setResizeWidth(String(docWidth));
+    setResizeHeight(String(docHeight));
+  }, [menu, docWidth, docHeight]);
+
+  const applyResize = (width: number, height: number) => {
+    onMagicResize(width, height);
+    setMenu(null);
+  };
+
   return (
     <header className="topbar">
       <div className="topbar-brand">
@@ -147,6 +187,170 @@ export function TopBar({
       </div>
 
       <div className="topbar-actions">
+        <div className="topbar-group topbar-menus" ref={menuRef}>
+          <div className="menu-wrap">
+            <button
+              type="button"
+              className={`menu-trigger${menu === 'file' ? ' is-active' : ''}`}
+              data-testid="file-menu"
+              aria-haspopup="menu"
+              aria-expanded={menu === 'file'}
+              onClick={() => setMenu(menu === 'file' ? null : 'file')}
+            >
+              {t('fileMenu')} ▾
+            </button>
+            {menu === 'file' ? (
+              <div className="menu-panel" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  onClick={() => {
+                    onNewDesign();
+                    setMenu(null);
+                  }}
+                >
+                  {t('fileNewDesign')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  onClick={() => {
+                    onSave();
+                    setMenu(null);
+                  }}
+                >
+                  {t('save')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  onClick={() => {
+                    onImport();
+                    setMenu(null);
+                  }}
+                >
+                  {t('importHtml')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  onClick={() => {
+                    onCopyHtml();
+                    setMenu(null);
+                  }}
+                >
+                  {t('copyDesignHtml')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  onClick={() => {
+                    onPreview();
+                    setMenu(null);
+                  }}
+                >
+                  {t('previewDesign')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  onClick={() => {
+                    onExport();
+                    setMenu(null);
+                  }}
+                >
+                  {t('export')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  onClick={() => {
+                    onHelp();
+                    setMenu(null);
+                  }}
+                >
+                  {t('keyboardShortcuts')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="menu-wrap">
+            <button
+              type="button"
+              className={`menu-trigger${menu === 'resize' ? ' is-active' : ''}`}
+              data-testid="resize-menu"
+              aria-haspopup="dialog"
+              aria-expanded={menu === 'resize'}
+              onClick={() => setMenu(menu === 'resize' ? null : 'resize')}
+            >
+              {t('resizeDoc')} ▾
+            </button>
+            {menu === 'resize' ? (
+              <div
+                className="menu-panel menu-panel--resize"
+                role="dialog"
+                aria-label={t('resizeDoc')}
+              >
+                <p className="menu-hint">{t('magicResizeHint')}</p>
+                <div className="resize-presets">
+                  {RESIZE_PRESETS.map(([width, height]) => (
+                    <button
+                      key={`${width}x${height}`}
+                      type="button"
+                      className="menu-item"
+                      onClick={() => applyResize(width, height)}
+                    >
+                      {width} × {height}
+                    </button>
+                  ))}
+                </div>
+                <div className="resize-form">
+                  <label>
+                    {t('width')}
+                    <input
+                      type="number"
+                      min={100}
+                      max={5000}
+                      data-testid="resize-width"
+                      value={resizeWidth}
+                      onChange={(event) => setResizeWidth(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    {t('height')}
+                    <input
+                      type="number"
+                      min={100}
+                      max={5000}
+                      data-testid="resize-height"
+                      value={resizeHeight}
+                      onChange={(event) => setResizeHeight(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="menu-item menu-item--accent"
+                  data-testid="resize-apply"
+                  onClick={() =>
+                    applyResize(Number(resizeWidth) || docWidth, Number(resizeHeight) || docHeight)
+                  }
+                >
+                  {t('applySize')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
         <div className="lang-toggle" role="group" aria-label={t('uiLanguage')}>
           <button
             type="button"

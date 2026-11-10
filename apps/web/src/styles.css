@@ -2334,3 +2334,230 @@ kbd {
   font-size: 12px;
   line-height: 1.6;
 }
+
+/* Top-bar File/Resize menus */
+.topbar-menus {
+  gap: 6px;
+}
+
+.menu-wrap {
+  position: relative;
+}
+
+.menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line, #223042);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.menu-trigger:hover,
+.menu-trigger.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-start: 0;
+  z-index: 40;
+  display: grid;
+  gap: 2px;
+  min-width: 224px;
+  padding: 6px;
+  border: 1px solid var(--line, #223042);
+  border-radius: 12px;
+  background: #111823;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  text-align: start;
+}
+
+.menu-panel--resize {
+  min-width: 288px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: rgba(245, 165, 36, 0.12);
+}
+
+.menu-item--accent {
+  justify-content: center;
+  background: var(--accent);
+  color: #0b0e12;
+  font-weight: 600;
+}
+
+.menu-item--accent:hover {
+  background: #ffb845;
+}
+
+.menu-hint {
+  margin: 2px 4px 8px;
+  color: var(--muted, #8b9bb0);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.resize-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.resize-presets .menu-item {
+  justify-content: center;
+  border: 1px solid var(--line, #223042);
+  font-variant-numeric: tabular-nums;
+}
+
+.resize-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.resize-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted, #8b9bb0);
+  font-size: 11px;
+}
+
+.resize-form input {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line, #223042);
+  border-radius: 8px;
+  background: #0b1017;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+/* 48px contextual ribbon above the canvas */
+.canvas-area {
+  position: relative;
+}
+
+.context-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  max-width: calc(100% - 32px);
+  padding: 6px 12px;
+  border: 1px solid var(--line, #223042);
+  border-radius: 12px;
+  background: rgba(17, 24, 35, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.context-type {
+  max-width: 150px;
+  overflow: hidden;
+  color: var(--muted, #8b9bb0);
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.context-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-inline: 8px;
+  border-inline-start: 1px solid rgba(139, 155, 176, 0.18);
+}
+
+.context-group--end {
+  border-inline-start: 0;
+  border-inline-end: 1px solid rgba(139, 155, 176, 0.18);
+}
+
+.context-button {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.context-button--wide {
+  font-size: 11px;
+}
+
+.context-button:hover {
+  background: rgba(245, 165, 36, 0.14);
+  color: var(--accent);
+}
+
+.context-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.context-value {
+  min-width: 28px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.context-color {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line, #223042);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.context-select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--line, #223042);
+  border-radius: 6px;
+  background: #0b1017;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
