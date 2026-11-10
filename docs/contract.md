@@ -697,8 +697,10 @@ in `docs/security.md`; they are not claimed to be active when running `pnpm dev`
 **Limits and errors** (§8): raster output is limited to 40 MP, response bytes to
 40 MiB, with queue 20 and concurrency 2. Oversize output uses `LIMIT_EXCEEDED`
 (HTTP 413); queue-full uses `RATE_LIMITED` (HTTP 429); rendering failure/timeout uses `EXPORT_FAILED`;
-missing assets use `ASSET_UNRESOLVED`. The renderer has no deployment kill switch
-yet. Neither an end-to-end timeout nor visual equality with the editor is proven.
+missing assets use `ASSET_UNRESOLVED`. `EXPORT_DISABLED=true` disables new export
+requests at API startup with `UNSUPPORTED_FEATURE`; the limits endpoint remains
+available. Neither an end-to-end timeout nor visual equality with the editor is
+proven.
 
 ### 12.2 AI contract
 

@@ -74,6 +74,13 @@ For a renderer or API incident, restrict ingress at the proxy/firewall or stop t
 affected service. Do not bypass the Chromium sandbox on a networked worker; see
 the isolation conditions in [security.md](security.md).
 
+To disable new exports without disabling other API routes, set
+`EXPORT_DISABLED=true` in `.env` and recreate the API with
+`docker compose up -d --no-deps --force-recreate api`. The setting is read at
+startup; it does not guarantee cancellation of in-flight exports. Confirm that an
+authenticated export receives `UNSUPPORTED_FEATURE` and review the startup log.
+To restore exports, remove the setting and recreate the API after investigation.
+
 ## Spend ledger failure or recovery
 
 The API fails closed for AI when the ledger cannot be loaded or written. Keep AI

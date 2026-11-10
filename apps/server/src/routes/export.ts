@@ -31,6 +31,7 @@ export function exportRoutes(options: { service: ExportService; guard: Guard; li
     app.addHook('preHandler', options.limit);
 
     app.post('/export', async (request, reply) => {
+      service.assertEnabled();
       if (!request.isMultipart()) {
         throw new DesignError('INVALID_DOC', 'Export requires multipart/form-data', 'body');
       }

@@ -64,6 +64,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
         app.log.info({ event: 'export.queue', scope: 'api', ...metrics }, 'Export queue changed'),
       ),
     });
+  if (exportService.disabled) app.log.warn('Export is disabled by EXPORT_DISABLED');
   const auth = options.auth !== undefined ? options.auth : createAuthFromEnv(process.env);
   const guard = authGuard(auth);
   const designLimiter = new SlidingWindowLimiter(

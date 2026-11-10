@@ -27,6 +27,7 @@ export type ExportServiceOptions = {
   now?: () => number;
   render?: typeof renderDesign;
   queue?: RenderQueue;
+  disabled?: boolean;
 };
 
 let counter = 0;
@@ -39,6 +40,7 @@ export class ExportService {
   private readonly ttlMs: number;
   private readonly now: () => number;
   private readonly render: typeof renderDesign;
+  readonly disabled: boolean;
   private cacheBytes = 0;
 
   constructor(options: ExportServiceOptions = {}) {
@@ -48,6 +50,17 @@ export class ExportService {
     this.ttlMs = options.ttlMs ?? LIMITS.export.cacheTtlMs;
     this.now = options.now ?? Date.now;
     this.render = options.render ?? renderDesign;
+    this.disabled = options.disabled ?? process.env.EXPORT_DISABLED?.trim() === 'true';
+  }
+
+  assertEnabled(): void {
+    if (this.disabled) {
+      throw new DesignError(
+        'UNSUPPORTED_FEATURE',
+        'Export is disabled by EXPORT_DISABLED',
+        'export',
+      );
+    }
   }
 
   private cacheKey(caller: ExportCaller, idempotencyKey: string): string {
@@ -94,6 +107,7 @@ export class ExportService {
     uploaded: Map<string, Buffer>,
     caller: ExportCaller,
   ): Promise<ExportResult> {
+    this.assertEnabled();
     const doc = canonicalizeDoc(request.doc);
     const options = request.options;
 

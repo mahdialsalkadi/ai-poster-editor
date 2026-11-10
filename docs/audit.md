@@ -1223,3 +1223,16 @@ runbook and local controls are implemented, but the audit is not all green and
 no `v1.0.0` tag or deployment has been made. Obtain authorization, an isolated
 staging target and credentials before carrying out the remaining operations;
 paid provider use and the release tag need separate approval.
+
+## Plan v1.2 — Phase 6 execution
+
+### G1 — Export kill switch
+
+`EXPORT_DISABLED=true` is read when `ExportService` is constructed
+(`apps/server/src/export/service.ts:44-62`); the route checks it before parsing
+multipart data (`apps/server/src/routes/export.ts:33-35`) and the API emits a
+startup warning (`apps/server/src/app.ts`). Limits remain available. The
+two tests in `apps/server/test/export-controls.test.ts` passed, verifying both
+direct service refusal and HTTP 422 before multipart parsing; server typecheck
+passed. This switch blocks new work; it does not cancel already-running exports.
+The total deadline and payload-bound cache portions of G1 remain open.
