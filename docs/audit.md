@@ -1572,3 +1572,52 @@ ensures workspace dependency order.
 
 These steps require explicit authorization, an isolated staging environment,
 dedicated non-production credentials, and no unintended public exposure.
+
+### Phase 0 — Git reconciliation & E2E preflight (10 November 2026)
+
+**Checkout reconciliation:**
+
+- The previously diverged tip `0af5898` is preserved on branch
+  `backup-local-diverged-0af5898` (its 17 commits are all duplicated upstream)
+  and `stash@{0}` was left untouched.
+- `git fetch --prune origin` then `git reset --hard origin/main` moved `HEAD` to
+  `c2724fe`, so the local checkout now matches the plan's baseline exactly.
+
+**Baseline gates (clean `origin/main`, no local modifications):**
+
+- `pnpm install --frozen-lockfile` — exit 0.
+- `pnpm typecheck` — exit 0 (workspace `tsc -b` plus `tsc -p tsconfig.e2e.json`).
+- `pnpm test` — exit 0, **485** tests (core 288, web 56, server 141).
+- `pnpm build` — exit 0, largest JS chunk 203.50 kB.
+
+**Playwright preflight:**
+
+- Playwright 1.65.0 with Chromium `158.0.8127.18` runs natively on this Windows
+  host; no additional browser install was required.
+- `pnpm test:e2e` — **16 passed, 1 failed** (1.1 min); every non-visual spec green.
+
+**Pre-existing baseline failure (not caused by any local change):**
+
+- `e2e/visual.spec.ts:125` (`1x english export matches its reviewed golden`)
+  reports a differing-pixel ratio of **0.0032167** against the `0.003` ceiling
+  enforced at `e2e/visual.spec.ts:121`.
+- Deterministic: a targeted re-run of `e2e/visual.spec.ts` reproduced the
+  identical ratio, so this is not flakiness.
+- The `arabic.png` and `svg.png` goldens pass and the pinned browser assertion
+  (`158.0.8127.18`) passes, so the deviation is host rasterisation of Latin
+  glyph edges (≈1544 of 480,000 pixels) rather than content or version drift.
+- The goldens are authored and enforced on `ubuntu-24.04` by the
+  "Browser E2E and visual regression" step in `.github/workflows/ci.yml`, which
+  was green for `c2724fe` (run
+  [`42798150352`](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42798150352)).
+
+**Decision:** the goldens are **not** regenerated on Windows — running
+`UPDATE_GOLDENS=1` here would overwrite the Linux baseline and break CI. Local
+E2E therefore runs every spec except the reviewed-golden comparison, and the
+visual gate remains authoritative in CI. Every Phase 10A–11 contract that does
+not require pixel comparison is asserted locally and mirrored into the
+`e2e/*.spec.ts` files.
+
+**Verdict: PASS.** `main` matches `origin/main`, the toolchain is green,
+Playwright executes on this host, and the local-vs-CI E2E split is recorded
+above.
