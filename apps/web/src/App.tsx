@@ -1130,6 +1130,11 @@ export function App() {
               onUpdate={history.update}
               onCommit={history.commit}
               onDuplicateForDrag={duplicateForDrag}
+              onDeleteSelection={deleteSelection}
+              onDuplicateSelection={duplicateSelection}
+              onReorderLayer={(id, move) =>
+                history.update((current) => reorderLayer(current, id, move))
+              }
             />
 
             <div className="zoom-bar">

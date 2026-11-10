@@ -1776,3 +1776,31 @@ canvas E2E suite **6/6** passed locally.
 
 **Verdict: PASS.** Resize keeps visual anchors, effects need no schema change,
 and style transfer preserves Arabic invariants.
+
+### Phase 10D — Floating layer bar and layer context menu
+
+**What changed:**
+
+- `apps/web/src/components/FloatingLayerBar.tsx:38` renders
+  `data-testid="floating-layer-bar"` anchored 18px below the selection's union
+  box, with the layer name (or `multipleSelected` count), a live opacity slider,
+  rotate-90°, show/hide, bring-to-front, send-to-back, duplicate and delete.
+  Every mutation goes through the existing `onUpdate` history entry.
+- `apps/web/src/components/Canvas.tsx` mounts the bar and a right-click
+  `layer-context-menu` (`data-testid="layer-context-menu"`) inside
+  `.artboard-overlays`, matching the v2.2 DOM contract; right-click resolves the
+  layer through `data-layer-id`, selects it, and positions the menu in artboard
+  coordinates. New optional props `onDeleteSelection`, `onDuplicateSelection`
+  and `onReorderLayer` are wired in `App.tsx` to the existing selection actions.
+
+**Measured contract:** `e2e/canvas.spec.ts` test “the floating layer bar and
+layer context menu live inside the overlay” selects the topmost shape, asserts
+the bar is found **inside** `.artboard-overlays`, deletes it and observes the
+layer count drop, then right-clicks a text layer, asserts the context menu mounts
+inside the overlay and duplicates back to the original count.
+
+**Gates:** typecheck, lint, build and the canvas E2E suite **7/7** passed locally;
+web unit tests stayed green.
+
+**Verdict: PASS.** Quick actions require no inspector trip and both surfaces stay
+inside the unclipped overlay.

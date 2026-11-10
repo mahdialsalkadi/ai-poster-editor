@@ -245,3 +245,19 @@ test('File and Resize menus and the contextual ribbon drive the document', async
   await expect(page.locator('.artboard [data-layer-id$="__fx1"]')).toHaveCount(1);
   await expect(page.locator('.artboard [data-layer-id$="__fx2"]')).toHaveCount(1);
 });
+
+test('the floating layer bar and layer context menu live inside the overlay', async ({ page }) => {
+  await openEditor(page);
+  const before = await page.locator('.artboard [data-layer-id]').count();
+  const shape = page.locator('.artboard .layer--shape').last();
+  await shape.click({ position: { x: 10, y: 10 } });
+  await expect(page.locator('.artboard-overlays [data-testid="floating-layer-bar"]')).toBeVisible();
+  await page.getByTestId('floating-delete').click();
+  await expect(page.locator('.artboard [data-layer-id]')).toHaveCount(before - 1);
+
+  const text = page.locator('.artboard .layer--text').last();
+  await text.click({ button: 'right', force: true });
+  await expect(page.locator('.artboard-overlays [data-testid="layer-context-menu"]')).toBeVisible();
+  await page.getByTestId('context-duplicate').click();
+  await expect(page.locator('.artboard [data-layer-id]')).toHaveCount(before);
+});

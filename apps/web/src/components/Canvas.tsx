@@ -22,7 +22,9 @@ import { layersInMarquee, selectionRect, type SelectionRect } from '../editor/se
 import { equalSpacingBadges, type GapBadge } from '../editor/gaps.js';
 import { resizeFromHandle, type Handle } from '../editor/resize.js';
 import { LayerView } from './LayerView.js';
+import { FloatingLayerBar } from './FloatingLayerBar.js';
 import { SelectionOverlay, type TransformHud } from './SelectionOverlay.js';
+import { useI18n } from '../i18n.js';
 
 type StartBox = { left: number; top: number; width: number; height: number };
 
@@ -144,6 +146,9 @@ export type CanvasProps = {
   onUpdate: (updater: (doc: DesignDoc) => DesignDoc, options?: UpdateOptions) => void;
   onCommit: (before: DesignDoc) => void;
   onDuplicateForDrag?: (ids: string[]) => { ids: string[]; layers: Layer[] } | null;
+  onDeleteSelection?: () => void;
+  onDuplicateSelection?: () => void;
+  onReorderLayer?: (id: string, move: 'front' | 'back' | 'forward' | 'backward') => void;
 };
 
 export function Canvas({
@@ -164,7 +169,11 @@ export function Canvas({
   onUpdate,
   onCommit,
   onDuplicateForDrag,
+  onDeleteSelection = () => {},
+  onDuplicateSelection = () => {},
+  onReorderLayer = () => {},
 }: CanvasProps) {
+  const { t } = useI18n();
   const stageRef = useRef<HTMLDivElement>(null);
   const artboardRef = useRef<HTMLDivElement>(null);
   const layerRefs = useRef(new Map<string, HTMLDivElement>());
@@ -178,6 +187,7 @@ export function Canvas({
   const [marquee, setMarquee] = useState<SelectionRect | null>(null);
   const [hud, setHud] = useState<TransformHud | null>(null);
   const [badges, setBadges] = useState<GapBadge[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -745,6 +755,18 @@ export function Canvas({
             background: fillToCss(doc.background),
           }}
           onPointerDown={startMarquee}
+          onContextMenu={(event) => {
+            const target = (event.target as HTMLElement).closest('[data-layer-id]');
+            const id = target?.getAttribute('data-layer-id');
+            if (!id || !doc.layers.some((layer) => layer.id === id)) return;
+            event.preventDefault();
+            onSelectionChange([id]);
+            const box = artboardRef.current?.getBoundingClientRect();
+            setContextMenu({
+              x: (event.clientX - (box?.x ?? 0)) / scale,
+              y: (event.clientY - (box?.y ?? 0)) / scale,
+            });
+          }}
         >
           {doc.layers.map((layer) => (
             <LayerView
@@ -824,6 +846,79 @@ export function Canvas({
               }}
               aria-hidden="true"
             />
+          ) : null}
+          <FloatingLayerBar
+            doc={doc}
+            selection={selection}
+            scale={scale}
+            textHeights={textHeights}
+            onUpdate={onUpdate}
+            onDelete={() => {
+              onDeleteSelection();
+              setContextMenu(null);
+            }}
+            onDuplicate={() => {
+              onDuplicateSelection();
+              setContextMenu(null);
+            }}
+            onReorder={(id, move) => {
+              onReorderLayer(id, move);
+              setContextMenu(null);
+            }}
+          />
+          {contextMenu ? (
+            <div
+              className="layer-context-menu"
+              data-testid="layer-context-menu"
+              role="menu"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="context-duplicate"
+                onClick={() => {
+                  onDuplicateSelection();
+                  setContextMenu(null);
+                }}
+              >
+                {t('duplicate')}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  const id = selection[0];
+                  if (id) onReorderLayer(id, 'front');
+                  setContextMenu(null);
+                }}
+              >
+                {t('front')}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  const id = selection[0];
+                  if (id) onReorderLayer(id, 'back');
+                  setContextMenu(null);
+                }}
+              >
+                {t('back')}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="context-delete"
+                onClick={() => {
+                  onDeleteSelection();
+                  setContextMenu(null);
+                }}
+              >
+                {t('delete')}
+              </button>
+            </div>
           ) : null}
           <SelectionOverlay
             layers={doc.layers}
