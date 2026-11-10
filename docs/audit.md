@@ -1289,3 +1289,15 @@ principal IDs fails closed at 10,000; the limiter-key task is separate.
 users, persistence and restart, legacy migration, midnight, malformed state and
 configuration. Targeted AI/auth/spend suites passed 46 tests; server typecheck
 and lint passed. No paid or live AI provider was contacted.
+
+### G2 — Bounded rate-limiter keys
+
+`apps/server/src/ai/rate-limit.ts:2-43` caps each in-process limiter at 10,000
+keys, prunes expired windows before insertion and evicts the oldest remaining
+active key if necessary. `apps/server/test/rate-limit.test.ts:4-29` exercises
+10,000 live identities, FIFO eviction, the hard bound and expired-key pruning;
+the rate-limit, API, authentication and AI suites passed 46 tests. Server
+typecheck and lint passed. **Residual security tradeoff:** active-key eviction
+can reset an evicted identity's window under a high-cardinality flood; this bound
+prevents unbounded memory growth but does not replace an upstream WAF or shared
+rate limiter.
