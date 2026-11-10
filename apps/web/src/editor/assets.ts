@@ -1,4 +1,5 @@
 import { LIMITS } from '@poster/core';
+import { readImageDimensions } from './image-header';
 
 export type AssetEntry = {
   id: string;
@@ -86,6 +87,25 @@ export async function createAssetFromFile(
 ): Promise<AssetEntry> {
   const error = validateAssetFile(file, existingCount);
   if (error) throw error;
+
+  let headerSize: { width: number; height: number };
+  try {
+    headerSize = readImageDimensions(new Uint8Array(await file.arrayBuffer()), file.type);
+  } catch {
+    throw new AssetError('DECODE_FAILED', 'تعذر قراءة ترويسة الصورة');
+  }
+  if (
+    headerSize.width > LIMITS.assets.maxDimension ||
+    headerSize.height > LIMITS.assets.maxDimension
+  ) {
+    throw new AssetError(
+      'BAD_DIMENSIONS',
+      `أقصى بُعد مسموح للصورة هو ${LIMITS.assets.maxDimension} بكسل`,
+    );
+  }
+  if (headerSize.width * headerSize.height > LIMITS.assets.maxPixelsPerAsset) {
+    throw new AssetError('TOO_MANY_PIXELS', 'عدد بكسلات الصورة كبير جداً');
+  }
 
   const url = URL.createObjectURL(file);
   try {

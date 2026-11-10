@@ -10,7 +10,7 @@ export function assetRoutes(options: { guard: Guard }) {
     app.post('/assets', async () => {
       throw new DesignError(
         'UNSUPPORTED_FEATURE',
-        'Asset uploads are not enabled in M0; image layers can reference existing asset ids',
+        'Standalone asset uploads are disabled; send referenced assets with POST /api/export',
       );
     });
 

@@ -1312,3 +1312,23 @@ agree. `apps/server/test/request-id.test.ts` verifies valid and invalid IDs in
 responses and logs; request-ID, logging and export suites passed 16 tests, and
 server typecheck/lint passed. The allow-list does not recognize credentials that
 already fit the syntax; clients must never use secrets as request IDs.
+
+### G4 — Browser image preflight and asset-route message
+
+`apps/web/src/editor/image-header.ts:15-104` reads PNG, JPEG and WebP dimensions
+from bounded file bytes; WebP extended canvas and encoded frame dimensions must
+agree, and animated WebP is rejected. `apps/web/src/editor/assets.ts:87-113`
+checks MIME, byte size, dimensions and pixels before creating an object URL or
+`Image`. Decoded dimensions are still checked afterwards, and the server's
+independent image re-validation remains mandatory. This is header validation,
+not a guarantee that image decoding itself is safe. The unsupported standalone
+upload message now describes the export flow (`apps/server/src/routes/assets.ts:10-14`).
+
+`apps/web/src/editor/assets.test.ts:40-96` covers real PNG/JPEG/VP8/VP8L/extended
+WebP headers, malformed inputs, dimension/pixel rejection before URL creation,
+and deceptive/animated WebP. The Chromium test `e2e/uploads.spec.ts:4-33`
+accepts actual PNG, JPEG and alpha WebP uploads and rejects an oversized header;
+`apps/server/test/api.test.ts:71-79` checks the route message. Targeted web and
+server tests, browser upload E2E, workspace typecheck and lint passed. A copied
+JPEG test fixture initially lacked bytes; isolating formats identified that test
+data error and the corrected real JPEG passed in Chromium.

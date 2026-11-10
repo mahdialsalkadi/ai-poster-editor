@@ -68,6 +68,16 @@ describe('API', () => {
     expect(body.requestId).toBeTruthy();
   });
 
+  it('explains that standalone asset uploads are unsupported', async () => {
+    const response = await app.inject({ method: 'POST', url: '/api/assets' });
+    expect(response.statusCode).toBe(422);
+    expect(response.json().error).toMatchObject({
+      code: 'UNSUPPORTED_FEATURE',
+      message:
+        'Standalone asset uploads are disabled; send referenced assets with POST /api/export',
+    });
+  });
+
   it('validates Design HTML', async () => {
     const response = await app.inject({
       method: 'POST',
