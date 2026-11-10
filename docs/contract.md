@@ -716,21 +716,26 @@ editor remains unverified.
 
 ### 12.2 AI contract
 
-`AI_PROVIDER` selects an OpenAI-compatible chat-completions endpoint (`AI_MODEL`,
-`AI_BASE_URL`, `AI_API_KEY`). Accepted selectors are `openai` and
-`openai-compatible`; missing/unsupported configuration disables the service and
-routes answer `UNSUPPORTED_FEATURE`. The files in `prompts/` supply the system
-prompts. Generation returns canonical Design HTML; editing returns merged Design
-HTML. Snapshot history is kept by the browser rather than the API.
+`AI_PROVIDER` selects the transport (`AI_MODEL`, `AI_BASE_URL`, `AI_API_KEY`).
+Accepted selectors are `openai` and `openai-compatible` for chat completions,
+and `anthropic` for the native messages API. `AI_BASE_URL` defaults to
+`https://api.openai.com/v1` or `https://api.anthropic.com`; a trailing `/v1` on
+the Anthropic base is accepted without duplicating it. Missing or unsupported
+configuration disables the service and routes answer `UNSUPPORTED_FEATURE`. The
+files in `prompts/` supply the system prompts. Generation returns canonical
+Design HTML; editing returns merged Design HTML. Snapshot history is kept by the
+browser rather than the API.
 
-**Provider boundary.** The service calls `AiProvider.complete`. The current
-transport sends `AI_API_KEY` in an outbound authorization header, not in a prompt
-or web response. It reports the configured model name and provider token usage;
+**Provider boundary.** The service calls `AiProvider.complete`. OpenAI-compatible
+requests use a bearer authorization header; Anthropic requests use `x-api-key`
+and `anthropic-version: 2023-06-01`, lift system turns into the top-level
+`system` field and map `input_tokens`/`output_tokens`. Neither transport puts the
+key in a prompt or web response. The service reports the configured model name;
 it does not independently resolve provider aliases. Missing token usage becomes
-zero, which can undercount cost. No Anthropic adapter or automatic price lookup
-exists. API and worker logs apply the bounded redaction policy described in
-`docs/security.md`, and the renderer environment is isolated; neither replaces
-deployment verification. Do not put shared/provider keys in the public bundle.
+zero, which can undercount cost. There is no automatic price lookup. API and
+worker logs apply the bounded redaction policy described in `docs/security.md`,
+and the renderer environment is isolated; neither replaces deployment
+verification. Do not put shared/provider keys in the public bundle.
 
 **Untrusted data.** Nothing the model sees is trusted, and nothing the model
 returns is trusted either:
@@ -842,7 +847,11 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
 
 ## 15. Contract changelog
 
-### 2026-11-10 — Phase 8 UI language
+### 2026-11-10 — Phase 8 provider and UI language
+
+- `AI_PROVIDER=anthropic` uses the native messages API with `x-api-key`,
+  `anthropic-version: 2023-06-01`, a top-level system prompt and
+  `input_tokens`/`output_tokens` usage. No new dependency was added.
 
 - Editor chrome uses typed Arabic/English dictionaries. The `AR / EN` toggle
   persists to `localStorage` under `poster.ui.lang` and updates the app and

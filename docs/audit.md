@@ -1485,3 +1485,42 @@ the save toast, persistence after reload and switching back to Arabic. The
 focused Chromium test passed. Design content, templates, presets and font names
 are intentionally not translated. The browser test uses one viewport and does
 not prove every translated string fits every layout.
+
+### G8 / D7 — Anthropic messages adapter
+
+`apps/server/src/ai/provider.ts:31` adds `anthropic` to the accepted selectors.
+`provider.ts:49-57` keeps the OpenAI-compatible default at
+`https://api.openai.com/v1` and gives Anthropic `https://api.anthropic.com`;
+`AI_BASE_URL` still overrides both. `provider.ts:84-107` reads Anthropic text
+blocks and maps `usage.input_tokens`/`output_tokens`; `provider.ts:109-127`
+joins system turns into the top-level `system` field and sends only user turns
+in `messages`; `provider.ts:130-132` accepts a base URL that already ends in
+`/v1` without producing `/v1/v1`. The transport at `provider.ts:136-195` sends
+`x-api-key` plus `anthropic-version: 2023-06-01`, never a bearer header, and
+retains the existing timeout and sanitized HTTP-error mapping. No dependency
+was added to `apps/server/package.json`.
+
+`apps/server/test/ai.test.ts:324-478` covers five mocked-`fetch` cases: separate
+default base URLs, request URL/headers/body and usage mapping, HTTP-error
+sanitization with no key leakage, empty text rejection, and the unchanged
+OpenAI-compatible bearer path. `.env.example:26-34` documents the third selector
+and empty base-URL default; `docs/contract.md:719-736,852-855` records the wire
+contract; `README.md:124-126,253-255` records the feature and its limitation.
+
+Verdict: PASS for the adapter as specified. The limitation is explicit: every
+transport assertion uses a stubbed `fetch`; no live Anthropic request, real
+credential, billing check or provider-side rate-limit behaviour was exercised.
+Streaming, tool use and automatic price lookup remain out of scope, and an
+operator must still supply both prices for the chosen Anthropic model.
+
+### Phase 8 validation
+
+Local gates after both Phase 8 tasks: `pnpm typecheck` passed (including the E2E
+project), `pnpm lint` passed, `pnpm test` passed **485** package tests
+(core 288, server 141, web 56), `pnpm test:coverage` passed with 484
+instrumented tests and 84.74% statements, `pnpm build` passed with a largest JS
+chunk of 203.50 kB, `pnpm test:e2e` passed **17** Chromium tests, and
+`pnpm audit --prod` reported no known vulnerabilities. `pnpm format:check`
+still fails only on the pre-existing untracked `yemen-cultural-day.html`;
+`.env.example` is plain text and is not parsed by Prettier. Staging, live
+provider calls, backups and external alerting remain unverified.

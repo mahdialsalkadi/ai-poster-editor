@@ -37,7 +37,8 @@ cp -n .env.example .env
 ```
 
 The copy keeps an existing `.env`. Edit it locally; leave `AI_PROVIDER` empty
-unless you intend to use a paid or local OpenAI-compatible provider. Typecheck
+unless you intend to use a paid OpenAI-compatible/Anthropic provider or a local
+compatible endpoint. Typecheck
 builds the shared packages needed by the API and web app.
 
 Start the API in one terminal:
@@ -120,9 +121,9 @@ verification record. Do not expose the build until that checklist passes.
   offsets, Space-drag/wheel pan, and joined Arabic typography with blank lines.
 - Debounced IndexedDB document autosave, one validated backup, explicit corruption
   recovery, one-time localStorage migration and atomic stale-tab write protection.
-- Optional OpenAI-compatible generation and selection-scoped edits, one retry
-  for rejected output, usage reporting, browser-stored edit snapshots and a
-  durable daily spend ledger.
+- Optional OpenAI-compatible or Anthropic generation and selection-scoped edits,
+  one retry for rejected output, usage reporting, browser-stored edit snapshots
+  and a durable daily spend ledger.
 - Local image upload and IndexedDB asset storage. Export uploads only referenced
   image bytes for server-side revalidation; `POST /api/assets` remains a stub.
 - PNG/JPEG export at 1x/2x/3x, native vector PDF and self-contained HTML export.
@@ -196,18 +197,18 @@ pnpm test:e2e
 pnpm audit --prod
 ```
 
-The current package test suite has **471 tests**:
+The current package test suite has **485 tests**:
 
-| Package | Tests | Files | Main coverage                                                                                       |
-| ------- | ----- | ----- | --------------------------------------------------------------------------------------------------- |
-| Core    | 288   | 15    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance     |
-| Server  | 136   | 17    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
-| Web     | 47    | 8     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills and CSP           |
+| Package | Tests | Files | Main coverage                                                                                                           |
+| ------- | ----- | ----- | ----------------------------------------------------------------------------------------------------------------------- |
+| Core    | 288   | 15    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance                         |
+| Server  | 141   | 17    | Auth, mock AI/retries/prompts/Anthropic transport, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
+| Web     | 56    | 9     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills, i18n and CSP                         |
 
 The parser performance test enforces p95 <200 ms for a 200-layer, 200 KiB
 document. Coverage gates enforce per-file thresholds on critical parser, style,
 CSS guard and merge modules; the separately timed performance test is excluded
-from instrumentation. The browser suite also runs 16 E2E tests (including a
+from instrumentation. The browser suite also runs 17 E2E tests (including AR/EN UI language, a
 single-design editor/export parity check and a bundle-size check) and three
 export visual comparisons.
 See [e2e/goldens/README.md](e2e/goldens/README.md) for the pinned
@@ -249,8 +250,9 @@ and pnpm resolves no version published less than a day ago (only the data-only
   presets and font sample data are not translated.
 - **Gallery/import:** three English and two Arabic layouts, one retained bilingual
   layout and a blank. Broader HTML/CSS import remains best-effort and lossy.
-- **AI provider:** OpenAI and OpenAI-compatible APIs only; the optional Anthropic
-  adapter is deferred. Unsupported output colors trigger the existing one retry.
+- **AI provider:** OpenAI, OpenAI-compatible and Anthropic messages APIs. The
+  Anthropic path is covered by mocked transport tests, not a live paid call.
+  Unsupported output colors trigger the existing one retry.
 - **Configuration:** `EXPORT_CONCURRENCY` and `EXPORT_QUEUE_MAX` can tighten the
   API queue's compiled ceilings, but other export/upload/rate limits remain
   constants in `packages/core/src/limits.ts`. The worker queue is separate.

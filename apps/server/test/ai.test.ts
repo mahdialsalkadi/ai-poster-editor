@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
   DesignError,
@@ -11,7 +11,13 @@ import {
 import { AiService, type AiServiceOptions } from '../src/ai/service.js';
 import { DailySpendLedger } from '../src/ai/spend.js';
 import { SlidingWindowLimiter } from '../src/ai/rate-limit.js';
-import { providerConfigFromEnv, type AiMessage, type AiProvider } from '../src/ai/provider.js';
+import {
+  createProvider,
+  providerConfigFromEnv,
+  type AiMessage,
+  type AiProvider,
+  type ProviderConfig,
+} from '../src/ai/provider.js';
 import { extractDesignHtml, systemPrompt } from '../src/ai/prompt.js';
 import { buildServer } from '../src/app.js';
 
@@ -312,6 +318,163 @@ describe('AI service', () => {
     expect(extractDesignHtml('```html\n<div class="artboard"></div>\n```')).toBe(
       '<div class="artboard"></div>',
     );
+  });
+});
+
+describe('AI provider transports', () => {
+  const anthropicConfig: ProviderConfig = {
+    provider: 'anthropic',
+    model: 'claude-sonnet-test',
+    apiKey: 'sk-ant-secret',
+    baseUrl: 'https://api.anthropic.com/v1',
+    maxOutputTokens: 4_000,
+    timeoutMs: 2_000,
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('defaults the Anthropic base URL separately from OpenAI', () => {
+    const config = providerConfigFromEnv({
+      AI_PROVIDER: 'anthropic',
+      AI_MODEL: 'claude-sonnet-test',
+      AI_API_KEY: 'sk-ant-secret',
+    });
+    expect(config).toMatchObject({
+      provider: 'anthropic',
+      baseUrl: 'https://api.anthropic.com',
+    });
+    expect(
+      providerConfigFromEnv({
+        AI_PROVIDER: 'openai',
+        AI_MODEL: 'm',
+        AI_API_KEY: 'k',
+      })?.baseUrl,
+    ).toBe('https://api.openai.com/v1');
+  });
+
+  it('sends the Anthropic messages request and maps its usage', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            content: [
+              { type: 'text', text: '<div class="artboard"></div>' },
+              { type: 'tool_use', id: 'ignored' },
+              { type: 'text', text: ' ' },
+            ],
+            usage: { input_tokens: 11, output_tokens: 7 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const reply = await createProvider(anthropicConfig).complete(
+      [
+        { role: 'system', content: 'system one' },
+        { role: 'system', content: 'system two' },
+        { role: 'user', content: 'make a poster' },
+      ],
+      { maxOutputTokens: 321, timeoutMs: 1_500 },
+    );
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    expect(init?.headers).toMatchObject({
+      'content-type': 'application/json',
+      'x-api-key': 'sk-ant-secret',
+      'anthropic-version': '2023-06-01',
+    });
+    expect(init?.headers).not.toHaveProperty('authorization');
+    const body = JSON.parse(String(init?.body)) as {
+      model: string;
+      system: string;
+      messages: { role: string; content: string }[];
+      max_tokens: number;
+    };
+    expect(body).toEqual({
+      model: 'claude-sonnet-test',
+      max_tokens: 321,
+      temperature: 0.8,
+      system: 'system one\n\nsystem two',
+      messages: [{ role: 'user', content: 'make a poster' }],
+    });
+    expect(reply).toMatchObject({
+      text: '<div class="artboard"></div> ',
+      model: 'claude-sonnet-test',
+      inputTokens: 11,
+      outputTokens: 7,
+    });
+    expect(reply.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('sanitizes Anthropic HTTP failures without leaking the key', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async (_input: RequestInfo | URL, _init?: RequestInit) =>
+          new Response('provider details', { status: 429 }),
+      ),
+    );
+
+    const error = await createProvider(anthropicConfig)
+      .complete([{ role: 'user', content: 'hello' }], {
+        maxOutputTokens: 100,
+        timeoutMs: 1_000,
+      })
+      .catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(DesignError);
+    expect((error as DesignError).code).toBe('INTERNAL_ERROR');
+    expect((error as Error).message).toBe('AI provider responded with HTTP 429');
+    expect((error as Error).message).not.toContain('sk-ant-secret');
+  });
+
+  it('rejects Anthropic responses with no text block', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async (_input: RequestInfo | URL, _init?: RequestInit) =>
+          new Response(JSON.stringify({ content: [{ type: 'tool_use' }] }), { status: 200 }),
+      ),
+    );
+
+    await expect(
+      createProvider(anthropicConfig).complete([{ role: 'user', content: 'hello' }], {
+        maxOutputTokens: 100,
+        timeoutMs: 1_000,
+      }),
+    ).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
+
+  it('keeps the OpenAI-compatible bearer transport unchanged', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: 'openai text' } }],
+            usage: { prompt_tokens: 5, completion_tokens: 3 },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const reply = await createProvider({
+      ...anthropicConfig,
+      provider: 'openai-compatible',
+      baseUrl: 'https://llm.example/v1',
+    }).complete([{ role: 'user', content: 'hello' }], {
+      maxOutputTokens: 200,
+      timeoutMs: 1_000,
+    });
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://llm.example/v1/chat/completions');
+    expect(init?.headers).toMatchObject({ authorization: 'Bearer sk-ant-secret' });
+    expect(init?.headers).not.toHaveProperty('x-api-key');
+    expect(reply).toMatchObject({ text: 'openai text', inputTokens: 5, outputTokens: 3 });
   });
 });
 
