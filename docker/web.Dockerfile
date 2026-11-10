@@ -9,7 +9,9 @@ WORKDIR /src
 COPY . .
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @poster/web build
+# The web app imports the built @poster/contracts and @poster/core packages.
+# Build the workspace dependency graph, not the web package alone.
+RUN pnpm --filter "@poster/web..." build
 
 FROM nginx:1.28-alpine AS runtime
 
