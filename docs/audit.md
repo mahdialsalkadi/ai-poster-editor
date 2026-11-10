@@ -1406,3 +1406,17 @@ reported 595.92 × 842.88 pt, `pdffonts` reported embedded Cairo-Bold subsets
 with Unicode maps, and `pdftotext -layout` returned the Arabic phrase with
 bidirectional marks. Those optional local utilities are not required by CI and
 the check is not a proof of print-quality fidelity across all Arabic content.
+
+### G9 — JavaScript bundle splitting
+
+`apps/web/vite.config.ts:20-34` separates React, the core workspace, Zod,
+parse5/entities and css-tree into named Rollup chunks. The local production
+build emits no >500 kB chunk warning: its largest JS chunk is css-parser at
+203.50 kB (uncompressed); the previous single chunk was approximately 817 kB.
+The existing Zod comment-annotation warnings remain and are not chunk warnings.
+
+`e2e/bundle.spec.ts:5-24` checks that each built JavaScript chunk is under
+500,000 bytes, verifies the named bundles exist and opens the built editor
+without page errors. It and the editor/visual regression suite passed eight
+Chromium tests against the split build; E2E typecheck and lint also passed.
+The test checks sizes after a build, not network speed or total transfer size.
