@@ -1159,3 +1159,19 @@ equivalence. Docker/container sandbox, proxy TLS, live Supabase and live AI
 integration remain unverified; no staging or public deployment, paid provider
 call, or release tag is implied by this result. Stop here for review before
 starting Phase 5.
+
+## Phase 5 execution — operational logging
+
+API and worker Fastify logs now use a shared structured-logging policy. Default
+request records contain only the method (no URL, query, headers or body), and
+response records contain the status. Known authorization, API-key and cookie
+header fields in structured header objects are redacted. Unexpected errors emit
+a bounded `api.error` or `worker.error` event with status rather than a raw
+exception or stack; handled server errors include their error code. This is not a
+general-purpose secret scanner: custom log messages, arbitrary structured fields
+and caller-provided request IDs must not contain credentials or private data.
+
+`apps/server/test/logging.test.ts` verifies API and worker request handling,
+credential-header redaction, query omission, safe unexpected-error reporting and
+valid structured output. The targeted two-test suite and server typecheck passed.
+No external error-reporting service or dependency was added.

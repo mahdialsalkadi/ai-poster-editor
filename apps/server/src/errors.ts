@@ -33,6 +33,9 @@ export function registerErrorHandler(app: FastifyInstance): void {
 
     if (error instanceof DesignError) {
       const status = API_ERROR_STATUS[error.code] ?? 500;
+      if (status >= 500) {
+        request.log.error({ event: 'api.error', code: error.code, status }, 'API request failed');
+      }
       void reply
         .status(status)
         .send(errorEnvelope(error.code, error.message, requestId, error.path, error.details));
@@ -64,7 +67,8 @@ export function registerErrorHandler(app: FastifyInstance): void {
       return;
     }
 
-    request.log.error(error);
+    // Error messages/stacks may contain provider credentials or user content.
+    request.log.error({ event: 'api.error', status: 500 }, 'API request failed');
     void reply
       .status(500)
       .send(errorEnvelope('INTERNAL_ERROR', 'Internal server error', requestId));

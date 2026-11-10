@@ -1,12 +1,14 @@
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance } from 'fastify';
+import type { Writable } from 'node:stream';
 import { LIMITS } from '@poster/core';
 import { createAiServiceFromEnv, type AiService } from './ai/service.js';
 import { SlidingWindowLimiter } from './ai/rate-limit.js';
 import { assertProductionAuth, createAuthFromEnv, type AuthService } from './auth/service.js';
 import { authGuard, rateLimitGuard } from './auth/guard.js';
 import { registerErrorHandler, requestIdOf } from './errors.js';
+import { loggerOptions } from './logging.js';
 import { ExportService } from './export/service.js';
 import { aiRoutes } from './routes/ai.js';
 import { assetRoutes } from './routes/assets.js';
@@ -22,6 +24,8 @@ export type RateLimitOverrides = {
 
 export type ServerOptions = {
   logger?: boolean;
+  /** Optional destination for structured log records. */
+  logStream?: Writable;
   ai?: AiService | null;
   exportService?: ExportService;
   /** `undefined` reads the environment; `null` explicitly disables access control. */
@@ -44,7 +48,7 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   assertProductionAuth(process.env);
 
   const app = Fastify({
-    logger: options.logger ?? process.env.NODE_ENV !== 'test',
+    logger: (options.logger ?? process.env.NODE_ENV !== 'test') && loggerOptions(options.logStream),
     bodyLimit: 1024 * 1024,
     requestIdHeader: 'x-request-id',
     trustProxy: trustProxy(process.env.TRUST_PROXY),

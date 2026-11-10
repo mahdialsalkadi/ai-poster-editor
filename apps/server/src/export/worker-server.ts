@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import type { Writable } from 'node:stream';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
 import { API_ERROR_STATUS } from '@poster/contracts';
@@ -6,9 +7,11 @@ import { DesignError, LIMITS } from '@poster/core';
 import { RenderQueue } from './queue.js';
 import { renderHtml } from './renderer-core.js';
 import { remoteRenderJobSchema } from './worker-protocol.js';
+import { loggerOptions } from '../logging.js';
 
 export type WorkerServerOptions = {
   logger?: boolean;
+  logStream?: Writable;
   sandbox?: boolean;
   token?: string;
   queue?: RenderQueue;
@@ -37,7 +40,7 @@ export async function buildWorkerServer(
   options: WorkerServerOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: options.logger ?? process.env.NODE_ENV !== 'test',
+    logger: (options.logger ?? process.env.NODE_ENV !== 'test') && loggerOptions(options.logStream),
     bodyLimit: LIMITS.export.maxResponseBytes * 4,
   });
   const sandbox = options.sandbox ?? process.env.EXPORT_CHROMIUM_SANDBOX !== 'false';
@@ -65,13 +68,19 @@ export async function buildWorkerServer(
       .send(result.bytes);
   });
 
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     if (error instanceof DesignError) {
-      void reply
-        .status(API_ERROR_STATUS[error.code] ?? 500)
-        .send({ error: { code: error.code, message: error.message } });
+      const status = API_ERROR_STATUS[error.code] ?? 500;
+      if (status >= 500) {
+        request.log.error(
+          { event: 'worker.error', code: error.code, status },
+          'Worker request failed',
+        );
+      }
+      void reply.status(status).send({ error: { code: error.code, message: error.message } });
       return;
     }
+    request.log.error({ event: 'worker.error', status: 500 }, 'Worker request failed');
     void reply
       .status(500)
       .send({ error: { code: 'EXPORT_FAILED', message: 'The export worker failed' } });
