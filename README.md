@@ -193,12 +193,12 @@ pnpm test:e2e
 pnpm audit --prod
 ```
 
-The current package test suite has **470 tests**:
+The current package test suite has **471 tests**:
 
 | Package | Tests | Files | Main coverage                                                                                       |
 | ------- | ----- | ----- | --------------------------------------------------------------------------------------------------- |
 | Core    | 288   | 15    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance     |
-| Server  | 135   | 17    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
+| Server  | 136   | 17    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
 | Web     | 47    | 8     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills and CSP           |
 
 The parser performance test enforces p95 <200 ms for a 200-layer, 200 KiB
@@ -237,9 +237,9 @@ and pnpm resolves no version published less than a day ago (only the data-only
   reload. Storage behavior, including actual IndexedDB transactions and recovery
   dialogs, is also exercised in Chromium E2E tests in CI.
 - **PDF:** the 794x1123 CSS-pixel A4 preset produces an approximately 595x842 pt
-  vector page with embedded/selectable Latin text. Older 2480x3508 documents are
-  not silently resized. Print-quality Arabic fidelity and visual parity remain
-  unverified.
+  vector page. Tests cover embedded/selectable Latin and a Cairo Arabic text
+  fixture; they do not establish print-quality fidelity for all Arabic content.
+  Older 2480x3508 documents are not silently resized.
 - **Editor:** the layer clipboard is tab-local and marquee uses rotated bounding
   boxes. Interface chrome remains fixed Arabic/RTL; a language toggle is undecided.
 - **Gallery/import:** three English and two Arabic layouts, one retained bilingual

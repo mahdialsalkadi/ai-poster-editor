@@ -232,6 +232,57 @@ describe('export API', () => {
     expect(text).toBe('Print');
   }, 40_000);
 
+  it('exports Arabic A4 vector text with embedded Cairo and logical Unicode mappings', async () => {
+    const doc = textDoc(A4_SIZE.width, A4_SIZE.height);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/export',
+      ...exportBody(doc, { format: 'pdf' }),
+    });
+    expect(response.statusCode).toBe(200);
+    const pdf = response.rawPayload.toString('latin1');
+    const mediaBox = /\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)/.exec(pdf);
+    expect(mediaBox).not.toBeNull();
+    expect(Math.abs(Number(mediaBox?.[1]) - 595)).toBeLessThan(1.5);
+    expect(Math.abs(Number(mediaBox?.[2]) - 842)).toBeLessThan(1.5);
+    expect(pdf.match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
+    expect(pdf).toMatch(
+      /\/FontName\s*\/[A-Z]+\+Cairo-Bold(?:(?!endobj)[\s\S])*?\/FontFile2\s+\d+\s+0\s+R/,
+    );
+    expect(pdf).toContain('/ToUnicode');
+
+    // Chromium uses shaped Arabic glyphs in ToUnicode and logical characters in
+    // ActualText marked content, with visual runs marked as ReversedChars.
+    const streams = [...pdf.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((match) => {
+      try {
+        return inflateSync(Buffer.from(match[1]!, 'latin1')).toString('latin1');
+      } catch {
+        return match[1]!;
+      }
+    });
+    const textStream = streams.find((stream) => stream.includes('/ReversedChars BMC')) ?? '';
+    const words = [...textStream.matchAll(/\/ReversedChars BMC([\s\S]*?)EMC\s*ET/g)].map((run) => {
+      const visual = [...run[1]!.matchAll(/\/ActualText\s*<FEFF([\da-f]+)>/gi)]
+        .map((match) =>
+          (match[1]!.match(/.{4}/g) ?? [])
+            .map((hex) => String.fromCharCode(parseInt(hex, 16)))
+            .join(''),
+        )
+        .join('');
+      return [...visual].reverse().join('');
+    });
+    expect(words).toEqual(['بالعالم', 'مرحبا']);
+    expect([...words].reverse().join(' ')).toBe('مرحبا بالعالم');
+    const cmaps = streams.filter((stream) => stream.includes('beginbfchar'));
+    expect(cmaps.some((cmap) => /<FE[89A-F][\dA-F]>/i.test(cmap))).toBe(true);
+    const spaceCode = cmaps.flatMap((cmap) => [
+      ...cmap.matchAll(/<([\da-f]{4})>\s*<0020>/gi),
+    ])[0]?.[1];
+    expect(spaceCode).toBeDefined();
+    expect(textStream).toMatch(new RegExp(`<${spaceCode}>\\s*Tj`, 'i'));
+    expect(textStream).toContain(' Tj');
+  }, 40_000);
+
   it('returns a self-contained HTML document with embedded fonts and images', async () => {
     const asset = await pngAsset();
     const response = await app.inject({

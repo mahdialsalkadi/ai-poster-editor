@@ -1391,3 +1391,18 @@ The four visual tests passed locally: the parity fixture measured 0.000%
 differing pixels at that threshold and the missing-card control measured 15.097%;
 the three existing exporter golden comparisons still passed. E2E typecheck and
 lint passed. These observations are for the local pinned browser environment.
+
+### G5 — Arabic A4 vector PDF
+
+`apps/server/test/export.test.ts:235-282` exports a 794 × 1123 Cairo/RTL fixture
+and checks one approximately 595 × 842 pt page, an embedded Cairo-Bold font,
+Unicode maps, shaped Arabic glyph mappings, vector text and logical Arabic
+`ActualText` runs in Chromium's pinned PDF dialect. The test reconstructs the
+fixture's two reversed visual runs and verifies `مرحبا بالعالم`; it does not
+claim every PDF extractor or Arabic shaping case behaves identically.
+
+The 13-test export suite passed. For independent local inspection, `pdfinfo`
+reported 595.92 × 842.88 pt, `pdffonts` reported embedded Cairo-Bold subsets
+with Unicode maps, and `pdftotext -layout` returned the Arabic phrase with
+bidirectional marks. Those optional local utilities are not required by CI and
+the check is not a proof of print-quality fidelity across all Arabic content.
