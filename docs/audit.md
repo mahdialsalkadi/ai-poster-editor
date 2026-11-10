@@ -1420,3 +1420,12 @@ The existing Zod comment-annotation warnings remain and are not chunk warnings.
 without page errors. It and the editor/visual regression suite passed eight
 Chromium tests against the split build; E2E typecheck and lint also passed.
 The test checks sizes after a build, not network speed or total transfer size.
+
+### G9 — Explicit scratch-file ignore
+
+`.gitignore:19-20` ignores only root files ending in `.local.html`;
+`git check-ignore -v -- example.local.html` confirms the rule. The existing
+untracked `yemen-cultural-day.html` and `tools/` remain visible and untouched.
+The tracked `screenshots/` directory (23 files, including historical export
+artifacts) was retained because its removal or archival requires separate
+approval; exporter goldens are not an automatic replacement for all of it.
