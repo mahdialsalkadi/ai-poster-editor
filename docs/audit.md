@@ -1229,7 +1229,7 @@ paid provider use and the release tag need separate approval.
 ### G1 — Export kill switch
 
 `EXPORT_DISABLED=true` is read when `ExportService` is constructed
-(`apps/server/src/export/service.ts:89-100`); the route checks it before parsing
+(`apps/server/src/export/service.ts:96-107`); the route checks it before parsing
 multipart data (`apps/server/src/routes/export.ts:33-35`) and the API emits a
 startup warning (`apps/server/src/app.ts:67`). Limits remain available. The
 two tests in `apps/server/test/export-controls.test.ts:8-38` passed, verifying both
@@ -1240,7 +1240,7 @@ earlier checkpoint; see the next entry for the cache update.
 
 ### G1 — Content-bound idempotency
 
-`apps/server/src/export/service.ts:32-54,181-205` now hashes the canonical document, normalized
+`apps/server/src/export/service.ts:33-55,209-235` now hashes the canonical document, normalized
 export options without the idempotency key, and SHA-256 digests of sorted asset
 IDs/bytes. Cache keys encode principal, IP and key as a tuple. Cached and in-flight
 reuses with changed payloads fail `INVALID_DOC`; identical in-flight requests
@@ -1254,7 +1254,7 @@ server typecheck passed. The total deadline portion remains open.
 ### G1 — Export service deadline
 
 `packages/core/src/limits.ts:60-62` sets the 25-second service deadline;
-`apps/server/src/export/service.ts:147-166,239-249` applies it after multipart
+`apps/server/src/export/service.ts:153-169,236-256` applies it after multipart
 reception across queue waiting, image preparation and rendering. Abortable queue
 waiters are removed (`apps/server/src/export/queue.ts:46-82`), and preparation
 checks the deadline between image operations (`apps/server/src/export/assets.ts:103-125`).
@@ -1354,3 +1354,20 @@ remains usable. The initial boundary test exposed an inefficient repeated union
 of principal sets; `apps/server/src/ai/spend.ts:143,169-185,247-254` now maintains a bounded set of
 known keys instead. The 16 spend tests and 20 AI tests, server typecheck and lint
 passed. The principal set remains process-local and follows the UTC-day reset.
+
+### Phase 6 review checkpoint
+
+Local verification passed `pnpm typecheck`, `pnpm lint`, `pnpm test` (470 tests),
+`pnpm test:coverage` (469 instrumented tests; critical thresholds met),
+`pnpm build`, `pnpm test:e2e` (14 browser tests) and `pnpm audit --prod` (no known
+vulnerabilities). The 200 KiB performance test measured p95 27.24 ms on this
+host. The build still emits Zod annotation and large-chunk warnings. Local
+`pnpm format:check` reports only the unrelated untracked
+`yemen-cultural-day.html`; it was not modified. These are local results; hosted
+CI for the Phase 6 commit must be checked separately.
+
+**Verdict:** G1–G4 and the specified G6 overrides have implementation and test
+evidence, subject to the documented response-deadline, in-memory limiter,
+single-replica ledger and request-ID caveats. Staging and production readiness
+remain unverified. Stop for review before Phase 7; no deployment, live AI call,
+release tag or cleanup of unrelated user files was performed.

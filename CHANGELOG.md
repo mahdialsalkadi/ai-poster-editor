@@ -25,6 +25,11 @@ checkpoints; they do not imply approval for public deployment.
 
 ### Added
 
+- Export kill switch, bounded service response deadline with cancellable queue
+  waits, content-bound idempotency, optional tighter API queue settings and
+  per-principal daily AI spending caps with durable pseudonymous totals.
+- Bounded rate-limiter keys, pre-logging request-ID validation, browser image
+  header preflight and regression tests for the associated boundaries.
 - Phase 4 server resource and queue tests, hostile HTML and 200 KiB performance
   checks, critical-source coverage gates, browser E2E tests and three reviewed
   export visual goldens in the CI matrix.

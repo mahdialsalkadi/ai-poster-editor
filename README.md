@@ -193,18 +193,18 @@ pnpm test:e2e
 pnpm audit --prod
 ```
 
-The current package test suite has **441 tests**:
+The current package test suite has **470 tests**:
 
 | Package | Tests | Files | Main coverage                                                                                       |
 | ------- | ----- | ----- | --------------------------------------------------------------------------------------------------- |
 | Core    | 288   | 15    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance     |
-| Server  | 110   | 13    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
-| Web     | 43    | 7     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills and CSP           |
+| Server  | 135   | 17    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
+| Web     | 47    | 8     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills and CSP           |
 
 The parser performance test enforces p95 <200 ms for a 200-layer, 200 KiB
 document. Coverage gates enforce per-file thresholds on critical parser, style,
 CSS guard and merge modules; the separately timed performance test is excluded
-from instrumentation. CI also runs 10 browser E2E tests and three export visual
+from instrumentation. CI also runs 11 browser E2E tests and three export visual
 comparisons. See [e2e/goldens/README.md](e2e/goldens/README.md) for the pinned
 environment, thresholds and explicit baseline-update process. These exporter
 goldens do not establish complete editor/export visual equivalence.
