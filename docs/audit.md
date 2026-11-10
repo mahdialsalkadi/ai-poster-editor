@@ -1429,3 +1429,23 @@ untracked `yemen-cultural-day.html` and `tools/` remain visible and untouched.
 The tracked `screenshots/` directory (23 files, including historical export
 artifacts) was retained because its removal or archival requires separate
 approval; exporter goldens are not an automatic replacement for all of it.
+
+### Phase 7 local validation checkpoint
+
+On the commits above, the complete local gate set passed:
+
+| Gate                        | Result                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck`            | PASS (workspace and E2E projects)                                                                    |
+| `pnpm lint`                 | PASS                                                                                                 |
+| `pnpm test`                 | PASS — 471 tests (288 core, 47 web, 136 server)                                                      |
+| `pnpm test:coverage`        | PASS — 84.74% statements, 79.66% branches, 92.85% functions, 84.74% lines; configured thresholds met |
+| `pnpm build`                | PASS — no >500 kB chunk warning; largest JS chunk 203.50 kB                                          |
+| `pnpm test:e2e`             | PASS — 16 Chromium tests, including parity and bundle checks                                         |
+| `pnpm audit --prod`         | PASS — no known vulnerabilities                                                                      |
+| Changed-file Prettier check | PASS                                                                                                 |
+
+These results close the local work for G5 and G9. They do not replace the
+unapproved Docker/staging verification, live provider checks or release steps,
+and the 1.5% editor/export tolerance is validated on the single reference
+design only. The historical `screenshots/` directory remains pending D8.

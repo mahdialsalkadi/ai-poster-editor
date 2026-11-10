@@ -204,7 +204,7 @@ The current package test suite has **471 tests**:
 The parser performance test enforces p95 <200 ms for a 200-layer, 200 KiB
 document. Coverage gates enforce per-file thresholds on critical parser, style,
 CSS guard and merge modules; the separately timed performance test is excluded
-from instrumentation. The browser suite also runs 13 E2E tests (including a
+from instrumentation. The browser suite also runs 16 E2E tests (including a
 single-design editor/export parity check and a bundle-size check) and three
 export visual comparisons.
 See [e2e/goldens/README.md](e2e/goldens/README.md) for the pinned
