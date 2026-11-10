@@ -4,6 +4,7 @@ import type { ExportFormat, ExportRequest } from '@poster/contracts';
 import { prepareAssets, referencedAssetIds } from './assets.js';
 import { RenderQueue } from './queue.js';
 import { renderDesign } from './renderer.js';
+import { checkExportDeadline, waitForExport } from './deadline.js';
 
 export type ExportResult = {
   id: string;
@@ -63,6 +64,8 @@ export type ExportServiceOptions = {
   render?: typeof renderDesign;
   queue?: RenderQueue;
   disabled?: boolean;
+  totalTimeoutMs?: number;
+  prepare?: typeof prepareAssets;
 };
 
 let counter = 0;
@@ -76,6 +79,8 @@ export class ExportService {
   private readonly ttlMs: number;
   private readonly now: () => number;
   private readonly render: typeof renderDesign;
+  private readonly prepare: typeof prepareAssets;
+  private readonly totalTimeoutMs: number;
   readonly disabled: boolean;
   private cacheBytes = 0;
 
@@ -86,6 +91,8 @@ export class ExportService {
     this.ttlMs = options.ttlMs ?? LIMITS.export.cacheTtlMs;
     this.now = options.now ?? Date.now;
     this.render = options.render ?? renderDesign;
+    this.prepare = options.prepare ?? prepareAssets;
+    this.totalTimeoutMs = options.totalTimeoutMs ?? LIMITS.export.totalTimeoutMs;
     this.disabled = options.disabled ?? process.env.EXPORT_DISABLED?.trim() === 'true';
   }
 
@@ -144,6 +151,24 @@ export class ExportService {
     caller: ExportCaller,
   ): Promise<ExportResult> {
     this.assertEnabled();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.totalTimeoutMs);
+    try {
+      return await waitForExport(
+        this.execute(request, uploaded, caller, controller.signal),
+        controller.signal,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async execute(
+    request: ExportRequest,
+    uploaded: Map<string, Buffer>,
+    caller: ExportCaller,
+    signal: AbortSignal,
+  ): Promise<ExportResult> {
     const doc = canonicalizeDoc(request.doc);
     const options = request.options;
 
@@ -192,7 +217,8 @@ export class ExportService {
       }
     }
 
-    const result = this.performExport(doc, options, uploaded, cacheKey, digest);
+    checkExportDeadline(signal);
+    const result = this.performExport(doc, options, uploaded, cacheKey, digest, signal);
     if (!cacheKey || !digest) return result;
     this.pending.set(cacheKey, { digest, result });
     try {
@@ -208,14 +234,17 @@ export class ExportService {
     uploaded: Map<string, Buffer>,
     cacheKey: string | null,
     digest: string | null,
+    signal: AbortSignal,
   ): Promise<ExportResult> {
     const startedAt = Date.now();
     // Queue admission precedes header inspection/decoding, bounding both image
     // memory and browser work rather than just the final render.
     const rendered = await this.queue.run(async () => {
-      const assets = await prepareAssets(uploaded);
+      const assets = await this.prepare(uploaded, signal);
+      checkExportDeadline(signal);
       return this.render({ doc, assets, options });
-    });
+    }, signal);
+    checkExportDeadline(signal);
     if (rendered.bytes.byteLength > LIMITS.export.maxResponseBytes) {
       throw new DesignError(
         'LIMIT_EXCEEDED',

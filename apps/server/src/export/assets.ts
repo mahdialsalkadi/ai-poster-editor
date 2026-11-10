@@ -1,6 +1,7 @@
 import { DesignError, LIMITS } from '@poster/core';
 import { fileTypeFromBuffer } from 'file-type';
 import sharp from 'sharp';
+import { checkExportDeadline } from './deadline.js';
 
 export type PreparedAsset = {
   id: string;
@@ -102,20 +103,27 @@ async function decodeAsset(asset: InspectedAsset): Promise<PreparedAsset> {
 /** Sniff, preflight every header/budget, then strip metadata/trailing payloads. */
 export async function prepareAssets(
   uploaded: ReadonlyMap<string, Buffer>,
+  signal?: AbortSignal,
 ): Promise<Map<string, PreparedAsset>> {
   if (uploaded.size > LIMITS.assets.maxPerDocument)
     throw new DesignError('LIMIT_EXCEEDED', 'Too many image assets', 'assets');
   const inspected: InspectedAsset[] = [];
   let pixels = 0;
   for (const [id, bytes] of uploaded) {
+    if (signal) checkExportDeadline(signal);
     const asset = await inspectAsset(id, bytes);
+    if (signal) checkExportDeadline(signal);
     pixels += asset.width * asset.height;
     if (pixels > LIMITS.assets.maxTotalPixels)
       throw new DesignError('LIMIT_EXCEEDED', 'The images exceed the total pixel budget', 'assets');
     inspected.push(asset);
   }
   const prepared = new Map<string, PreparedAsset>();
-  for (const asset of inspected) prepared.set(asset.id, await decodeAsset(asset));
+  for (const asset of inspected) {
+    if (signal) checkExportDeadline(signal);
+    prepared.set(asset.id, await decodeAsset(asset));
+    if (signal) checkExportDeadline(signal);
+  }
   return prepared;
 }
 

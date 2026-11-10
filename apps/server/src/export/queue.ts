@@ -1,4 +1,5 @@
 import { DesignError, LIMITS } from '@poster/core';
+import { checkExportDeadline, exportTimeout } from './deadline.js';
 
 export type QueueMetrics = {
   active: number;
@@ -42,15 +43,27 @@ export class RenderQueue {
     }
   }
 
-  async run<T>(task: () => Promise<T>): Promise<T> {
+  async run<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+    if (signal) checkExportDeadline(signal);
     if (this.active >= this.concurrency) {
       if (this.waiting.length >= this.maxWaiting) {
         this.rejectedTotal += 1;
         this.report();
         throw new DesignError('RATE_LIMITED', 'The export queue is full', 'export');
       }
-      await new Promise<void>((resolve) => {
-        this.waiting.push(resolve);
+      await new Promise<void>((resolve, reject) => {
+        const resume = () => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve();
+        };
+        const onAbort = () => {
+          const index = this.waiting.indexOf(resume);
+          if (index >= 0) this.waiting.splice(index, 1);
+          this.report();
+          reject(exportTimeout());
+        };
+        this.waiting.push(resume);
+        signal?.addEventListener('abort', onAbort, { once: true });
         this.report();
       });
     } else {
@@ -58,6 +71,7 @@ export class RenderQueue {
       this.report();
     }
     try {
+      if (signal) checkExportDeadline(signal);
       return await task();
     } finally {
       const next = this.waiting.shift();

@@ -59,6 +59,7 @@ export const LIMITS = {
   },
   export: {
     timeoutMs: 15_000,
+    totalTimeoutMs: 25_000,
     maxRequestBytes: 40 * 1024 * 1024,
     maxResponseBytes: 40 * 1024 * 1024,
     maxOutputPixels: 40_000_000,

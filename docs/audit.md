@@ -1250,3 +1250,23 @@ is cached or in flight, not indefinitely. `apps/server/test/export-cache.test.ts
 covers changed document, options and asset bytes, concurrent requests, failed
 render retry, principal/IP scoping, TTL and cache caps. The targeted tests and
 server typecheck passed. The total deadline portion remains open.
+
+### G1 — Export service deadline
+
+`packages/core/src/limits.ts:60-62` sets the 25-second service deadline;
+`apps/server/src/export/service.ts:147-166,239-249` applies it after multipart
+reception across queue waiting, image preparation and rendering. Abortable queue
+waiters are removed (`apps/server/src/export/queue.ts:46-82`), and preparation
+checks the deadline between image operations (`apps/server/src/export/assets.ts:103-125`).
+An already-running native decode or renderer is not forcibly interrupted by this
+response deadline; it retains the queue slot until completion, and late results
+are not cached. Synchronous event-loop work and multipart reception cannot be
+preempted by this timer. The existing worker timeout remains a separate control.
+
+`apps/server/test/export-controls.test.ts:55-142` checks waiter cleanup, timeout
+during preparation, held slots, no late render or cache writes; the Fastify test
+at `apps/server/test/export-hardening.test.ts:182-201` verifies `EXPORT_FAILED`.
+All 25 targeted export/queue tests and workspace typecheck passed. The initial
+parallel typecheck/test run briefly used a stale compiled core constant; rerunning
+after the core build passed. This is a bounded response deadline, not proof of a
+forcibly terminated native operation or a timeout on incoming multipart bytes.

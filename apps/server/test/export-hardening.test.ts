@@ -179,6 +179,25 @@ describe('export API hardening', () => {
       await running;
     }
   });
+  it('returns EXPORT_FAILED when the total deadline expires in the queue', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const queue = new RenderQueue(1, 1);
+    const occupying = queue.run(() => gate);
+    const app = await server(new ExportService({ queue, totalTimeoutMs: 30 }));
+    try {
+      const design = { ...doc, layers: [] };
+      const response = await app.inject({ method: 'POST', url: '/api/export', ...body(design) });
+      expect(response.statusCode).toBe(500);
+      expect(response.json().error.code).toBe('EXPORT_FAILED');
+      expect(queue.metrics.waiting).toBe(0);
+    } finally {
+      release();
+      await occupying;
+    }
+  });
   it('maps a real worker deadline to EXPORT_FAILED at HTTP 500', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'poster-api-deadline-'));
     const worker = new ExportWorker({

@@ -700,8 +700,13 @@ in `docs/security.md`; they are not claimed to be active when running `pnpm dev`
 (HTTP 413); queue-full uses `RATE_LIMITED` (HTTP 429); rendering failure/timeout uses `EXPORT_FAILED`;
 missing assets use `ASSET_UNRESOLVED`. `EXPORT_DISABLED=true` disables new export
 requests at API startup with `UNSUPPORTED_FEATURE`; the limits endpoint remains
-available. Neither an end-to-end timeout nor visual equality with the editor is
-proven.
+available. The export service applies a 25-second response deadline covering
+queue wait, asset preparation and rendering after multipart reception. Timed-out
+queue waiters are removed. Native image decoding and an already-started render
+may continue after the response; their queue slot stays occupied until they stop,
+and late results are not cached. The deadline cannot preempt synchronous work or
+include time spent receiving the multipart request. Visual equality with the
+editor remains unverified.
 
 ### 12.2 AI contract
 
