@@ -171,6 +171,13 @@ describe('durable spend accounting', () => {
     );
     expect(() => new FileSpendStore(path).load()).toThrow(/inconsistent/);
   });
+
+  it('fails closed for new principals once the daily ledger reaches its bound', () => {
+    const ledger = new DailySpendLedger({ capUsd: 10, userCapUsd: 10 });
+    for (let index = 0; index < 10_000; index += 1) ledger.reserve(0, `principal-${index}`);
+    expect(() => ledger.reserve(0, 'new-principal')).toThrow(/principal limit/);
+    expect(ledger.reserve(0, 'principal-0')).toBe(0);
+  });
 });
 
 describe('AI configuration and retry reservations', () => {

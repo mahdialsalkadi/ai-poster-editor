@@ -140,6 +140,7 @@ export class DailySpendLedger {
   private reserved = 0;
   private readonly byPrincipal = new Map<string, number>();
   private readonly reservedByPrincipal = new Map<string, number>();
+  private readonly knownPrincipals = new Set<string>();
   private legacySpend = 0;
   private storageFailed = false;
 
@@ -163,8 +164,10 @@ export class DailySpendLedger {
     if (loaded) {
       this.day = loaded.day;
       this.spent = loaded.spentUsd;
-      for (const [key, amount] of Object.entries(loaded.byPrincipal ?? {}))
+      for (const [key, amount] of Object.entries(loaded.byPrincipal ?? {})) {
         this.byPrincipal.set(key, amount);
+        this.knownPrincipals.add(key);
+      }
       this.legacySpend = Math.max(
         0,
         this.spent - [...this.byPrincipal.values()].reduce((a, b) => a + b, 0),
@@ -178,6 +181,8 @@ export class DailySpendLedger {
       this.day = today;
       this.spent = 0;
       this.byPrincipal.clear();
+      this.knownPrincipals.clear();
+      for (const key of this.reservedByPrincipal.keys()) this.knownPrincipals.add(key);
       this.legacySpend = 0;
       this.persist();
     }
@@ -239,19 +244,14 @@ export class DailySpendLedger {
         },
       );
     }
-    if (
-      !this.byPrincipal.has(key) &&
-      !this.reservedByPrincipal.has(key) &&
-      this.byPrincipal.size + this.reservedByPrincipal.size >= MAX_PRINCIPALS &&
-      new Set([...this.byPrincipal.keys(), ...this.reservedByPrincipal.keys()]).size >=
-        MAX_PRINCIPALS
-    ) {
+    if (!this.knownPrincipals.has(key) && this.knownPrincipals.size >= MAX_PRINCIPALS) {
       throw new DesignError(
         'SPEND_CAP_EXCEEDED',
         'The daily AI principal limit has been reached',
         'ai',
       );
     }
+    this.knownPrincipals.add(key);
     if (!this.byPrincipal.has(key)) this.byPrincipal.set(key, 0);
     this.reserved += amount;
     this.reservedByPrincipal.set(key, userReserved + amount);

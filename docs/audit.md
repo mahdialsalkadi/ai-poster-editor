@@ -1345,3 +1345,12 @@ compiled. `apps/server/test/export-config.test.ts:9-64` verifies defaults,
 invalid/unsafe inputs, the actual queue metrics and the limits endpoint. The
 targeted configuration/export suites passed 20 tests; typecheck and lint passed.
 `EXPORT_DISABLED` and the per-user budget override were tested in earlier entries.
+
+### G2 — Principal-count boundary regression
+
+`apps/server/test/spend.test.ts:175-180` now exercises admission at 10,000 distinct
+principals and verifies that a new identity fails closed while a known identity
+remains usable. The initial boundary test exposed an inefficient repeated union
+of principal sets; `apps/server/src/ai/spend.ts:143,169-185,247-254` now maintains a bounded set of
+known keys instead. The 16 spend tests and 20 AI tests, server typecheck and lint
+passed. The principal set remains process-local and follows the UTC-day reset.
