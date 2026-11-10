@@ -1679,3 +1679,51 @@ regenerated.
 
 **Verdict: PASS.** Handles are no longer clipped, text scales from corners while
 edge drags reflow, and quick insertions land centred.
+
+### Phase 10B — Transform HUD, equidistant badges, rulers/margins/bleed & viewport reset
+
+**What changed:**
+
+- `apps/web/src/editor/gaps.ts:37` adds `equalSpacingBadges`, which measures the
+  gaps between a dragged box and its nearest neighbours on each axis, restricts
+  neighbours to those overlapping the box on the perpendicular axis, and only
+  emits the pair when `|gap1 - gap2| <= threshold`.
+- `apps/web/src/components/SelectionOverlay.tsx` now renders a fragment rather
+  than owning a container: distance badges (`:144`, `data-testid="distance-badge"`)
+  and the live HUD (`:159-160`, `data-testid="transform-hud"`, `role="status"`,
+  `aria-live="polite"`) mount inside the single `.artboard-overlays` that
+  `Canvas.tsx:783` owns, together with the rulers and print guides, matching the
+  v2.2 overlay-DOM contract.
+- `apps/web/src/components/Canvas.tsx:219-221` resets `pan` whenever
+  `resetViewSignal` changes; `:387-388` publishes the move HUD and computes gap
+  badges per pointer move; `:785` renders `data-testid="canvas-rulers"` (20px
+  top/left rulers with zoom-scaled ticks), `:804` the 7% safe-margin guide and
+  `:817` the 14px bleed guide, all inside the overlay and all pointer-inert.
+- `apps/web/src/App.tsx:344` adds `resetView` (zoom `1` **and** pan reset),
+  `:350` `applyScale` for the preset menu, `:827` `Ctrl/Cmd + 0`, `:1122` the Fit
+  button, and `:1139`/`:1148` the rulers and safe-margin toggles alongside grid
+  and bleed. `apps/web/src/i18n.ts:31-38` and `:348-355` add the eight new labels
+  in Arabic and English so no viewport control is single-language.
+
+**Measured contract (all run locally on this host):**
+
+- `e2e/canvas.spec.ts:141` — wheel-panning moves the artboard to `-25px`; `Fit`
+  restores its original x and y and the zoom label returns to its pre-pan value;
+  the safe-margin guide is inset by `round(0.07 * min(W, H)) * scale` (within
+  1px) and its width is the artboard width minus both insets; the bleed guide
+  starts `14 * scale` outside the artboard; `canvas-rulers` appears after the
+  toggle; and while dragging a layer `transform-hud` is visible with an `X:`
+  readout and disappears on pointer-up.
+- `apps/web/src/editor/gaps.test.ts` — matching horizontal gaps emit both badges
+  with exact rects, gaps differing by more than the threshold emit none,
+  non-overlapping neighbours, hidden layers and the moving selection are
+  ignored, and vertical gaps report on the y axis.
+
+**Gates:** `pnpm typecheck` passed, `pnpm lint` passed, `pnpm format:check`
+passed, `pnpm test` passed **496** tests (core 288, web 67, server 141),
+`pnpm build` passed, and `pnpm exec playwright test --grep-invert "matches its
+reviewed golden"` passed **17/17**.
+
+**Verdict: PASS.** The HUD tracks move/resize/rotate, distance badges appear only
+for genuinely equal gaps, every guide mounts in the unclipped overlay, and `Fit`
+restores zoom and pan together.

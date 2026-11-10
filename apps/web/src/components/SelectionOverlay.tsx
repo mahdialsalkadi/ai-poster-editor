@@ -1,7 +1,36 @@
 import type { Layer } from '@poster/core';
+import type { GapBadge } from '../editor/gaps.js';
 import { estimatedLayerHeight } from '../editor/layers.js';
 import { handlesFor, type Handle } from '../editor/resize.js';
 import { Icon } from './icons.js';
+
+export type TransformHud =
+  | { kind: 'move'; left: number; top: number; width: number; height: number }
+  | {
+      kind: 'resize';
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      fontSize?: number;
+    }
+  | {
+      kind: 'rotate';
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      rotation: number;
+    };
+
+function hudText(hud: TransformHud): string {
+  if (hud.kind === 'move') return `X: ${Math.round(hud.left)} · Y: ${Math.round(hud.top)}`;
+  if (hud.kind === 'resize') {
+    const base = `${Math.round(hud.width)} × ${Math.round(hud.height)} px`;
+    return hud.fontSize === undefined ? base : `${base} · ${Math.round(hud.fontSize)}pt`;
+  }
+  return `${Math.round(hud.rotation)}°`;
+}
 
 export type SelectionOverlayProps = {
   layers: readonly Layer[];
@@ -9,6 +38,8 @@ export type SelectionOverlayProps = {
   scale: number;
   textHeights: Record<string, number>;
   editingId: string | null;
+  hud?: TransformHud | null;
+  badges?: readonly GapBadge[];
   onResizeStart: (
     event: React.PointerEvent<HTMLButtonElement>,
     handle: Handle,
@@ -30,6 +61,8 @@ export function SelectionOverlay({
   scale,
   textHeights,
   editingId,
+  hud = null,
+  badges = [],
   onResizeStart,
   onRotateStart,
 }: SelectionOverlayProps) {
@@ -39,7 +72,7 @@ export function SelectionOverlay({
   const single = selected.length === 1 ? selected[0]! : null;
 
   return (
-    <div className="artboard-overlays" data-testid="artboard-overlays">
+    <>
       {selected.map((layer) => {
         const height =
           layer.type === 'text'
@@ -104,6 +137,37 @@ export function SelectionOverlay({
           </div>
         );
       })}
-    </div>
+      {badges.map((badge, index) => (
+        <div
+          key={`${badge.axis}-${index}`}
+          className={`gap-badge gap-badge--${badge.axis}`}
+          data-testid="distance-badge"
+          data-axis={badge.axis}
+          style={{
+            left: badge.axis === 'x' ? badge.left * scale : badge.left * scale,
+            top: badge.top * scale,
+            width: badge.axis === 'x' ? badge.width * scale : 0,
+            height: badge.axis === 'y' ? badge.height * scale : 0,
+          }}
+          aria-hidden="true"
+        >
+          <span className="gap-badge__label">{badge.value} px</span>
+        </div>
+      ))}
+      {hud ? (
+        <div
+          className="transform-hud"
+          data-testid="transform-hud"
+          role="status"
+          aria-live="polite"
+          style={{
+            left: (hud.left + hud.width / 2) * scale,
+            top: (hud.top + hud.height) * scale + 12,
+          }}
+        >
+          {hudText(hud)}
+        </div>
+      ) : null}
+    </>
   );
 }

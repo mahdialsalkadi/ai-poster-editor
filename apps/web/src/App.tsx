@@ -316,6 +316,11 @@ export function App() {
   const [fitScale, setFitScale] = useState(0.4);
   const [zoom, setZoom] = useState(1);
   const [showGrid, setShowGrid] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
+  const [showSafeMargin, setShowSafeMargin] = useState(false);
+  const [showBleed, setShowBleed] = useState(false);
+  const [viewReset, setViewReset] = useState(0);
+  const [zoomMenu, setZoomMenu] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [modal, setModal] = useState<'preview' | 'help' | 'export' | 'account' | null>(null);
@@ -333,6 +338,23 @@ export function App() {
   const pasteCount = useRef(0);
 
   const scale = Math.min(2, Math.max(0.08, fitScale * zoom));
+
+  // `Fit` restores the whole viewport, not just the zoom multiplier, so a
+  // panned canvas cannot stay off-centre after the user asks to fit.
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setViewReset((value) => value + 1);
+    setZoomMenu(false);
+  }, []);
+
+  const applyScale = useCallback(
+    (target: number) => {
+      setZoom(Math.min(2, Math.max(0.15, target / Math.max(fitScale, 0.08))));
+      setZoomMenu(false);
+    },
+    [fitScale],
+  );
+
   const t = useMemo(() => translator(uiLang), [uiLang]);
   const dir = uiLang === 'ar' ? ('rtl' as const) : ('ltr' as const);
   const i18n = useMemo(() => ({ lang: uiLang, dir, t, setLang: setUiLang }), [uiLang, dir, t]);
@@ -802,7 +824,7 @@ export function App() {
       }
       if (mod && event.key === '0') {
         event.preventDefault();
-        setZoom(1);
+        resetView();
         return;
       }
       if (mod && (event.key === '[' || event.key === ']')) {
@@ -872,6 +894,7 @@ export function App() {
     addQuickLayer,
     doc,
     saveNow,
+    resetView,
     modal,
     storageReady,
     storageConflict,
@@ -1030,6 +1053,10 @@ export function App() {
               editingId={editingId}
               assets={assetUrls}
               showGrid={showGrid}
+              showRulers={showRulers}
+              showSafeMargin={showSafeMargin}
+              showBleed={showBleed}
+              resetViewSignal={viewReset}
               onFitScale={setFitScale}
               onZoomChange={(next) => setZoom(next / Math.max(fitScale, 0.08))}
               onSelectionChange={setSelection}
@@ -1044,29 +1071,94 @@ export function App() {
                 type="button"
                 className="zoom-button"
                 onClick={() => setZoom((current) => Math.max(0.15, current / 1.1))}
-                aria-label="تصغير"
+                aria-label={t('zoomOut')}
               >
                 −
               </button>
-              <span className="zoom-value">{Math.round(scale * 100)}%</span>
+              <button
+                type="button"
+                className="zoom-button zoom-value"
+                data-testid="zoom-value"
+                aria-label={t('zoomPresets')}
+                aria-expanded={zoomMenu}
+                onClick={() => setZoomMenu((open) => !open)}
+              >
+                {Math.round(scale * 100)}%
+              </button>
+              {zoomMenu ? (
+                <div className="zoom-menu" role="menu" aria-label={t('zoomPresets')}>
+                  {[0.25, 0.5, 0.75, 1, 1.5, 2, 3].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      role="menuitem"
+                      className="zoom-menu__item"
+                      onClick={() => applyScale(preset)}
+                    >
+                      {Math.round(preset * 100)}%
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="zoom-menu__item"
+                    onClick={resetView}
+                  >
+                    {t('fitToScreen')}
+                  </button>
+                </div>
+              ) : null}
               <button
                 type="button"
                 className="zoom-button"
                 onClick={() => setZoom((current) => Math.min(2, current * 1.1))}
-                aria-label="تكبير"
+                aria-label={t('zoomIn')}
               >
                 +
               </button>
-              <button type="button" className="zoom-button" onClick={() => setZoom(1)}>
-                ملاءمة
+              <button
+                type="button"
+                className="zoom-button"
+                data-testid="zoom-fit"
+                onClick={resetView}
+              >
+                {t('fitToScreen')}
               </button>
               <button
                 type="button"
                 className={`zoom-button${showGrid ? ' is-active' : ''}`}
+                data-testid="toggle-grid"
                 onClick={() => setShowGrid((current) => !current)}
                 aria-pressed={showGrid}
               >
-                شبكة
+                {t('grid')}
+              </button>
+              <button
+                type="button"
+                className={`zoom-button${showRulers ? ' is-active' : ''}`}
+                data-testid="toggle-rulers"
+                onClick={() => setShowRulers((current) => !current)}
+                aria-pressed={showRulers}
+              >
+                {t('rulers')}
+              </button>
+              <button
+                type="button"
+                className={`zoom-button${showSafeMargin ? ' is-active' : ''}`}
+                data-testid="toggle-safe-margin"
+                onClick={() => setShowSafeMargin((current) => !current)}
+                aria-pressed={showSafeMargin}
+              >
+                {t('safeMargin')}
+              </button>
+              <button
+                type="button"
+                className={`zoom-button${showBleed ? ' is-active' : ''}`}
+                data-testid="toggle-bleed"
+                onClick={() => setShowBleed((current) => !current)}
+                aria-pressed={showBleed}
+              >
+                {t('bleed')}
               </button>
             </div>
           </main>

@@ -1247,6 +1247,140 @@ button:disabled {
   cursor: nesw-resize;
 }
 
+/* transform HUD, equal-gap badges, rulers and print guides */
+
+.transform-hud {
+  position: absolute;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(11, 14, 18, 0.94);
+  color: var(--text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9;
+}
+
+.gap-badge {
+  position: absolute;
+  border-top: 1px dashed var(--accent);
+  pointer-events: none;
+  z-index: 9;
+}
+
+.gap-badge--y {
+  border-top: 0;
+  border-left: 1px dashed var(--accent);
+}
+
+.gap-badge__label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0e12;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.canvas-rulers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ruler {
+  position: absolute;
+  background: rgba(11, 14, 18, 0.88);
+  pointer-events: none;
+  z-index: 9;
+}
+
+.ruler--x {
+  top: -20px;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ruler--y {
+  top: 0;
+  left: -20px;
+  width: 20px;
+  height: 100%;
+  border-right: 1px solid var(--border);
+}
+
+.ruler__tick {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.ruler--x .ruler__tick {
+  top: 3px;
+  transform: translateX(2px);
+}
+
+.ruler--y .ruler__tick {
+  left: 3px;
+}
+
+.safe-margin-guide {
+  position: absolute;
+  border: 1px dashed rgba(56, 189, 248, 0.75);
+  pointer-events: none;
+  z-index: 9;
+}
+
+.bleed-guide {
+  position: absolute;
+  border: 1px dashed rgba(242, 107, 74, 0.85);
+  pointer-events: none;
+  z-index: 9;
+}
+
+.zoom-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 96px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(16, 21, 29, 0.96);
+  transform: translateX(-50%);
+  z-index: 12;
+}
+
+.zoom-menu__item {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.zoom-menu__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* zoom */
 
 .zoom-bar {

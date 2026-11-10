@@ -138,6 +138,58 @@ test('single-key insertions add centered text, rectangle, circle and line layers
   expect(Math.abs(inserted.y + inserted.height / 2 - (box.y + box.height / 2))).toBeLessThan(2);
 });
 
+test('Fit restores the viewport, overlays follow their toggles and the HUD tracks a drag', async ({
+  page,
+}) => {
+  await openEditor(page);
+  const artboard = page.locator('.artboard');
+  const start = (await artboard.boundingBox())!;
+  const fitLabel = (await page.getByTestId('zoom-value').textContent()) ?? '';
+
+  await page.mouse.move(start.x + 20, start.y + 20);
+  await page.mouse.wheel(25, 30);
+  await expect.poll(async () => Math.round((await artboard.boundingBox())!.x - start.x)).toBe(-25);
+
+  await page.getByTestId('zoom-fit').click();
+  await expect.poll(async () => Math.round((await artboard.boundingBox())!.x - start.x)).toBe(0);
+  await expect.poll(async () => Math.round((await artboard.boundingBox())!.y - start.y)).toBe(0);
+  await expect(page.getByTestId('zoom-value')).toHaveText(fitLabel);
+
+  const size = await artboard.evaluate((element) => ({
+    width: Number.parseFloat(element.style.width),
+    height: Number.parseFloat(element.style.height),
+  }));
+  const box = (await artboard.boundingBox())!;
+  const scale = box.width / size.width;
+
+  await page.getByTestId('toggle-safe-margin').click();
+  const margin = (await page.locator('[data-testid="safe-margin-guide"]').boundingBox())!;
+  const inset = Math.round(Math.min(size.width, size.height) * 0.07) * scale;
+  expect(Math.abs(margin.x - (box.x + inset))).toBeLessThanOrEqual(1);
+  expect(Math.abs(margin.width - (box.width - inset * 2))).toBeLessThanOrEqual(1);
+
+  await page.getByTestId('toggle-bleed').click();
+  const bleed = (await page.locator('[data-testid="bleed-guide"]').boundingBox())!;
+  expect(Math.abs(bleed.x - (box.x - 14 * scale))).toBeLessThanOrEqual(1);
+
+  await page.getByTestId('toggle-rulers').click();
+  await expect(page.getByTestId('canvas-rulers')).toBeVisible();
+
+  // The topmost shape is the only one that cannot be covered by another layer.
+  const shape = page.locator('.artboard .layer--shape').last();
+  await shape.click({ position: { x: 10, y: 10 } });
+  const shapeBox = (await shape.boundingBox())!;
+  const centerX = shapeBox.x + shapeBox.width / 2;
+  const centerY = shapeBox.y + shapeBox.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 24, centerY + 12, { steps: 6 });
+  await expect(page.getByTestId('transform-hud')).toBeVisible();
+  await expect(page.getByTestId('transform-hud')).toContainText('X:');
+  await page.mouse.up();
+  await expect(page.getByTestId('transform-hud')).toHaveCount(0);
+});
+
 test('the built editor blocks inline scripts and external image requests with CSP', async ({
   page,
 }) => {

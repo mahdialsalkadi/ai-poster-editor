@@ -19,9 +19,10 @@ import {
 } from '../editor/snap.js';
 import { plainToInline } from '../editor/text.js';
 import { layersInMarquee, selectionRect, type SelectionRect } from '../editor/selection.js';
+import { equalSpacingBadges, type GapBadge } from '../editor/gaps.js';
 import { resizeFromHandle, type Handle } from '../editor/resize.js';
 import { LayerView } from './LayerView.js';
-import { SelectionOverlay } from './SelectionOverlay.js';
+import { SelectionOverlay, type TransformHud } from './SelectionOverlay.js';
 
 type StartBox = { left: number; top: number; width: number; height: number };
 
@@ -64,6 +65,7 @@ type RotateSession = {
   startRotation: number;
   before: DesignDoc;
   id: string;
+  box: { left: number; top: number; width: number; height: number };
 };
 
 type PanSession = {
@@ -90,6 +92,15 @@ type Session = MoveSession | ResizeSession | RotateSession | PanSession | Marque
 /** Snap radius in screen pixels, converted to document units per gesture. */
 const SNAP_THRESHOLD = 6;
 const SHIFT_STEP = 10;
+
+/** Tick spacing that stays readable (~40px apart) at the current zoom. */
+function rulerTicks(length: number, scale: number): number[] {
+  const step =
+    [10, 20, 25, 50, 100, 200, 250, 500, 1000].find((candidate) => candidate * scale >= 40) ?? 1000;
+  const ticks: number[] = [];
+  for (let value = 0; value <= length; value += step) ticks.push(value);
+  return ticks;
+}
 
 function movedBounds(starts: Map<string, StartBox>, dx: number, dy: number): StartBox {
   let minLeft = Number.POSITIVE_INFINITY;
@@ -122,6 +133,10 @@ export type CanvasProps = {
   editingId: string | null;
   assets: Record<string, string>;
   showGrid: boolean;
+  showRulers?: boolean;
+  showSafeMargin?: boolean;
+  showBleed?: boolean;
+  resetViewSignal?: number;
   onFitScale: (scale: number) => void;
   onZoomChange: (zoom: number) => void;
   onSelectionChange: (ids: string[]) => void;
@@ -138,6 +153,10 @@ export function Canvas({
   editingId,
   assets,
   showGrid,
+  showRulers = false,
+  showSafeMargin = false,
+  showBleed = false,
+  resetViewSignal = 0,
   onFitScale,
   onZoomChange,
   onSelectionChange,
@@ -157,6 +176,8 @@ export function Canvas({
   const [spaceDown, setSpaceDown] = useState(false);
   const spaceRef = useRef(false);
   const [marquee, setMarquee] = useState<SelectionRect | null>(null);
+  const [hud, setHud] = useState<TransformHud | null>(null);
+  const [badges, setBadges] = useState<GapBadge[]>([]);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -193,6 +214,11 @@ export function Canvas({
       cleanupRef.current?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (resetViewSignal === 0) return;
+    setPan({ x: 0, y: 0 });
+  }, [resetViewSignal]);
 
   const registerRef = useCallback((id: string, element: HTMLDivElement | null) => {
     if (element) layerRefs.current.set(id, element);
@@ -295,6 +321,8 @@ export function Canvas({
         document.body.classList.remove('is-dragging');
         setGuides([]);
         setMarquee(null);
+        setHud(null);
+        setBadges([]);
         if (!current) return;
         if (current.kind === 'pan') {
           if (revert) setPan(current.pan);
@@ -354,7 +382,10 @@ export function Canvas({
             nextGuides = snapped.guides;
           }
 
+          const bounds = movedBounds(current.starts, offsetX, offsetY);
           setGuides(nextGuides);
+          setHud({ kind: 'move', ...bounds });
+          setBadges(equalSpacingBadges(doc.layers, bounds, current.ids, current.threshold));
           onUpdate(
             (currentDoc) =>
               updateLayers(currentDoc, current.ids, (layer) => {
@@ -388,6 +419,14 @@ export function Canvas({
           let nextTop = resized.top;
           let nextW = resized.width;
           let nextH = resized.height;
+          setHud({
+            kind: 'resize',
+            left: nextLeft,
+            top: nextTop,
+            width: nextW,
+            height: nextH,
+            ...(resized.fontSize === undefined ? {} : { fontSize: resized.fontSize }),
+          });
 
           // Snapping only applies to unrotated layers: the handles move along
           // the artboard axes, which keeps the anchored edge fixed.
@@ -458,6 +497,7 @@ export function Canvas({
           Math.PI;
         let next = normalizeAngle(current.startRotation + (angle - current.startAngle));
         if (event.shiftKey) next = normalizeAngle(Math.round(next / 15) * 15);
+        setHud({ kind: 'rotate', ...current.box, rotation: next });
         onUpdate(
           (currentDoc) =>
             updateLayers(currentDoc, [current.id], (layer) => ({ ...layer, rotation: next })),
@@ -611,6 +651,7 @@ export function Canvas({
         startRotation: layer.rotation,
         before: doc,
         id: layer.id,
+        box: { left: layer.left, top: layer.top, width: layer.width, height },
       });
     },
     [beginSession, doc, scale, textHeights],
@@ -653,6 +694,10 @@ export function Canvas({
     },
     [onSelectionChange, onEditingChange, doc, scale, selection, beginSession],
   );
+
+  const inset = Math.round(Math.min(doc.width, doc.height) * 0.07);
+  const ticksX = showRulers ? rulerTicks(doc.width, scale) : [];
+  const ticksY = showRulers ? rulerTicks(doc.height, scale) : [];
 
   return (
     <div
@@ -735,15 +780,63 @@ export function Canvas({
             />
           ) : null}
         </div>
-        <SelectionOverlay
-          layers={doc.layers}
-          selection={selection}
-          scale={scale}
-          textHeights={textHeights}
-          editingId={editingId}
-          onResizeStart={startResize}
-          onRotateStart={startRotate}
-        />
+        <div className="artboard-overlays" data-testid="artboard-overlays">
+          {showRulers ? (
+            <div className="canvas-rulers" data-testid="canvas-rulers" aria-hidden="true">
+              <div className="ruler ruler--x">
+                {ticksX.map((tick) => (
+                  <span key={tick} className="ruler__tick" style={{ left: tick * scale }}>
+                    {tick}
+                  </span>
+                ))}
+              </div>
+              <div className="ruler ruler--y">
+                {ticksY.map((tick) => (
+                  <span key={tick} className="ruler__tick" style={{ top: tick * scale }}>
+                    {tick}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {showSafeMargin ? (
+            <div
+              className="safe-margin-guide"
+              data-testid="safe-margin-guide"
+              style={{
+                left: inset * scale,
+                top: inset * scale,
+                width: (doc.width - inset * 2) * scale,
+                height: (doc.height - inset * 2) * scale,
+              }}
+              aria-hidden="true"
+            />
+          ) : null}
+          {showBleed ? (
+            <div
+              className="bleed-guide"
+              data-testid="bleed-guide"
+              style={{
+                left: -14 * scale,
+                top: -14 * scale,
+                width: (doc.width + 28) * scale,
+                height: (doc.height + 28) * scale,
+              }}
+              aria-hidden="true"
+            />
+          ) : null}
+          <SelectionOverlay
+            layers={doc.layers}
+            selection={selection}
+            scale={scale}
+            textHeights={textHeights}
+            editingId={editingId}
+            hud={hud}
+            badges={badges}
+            onResizeStart={startResize}
+            onRotateStart={startRotate}
+          />
+        </div>
       </div>
     </div>
   );
