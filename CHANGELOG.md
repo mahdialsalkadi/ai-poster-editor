@@ -25,6 +25,14 @@ checkpoints; they do not imply approval for public deployment.
 
 ### Added
 
+- Phase 4 server resource and queue tests, hostile HTML and 200 KiB performance
+  checks, critical-source coverage gates, browser E2E tests and three reviewed
+  export visual goldens in the CI matrix.
+- Structured API and worker queue events, bounded credential-header redaction
+  and sanitized server-error events. Existing AI spend-settlement events provide
+  per-attempt accounting signals; log collection and alerting remain operator work.
+- An operations runbook for health, incident response, the AI kill switch, spend
+  ledger recovery and staging smoke tests. Its deployment procedures are unverified.
 - Marquee selection, tab-local layer copy/paste with incremental 20px offsets,
   Space-drag/wheel pan and updated shortcut help.
 - IndexedDB document autosave with schema validation, one backup, corruption

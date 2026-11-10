@@ -1204,3 +1204,22 @@ paid calls and release. Written verdict: reviewed against `docker-compose.yml`,
 `.env.example`, the spend ledger and route implementation; the operational
 commands, backup/restore and deployed-origin checklist have not been exercised
 on a deployment host and remain open verification items.
+
+### Phase 5 local validation and remaining gates
+
+Local verification passed: `pnpm typecheck`, `pnpm lint`, `pnpm test` (441
+tests, including the full-size performance budget), `pnpm test:coverage` (440
+instrumented tests and all critical thresholds), `pnpm build`, `pnpm test:e2e`
+(13 browser tests), and `pnpm audit --prod` (no known vulnerabilities). The
+build produced dependency annotation and large-bundle warnings. The changed
+documentation passes Prettier; full local `pnpm format:check` additionally
+encounters the unrelated untracked HTML file noted above.
+
+**Release-readiness verdict: incomplete.** Staging deployment and its smoke tests,
+Docker sandbox/network and proxy TLS checks, real Supabase sign-in, backup and
+restore, externally configured alerting, and a live provider/billing check remain
+unverified. Browser E2E uses a mock provider and is not staging evidence. The
+runbook and local controls are implemented, but the audit is not all green and
+no `v1.0.0` tag or deployment has been made. Obtain authorization, an isolated
+staging target and credentials before carrying out the remaining operations;
+paid provider use and the release tag need separate approval.

@@ -7,9 +7,9 @@ An Arabic-first poster editor built around **Design HTML**. The editor, AI
 pipeline and exporter share a canonical `DesignDoc`, with parsing, validation,
 serialization and scoped merging in `packages/core`.
 
-> **Development only: do not expose this build publicly.** Public deployment is
-> the target, with sign-in-protected AI and exports, but authentication and the
-> required security hardening are not implemented yet. See
+> **Development only: do not expose this build publicly.** Authentication and
+> security controls are implemented, but deployment, container isolation, TLS
+> and live integrations have not yet been verified on a deployment host. See
 > [Known limitations](#known-limitations) and the [audit](docs/audit.md).
 
 ## Requirements
