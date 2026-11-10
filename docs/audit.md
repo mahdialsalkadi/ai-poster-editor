@@ -1532,3 +1532,43 @@ commit `6d38dc3`. Typecheck, lint, formatting, package tests, critical-source
 coverage, build, browser E2E/visual regression and the production dependency
 audit all completed successfully. Hosted and local results agree; staging and
 live provider verification remain unapproved.
+
+### Phase 9 — Hosted CI, live Docker/staging verification & `v1.0.0` release
+
+**Docker compose build & runtime verification (local rootless Docker):**
+
+- `docker compose config` passed with production environment variables
+  (`PUBLIC_ORIGIN=https://localhost:8443`, `API_ACCESS_KEY`, `AI_DISABLED=true`,
+  `EXPORT_WORKER_TOKEN`).
+- Images built successfully with `overlay2` storage driver:
+  `poster-phase9-api:latest` (287 MB), `poster-phase9-web:latest` (66 MB),
+  `poster-phase9-worker:latest` (2.61 GB on Playwright base).
+- `docker compose up -d` started all four services; health checks passed:
+  - Proxy (`nginx:1.28-alpine`) healthy on ports 8080/8443 with TLS and HSTS headers
+  - Web (nginx serving Vite build) healthy
+  - API (Fastify) healthy on `/api/health`, version `0.1.0`, milestone `M7`
+  - Worker (Playwright Chromium) healthy on internal `worker-net` network
+- Verified HTTP→HTTPS redirect, TLS 1.2/1.3, `frame-ancestors 'none'`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy` headers.
+- Worker is on `internal: true` network with no egress; API joins both
+  `edge` and `worker-net`.
+- All containers run non-root (`node`/`pwuser`), `cap_drop: ALL`,
+  `no-new-privileges`, bounded CPU/memory/PID and `/dev/shm` (1 GB for worker).
+- Spend ledger volume `poster-phase9_spend` created and mounted at `/data`.
+
+Verdict: **PASS** for the compose stack on rootless Docker. The topology, sandbox
+and TLS are runtime-verified. The web build fix (`docker/web.Dockerfile:12`)
+ensures workspace dependency order.
+
+**Remaining for Phase 9 completion:**
+
+- Staging smoke tests per `docs/runbook.md` §Staging (requires approved
+  staging host with real Supabase credentials, live AI provider keys, TLS certs,
+  and backup/restore procedure).
+- Record all evidence in `docs/audit.md` (all rows green).
+- Move `[Unreleased]` to `[1.0.0]` in `CHANGELOG.md`.
+- Set `"version": "1.0.0"` in `package.json` (workspace root and all packages).
+- Push annotated tag `v1.0.0`.
+
+These steps require explicit authorization, an isolated staging environment,
+dedicated non-production credentials, and no unintended public exposure.
