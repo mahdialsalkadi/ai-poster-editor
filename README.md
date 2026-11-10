@@ -186,22 +186,27 @@ pnpm typecheck
 pnpm lint
 pnpm format:check
 pnpm test
+pnpm test:coverage
 pnpm build
+pnpm test:e2e
 pnpm audit --prod
 ```
 
-The current test suite has **324 tests**:
+The current package test suite has **436 tests**:
 
 | Package | Tests | Files | Main coverage                                                                                       |
 | ------- | ----- | ----- | --------------------------------------------------------------------------------------------------- |
-| Core    | 201   | 14    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance     |
-| Server  | 80    | 9     | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
+| Core    | 288   | 15    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance     |
+| Server  | 105   | 11    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
 | Web     | 43    | 7     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills and CSP           |
 
-The parser performance test enforces p95 <200 ms for a 200-layer, approximately
-56.4 KiB document. It does not establish a 1–3 ms guarantee or a full-200-KiB
-performance budget. HTML goldens and saved screenshots are not automated visual
-comparisons. There is no E2E suite or editor/export visual-equivalence gate yet.
+The parser performance test enforces p95 <200 ms for a 200-layer, 200 KiB
+document. Coverage gates enforce per-file thresholds on critical parser, style,
+CSS guard and merge modules; the separately timed performance test is excluded
+from instrumentation. CI also runs 10 browser E2E tests and three export visual
+comparisons. See [e2e/goldens/README.md](e2e/goldens/README.md) for the pinned
+environment, thresholds and explicit baseline-update process. These exporter
+goldens do not establish complete editor/export visual equivalence.
 
 `pnpm format` applies the project's formatter. Byte-exact HTML fixtures, captured
 evidence, generated output/lockfile and local tooling are intentionally excluded.
@@ -226,8 +231,8 @@ and pnpm resolves no version published less than a day ago (only the data-only
 - **Persistence:** IndexedDB data is browser-local, not cloud backup or collaborative
   editing. Clearing site data removes documents/assets/snapshots. Corrupt documents
   pause saving for an explicit recovery choice; stale tabs must copy their work or
-  reload. The seven Node storage tests validate the boundary; actual IndexedDB
-  transactions and dialogs were checked separately in Chromium, not CI E2E yet.
+  reload. Storage behavior, including actual IndexedDB transactions and recovery
+  dialogs, is also exercised in Chromium E2E tests in CI.
 - **PDF:** the 794x1123 CSS-pixel A4 preset produces an approximately 595x842 pt
   vector page with embedded/selectable Latin text. Older 2480x3508 documents are
   not silently resized. Print-quality Arabic fidelity and visual parity remain
@@ -243,8 +248,8 @@ and pnpm resolves no version published less than a day ago (only the data-only
   file only lists settings the server actually reads.
 
 See [docs/audit.md](docs/audit.md) for evidence, current verdicts and remaining
-decisions. Work proceeds one phase at a time; Phase 1 repository hygiene does
-not close the Phase 2 security findings.
+decisions. Work proceeds one phase at a time; implemented security controls do
+not replace the outstanding deployment verification.
 
 ## Repository layout
 
@@ -262,13 +267,13 @@ screenshots/        Historical manual verification captures, not visual tests
 
 ## Milestone status
 
-| Baseline milestone | Existing implementation                                        | Remaining qualification                                   |
-| ------------------ | -------------------------------------------------------------- | --------------------------------------------------------- |
-| 1                  | Core contract, parser, serializer, merge and tests             | Broader robustness/coverage gates remain                  |
-| 2–4                | Canvas, selection, transforms, inline editing and inspector    | Trusted-input E2E and visual-regression gates remain      |
-| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Container runtime verification remains                    |
-| 6                  | Local assets, export formats and IndexedDB autosave            | Upload stub, asset preflight and deployment checks remain |
-| 7                  | Gradients, balanced gallery, shortcuts and docs                | Coverage/visual gates and release readiness remain        |
+| Baseline milestone | Existing implementation                                        | Remaining qualification                                  |
+| ------------------ | -------------------------------------------------------------- | -------------------------------------------------------- |
+| 1                  | Core contract, parser, serializer, merge and tests             | Maintain robustness and coverage gates                   |
+| 2–4                | Canvas, selection, transforms, inline editing and inspector    | Full editor/export visual equivalence remains unverified |
+| 5                  | Provider, scoped edits, browser snapshots and spend accounting | Container runtime verification remains                   |
+| 6                  | Local assets, export formats and IndexedDB autosave            | Upload stub and deployment checks remain                 |
+| 7                  | Gradients, balanced gallery, shortcuts and docs                | Release readiness remains                                |
 
 These are functional implementations, not a claim that all original acceptance
 criteria or public-release gates are complete. See [CHANGELOG.md](CHANGELOG.md)

@@ -9,12 +9,13 @@ Pinned environment: Playwright **1.65.0**, Chromium **158.0.8127.18**, revision
 both the runner and server Playwright versions and the launched browser version.
 Locale is en-US, timezone UTC and fixture content has no timestamps or randomness.
 
-Comparison uses a per-pixel color threshold of **0.2** and at most **0.3%**
-different pixels, allowing small rasterization differences without masking layout
-or missing-content changes. The comparator decodes raw pixels through the
-workspace's existing `sharp` dependency rather than Playwright's snapshot PNG
-decoder, which crashes on the current Node 27 alpha's class-based `Inflate`.
-Normal test runs (including CI) **never update** goldens, even if a file is missing.
+The comparator decodes raw pixels through the workspace's existing `sharp`
+dependency. A pixel differs when any channel differs by more than **0.2 × 255**;
+at most **0.3%** of pixels may differ. This is not Playwright's perceptual
+snapshot metric. It allows small rasterization differences without masking layout
+or missing-content changes, and avoids the Playwright PNG decoder's crash on
+Node 27 alpha's class-based `Inflate`. Normal test runs (including CI) **never
+update** goldens, even if a file is missing.
 
 ```bash
 pnpm build

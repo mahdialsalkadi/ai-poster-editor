@@ -1120,11 +1120,42 @@ Added reviewed 600 × 800, 1× PNG goldens for English/Inter, Arabic/Cairo and S
 local gradients. Each comparison uses the real multipart export API and isolated
 Chromium renderer. Tests assert the runner/server Playwright 1.65.0 pins, launched
 Chromium 158.0.8127.18 and output geometry; bundled frozen-lockfile fonts are used.
-Tolerance is a 0.2 per-pixel color threshold with at most 0.3% different pixels.
+The comparator decodes raw pixels with the existing `sharp` dependency and counts
+a pixel as different when any channel differs by more than 0.2 × 255; at most
+0.3% of pixels may differ. This is a per-channel comparison, not Playwright's
+perceptual snapshot metric.
 
-`pnpm update-goldens` is the explicit update command. Normal runs set
-`updateSnapshots: 'none'`, so missing files cannot silently become passing baselines.
+`pnpm update-goldens` explicitly sets `UPDATE_GOLDENS=1`. Normal runs read existing
+files and fail if one is missing; they do not silently create baselines.
 All three generated PNGs were inspected for readable English, joined/right-aligned
 Arabic and the SVG/checkmark gradient, then `pnpm test:visual` passed all three
 comparisons without updating files. These reference exporter regressions do not
 claim universal editor/export pixel equivalence. Harness typecheck also passes.
+
+### Phase 4 hosted verification and review checkpoint
+
+[CI run 42675303186](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42675303186)
+passed on commit `03a249a446e88d4aca10e3b0e52701f146b55552` for both Node 22
+and the workflow's latest Node matrix entry. Both jobs passed typecheck, lint,
+format check, all 436 package tests, the 435-test instrumented coverage run,
+build, all 13 browser tests (10 E2E and three visual comparisons), and the
+blocking production dependency audit. Reports were retained as CI artifacts.
+The ordinary test run includes the separately timed 200 KiB performance test.
+
+The earlier latest-Node run `42674433495` failed because Playwright's PNG
+snapshot decoder could not construct `Inflate` on Node 27 alpha; `03a249a`
+replaced that decoder with `sharp` and the new comparator passed in both hosted
+jobs. The earlier run `42673688874` also had a GitHub infrastructure failure,
+so neither earlier run is treated as a passing matrix.
+
+Local follow-up: `pnpm audit --prod` found no known vulnerabilities. The full
+local `pnpm format:check` also scans the unrelated untracked
+`yemen-cultural-day.html` and reports it unformatted; it was not changed. The
+hosted formatting check covers the committed checkout without that local file.
+
+**Verdict:** Phase 4's CI quality gates are implemented and passed for the tested
+commit. The goldens test exporter regressions, not complete editor/export visual
+equivalence. Docker/container sandbox, proxy TLS, live Supabase and live AI
+integration remain unverified; no staging or public deployment, paid provider
+call, or release tag is implied by this result. Stop here for review before
+starting Phase 5.
