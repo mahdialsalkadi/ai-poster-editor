@@ -1,4 +1,5 @@
 import { DesignError, LIMITS, canonicalizeDoc } from '@poster/core';
+import { createHash } from 'node:crypto';
 import type { ExportFormat, ExportRequest } from '@poster/contracts';
 import { prepareAssets, referencedAssetIds } from './assets.js';
 import { RenderQueue } from './queue.js';
@@ -16,7 +17,41 @@ export type ExportResult = {
   contentType: string;
 };
 
-type Cached = { bytes: Buffer; result: ExportResult; storedAt: number };
+type Cached = { bytes: Buffer; result: ExportResult; storedAt: number; digest: string };
+type Pending = { digest: string; result: Promise<ExportResult> };
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key: string, item: unknown) => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return item;
+    return Object.fromEntries(
+      Object.entries(item).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    );
+  });
+}
+
+function payloadDigest(
+  doc: ExportRequest['doc'],
+  options: ExportRequest['options'],
+  assets: Map<string, Buffer>,
+): string {
+  const { idempotencyKey: _key, ...exportOptions } = options;
+  const files = [...assets.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([id, bytes]) => ({ id, sha256: createHash('sha256').update(bytes).digest('hex') }));
+  return createHash('sha256')
+    .update(stableJson({ doc, options: exportOptions, assets: files }))
+    .digest('hex');
+}
+
+function assertDigest(expected: string, actual: string): void {
+  if (expected !== actual) {
+    throw new DesignError(
+      'INVALID_DOC',
+      'Idempotency key reused with a different export payload',
+      'options.idempotencyKey',
+    );
+  }
+}
 
 export type ExportCaller = { principalId: string; ip: string };
 
@@ -35,6 +70,7 @@ let counter = 0;
 export class ExportService {
   private readonly queue: RenderQueue;
   private readonly cache = new Map<string, Cached>();
+  private readonly pending = new Map<string, Pending>();
   private readonly maxEntries: number;
   private readonly maxBytes: number;
   private readonly ttlMs: number;
@@ -64,7 +100,7 @@ export class ExportService {
   }
 
   private cacheKey(caller: ExportCaller, idempotencyKey: string): string {
-    return `${caller.principalId}|${caller.ip}|${idempotencyKey}`;
+    return JSON.stringify([caller.principalId, caller.ip, idempotencyKey]);
   }
 
   private readCache(key: string): Cached | null {
@@ -84,7 +120,7 @@ export class ExportService {
     this.cacheBytes = Math.max(0, this.cacheBytes - cached.bytes.byteLength);
   }
 
-  private writeCache(key: string, bytes: Buffer, result: ExportResult): void {
+  private writeCache(key: string, bytes: Buffer, result: ExportResult, digest: string): void {
     if (bytes.byteLength > this.maxBytes) return;
     const at = this.now();
     for (const [entryKey, entry] of this.cache) {
@@ -98,7 +134,7 @@ export class ExportService {
       if (oldest === undefined) break;
       this.deleteCache(oldest);
     }
-    this.cache.set(key, { bytes, result, storedAt: at });
+    this.cache.set(key, { bytes, result, storedAt: at, digest });
     this.cacheBytes += bytes.byteLength;
   }
 
@@ -142,11 +178,37 @@ export class ExportService {
 
     const idempotencyKey = options.idempotencyKey;
     const cacheKey = idempotencyKey ? this.cacheKey(caller, idempotencyKey) : null;
+    const digest = cacheKey ? payloadDigest(doc, options, uploaded) : null;
     if (cacheKey) {
       const cached = this.readCache(cacheKey);
-      if (cached) return { ...cached.result, bytes: cached.bytes, cacheHit: true };
+      if (cached) {
+        assertDigest(cached.digest, digest!);
+        return { ...cached.result, bytes: cached.bytes, cacheHit: true };
+      }
+      const pending = this.pending.get(cacheKey);
+      if (pending) {
+        assertDigest(pending.digest, digest!);
+        return { ...(await pending.result), cacheHit: true };
+      }
     }
 
+    const result = this.performExport(doc, options, uploaded, cacheKey, digest);
+    if (!cacheKey || !digest) return result;
+    this.pending.set(cacheKey, { digest, result });
+    try {
+      return await result;
+    } finally {
+      this.pending.delete(cacheKey);
+    }
+  }
+
+  private async performExport(
+    doc: ExportRequest['doc'],
+    options: ExportRequest['options'],
+    uploaded: Map<string, Buffer>,
+    cacheKey: string | null,
+    digest: string | null,
+  ): Promise<ExportResult> {
     const startedAt = Date.now();
     // Queue admission precedes header inspection/decoding, bounding both image
     // memory and browser work rather than just the final render.
@@ -175,7 +237,7 @@ export class ExportService {
       contentType: rendered.contentType,
     };
 
-    if (cacheKey) this.writeCache(cacheKey, rendered.bytes, result);
+    if (cacheKey && digest) this.writeCache(cacheKey, rendered.bytes, result, digest);
 
     return result;
   }

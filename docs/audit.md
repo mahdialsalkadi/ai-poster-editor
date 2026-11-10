@@ -1229,10 +1229,24 @@ paid provider use and the release tag need separate approval.
 ### G1 — Export kill switch
 
 `EXPORT_DISABLED=true` is read when `ExportService` is constructed
-(`apps/server/src/export/service.ts:44-62`); the route checks it before parsing
+(`apps/server/src/export/service.ts:89-100`); the route checks it before parsing
 multipart data (`apps/server/src/routes/export.ts:33-35`) and the API emits a
-startup warning (`apps/server/src/app.ts`). Limits remain available. The
-two tests in `apps/server/test/export-controls.test.ts` passed, verifying both
+startup warning (`apps/server/src/app.ts:67`). Limits remain available. The
+two tests in `apps/server/test/export-controls.test.ts:8-38` passed, verifying both
 direct service refusal and HTTP 422 before multipart parsing; server typecheck
 passed. This switch blocks new work; it does not cancel already-running exports.
-The total deadline and payload-bound cache portions of G1 remain open.
+The total deadline and payload-bound cache portions of G1 remain open at this
+earlier checkpoint; see the next entry for the cache update.
+
+### G1 — Content-bound idempotency
+
+`apps/server/src/export/service.ts:32-54,181-205` now hashes the canonical document, normalized
+export options without the idempotency key, and SHA-256 digests of sorted asset
+IDs/bytes. Cache keys encode principal, IP and key as a tuple. Cached and in-flight
+reuses with changed payloads fail `INVALID_DOC`; identical in-flight requests
+share one result, and a failed attempt removes its in-flight entry. Cache TTL,
+eviction and byte limits still apply; content binding lasts only while the result
+is cached or in flight, not indefinitely. `apps/server/test/export-cache.test.ts:46-224`
+covers changed document, options and asset bytes, concurrent requests, failed
+render retry, principal/IP scoping, TTL and cache caps. The targeted tests and
+server typecheck passed. The total deadline portion remains open.

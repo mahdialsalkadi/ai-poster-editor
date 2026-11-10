@@ -601,16 +601,17 @@ The request is `multipart/form-data`:
 - one binary part per referenced asset, named `asset:<id>` (bare IDs are accepted
   too). Send the `options` and `doc` fields before file parts.
 
-A referenced asset with no part fails `ASSET_UNRESOLVED`; a part for an
-unreferenced id is ignored. The document is canonicalized and validated
+A referenced asset with no part fails `ASSET_UNRESOLVED`; an unreferenced part is
+rejected. The document is canonicalized and validated
 before file parts are copied into request buffers. Repeated requests with the
 same `idempotencyKey` from the same principal and peer address return the stored
 result instead of rendering again. The memory-only cache is scoped by
 authenticated principal plus IP, expires entries after 10 minutes, allows at most
 20 entries and 64 MiB in total, and evicts oldest-first. Results larger than the
-byte budget are not cached. The key is not matched against request content, so a
-caller that reuses one key for a different document can still receive its own
-earlier result; clients must use a fresh key per output.
+byte budget are not cached. A SHA-256 digest binds the key to the canonical
+document, export options (excluding the key) and referenced asset bytes. Reuse
+with a different payload fails `INVALID_DOC`; identical simultaneous requests
+share the in-flight result. Clients must use a fresh key per distinct output.
 
 **Asset re-validation.** Supplied bytes are never trusted. For each asset the
 server checks bytes, sniffs the real type with `file-type` (`image/png`,
