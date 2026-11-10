@@ -1332,3 +1332,16 @@ accepts actual PNG, JPEG and alpha WebP uploads and rejects an oversized header;
 server tests, browser upload E2E, workspace typecheck and lint passed. A copied
 JPEG test fixture initially lacked bytes; isolating formats identified that test
 data error and the corrected real JPEG passed in Chromium.
+
+### G6 — Safe queue configuration overrides
+
+`apps/server/src/export/config.ts:3-43` validates optional `EXPORT_CONCURRENCY`
+and `EXPORT_QUEUE_MAX` at startup; `apps/server/src/app.ts:62-67` applies them to
+the API queue. To preserve existing resource ceilings they can only tighten the
+defaults: concurrency 1–2 and waiting capacity 0–20. Other values fail startup.
+`apps/server/src/routes/export.ts:148-150` reports the actual API queue limits;
+the worker queue and other rate/upload limits remain separately configured or
+compiled. `apps/server/test/export-config.test.ts:9-64` verifies defaults,
+invalid/unsafe inputs, the actual queue metrics and the limits endpoint. The
+targeted configuration/export suites passed 20 tests; typecheck and lint passed.
+`EXPORT_DISABLED` and the per-user budget override were tested in earlier entries.

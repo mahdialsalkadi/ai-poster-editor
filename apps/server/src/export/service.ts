@@ -106,6 +106,11 @@ export class ExportService {
     }
   }
 
+  get queueLimits(): { concurrency: number; queueMax: number } {
+    const { concurrency, maxWaiting } = this.queue.metrics;
+    return { concurrency, queueMax: maxWaiting };
+  }
+
   private cacheKey(caller: ExportCaller, idempotencyKey: string): string {
     return JSON.stringify([caller.principalId, caller.ip, idempotencyKey]);
   }

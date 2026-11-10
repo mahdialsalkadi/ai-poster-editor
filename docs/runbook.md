@@ -15,6 +15,9 @@ designs, request bodies and full environment dumps out of tickets and logs.
   `EXPORT_WORKER_TOKEN`, and `TRUST_PROXY` matching the actual proxy topology.
   Do not enable `ALLOW_PUBLIC_API` on an exposed instance. Configure and test TLS,
   the Chromium sandbox, worker network isolation and backups before exposure.
+- `EXPORT_CONCURRENCY` (1–2) and `EXPORT_QUEUE_MAX` (0–20) optionally tighten the
+  API queue limits; invalid values fail startup. They do not reconfigure the
+  worker's separate queue. `GET /api/export/limits` shows the effective API limits.
 - Leave `AI_PROVIDER` empty or set `AI_DISABLED=true` until a provider, prices,
   cap and any paid usage are explicitly approved. Set a lower
   `AI_USER_DAILY_SPEND_CAP_USD` if users should not consume the entire deployment

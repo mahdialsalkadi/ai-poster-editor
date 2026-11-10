@@ -245,9 +245,9 @@ and pnpm resolves no version published less than a day ago (only the data-only
   layout and a blank. Broader HTML/CSS import remains best-effort and lossy.
 - **AI provider:** OpenAI and OpenAI-compatible APIs only; the optional Anthropic
   adapter is deferred. Unsupported output colors trigger the existing one retry.
-- **Configuration:** export/upload/rate limits currently use constants in
-  `packages/core/src/limits.ts`, not environment overrides. The example environment
-  file only lists settings the server actually reads.
+- **Configuration:** `EXPORT_CONCURRENCY` and `EXPORT_QUEUE_MAX` can tighten the
+  API queue's compiled ceilings, but other export/upload/rate limits remain
+  constants in `packages/core/src/limits.ts`. The worker queue is separate.
 
 See [docs/audit.md](docs/audit.md) for evidence, current verdicts and remaining
 decisions. Work proceeds one phase at a time; implemented security controls do

@@ -700,7 +700,10 @@ in `docs/security.md`; they are not claimed to be active when running `pnpm dev`
 (HTTP 413); queue-full uses `RATE_LIMITED` (HTTP 429); rendering failure/timeout uses `EXPORT_FAILED`;
 missing assets use `ASSET_UNRESOLVED`. `EXPORT_DISABLED=true` disables new export
 requests at API startup with `UNSUPPORTED_FEATURE`; the limits endpoint remains
-available. The export service applies a 25-second response deadline covering
+available and reports the effective API queue settings. `EXPORT_CONCURRENCY`
+(1–2) and `EXPORT_QUEUE_MAX` (0–20) can tighten the API queue's compiled ceilings;
+invalid values prevent startup. The worker queue remains separate. The export
+service applies a 25-second response deadline covering
 queue wait, asset preparation and rendering after multipart reception. Timed-out
 queue waiters are removed. Native image decoding and an already-started render
 may continue after the response; their queue slot stays occupied until they stop,

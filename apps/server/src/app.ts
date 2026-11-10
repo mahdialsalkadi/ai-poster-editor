@@ -11,6 +11,7 @@ import { registerErrorHandler, requestIdOf, safeRequestId } from './errors.js';
 import { loggerOptions } from './logging.js';
 import { ExportService } from './export/service.js';
 import { RenderQueue } from './export/queue.js';
+import { exportQueueConfig } from './export/config.js';
 import { aiRoutes } from './routes/ai.js';
 import { assetRoutes } from './routes/assets.js';
 import { authRoutes } from './routes/auth.js';
@@ -58,10 +59,11 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
   const ai = options.ai !== undefined ? options.ai : createAiServiceFromEnv(process.env, app.log);
   if (process.env.AI_DISABLED?.trim() === 'true') app.log.warn('AI is disabled by AI_DISABLED');
+  const queueConfig = exportQueueConfig(process.env);
   const exportService =
     options.exportService ??
     new ExportService({
-      queue: new RenderQueue(undefined, undefined, (metrics) =>
+      queue: new RenderQueue(queueConfig.concurrency, queueConfig.maxWaiting, (metrics) =>
         app.log.info({ event: 'export.queue', scope: 'api', ...metrics }, 'Export queue changed'),
       ),
     });

@@ -146,7 +146,7 @@ export function exportRoutes(options: { service: ExportService; guard: Guard; li
     });
 
     app.get('/export/limits', async (request) => ({
-      data: EXPORT_LIMITS,
+      data: { ...EXPORT_LIMITS, ...service.queueLimits },
       requestId: requestIdOf(request),
     }));
   };
