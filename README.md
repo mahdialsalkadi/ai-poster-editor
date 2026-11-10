@@ -224,8 +224,9 @@ and pnpm resolves no version published less than a day ago (only the data-only
   sandbox have not been started on the preparing host, so deployment is unverified
   until the checklist in [docs/security.md](docs/security.md) passes.
 - **Spend limits:** the daily total persists in one atomically written file and is
-  enforced per attempt, but it assumes a single API replica and manually configured
-  prices. Multiple replicas need a shared billing store.
+  enforced per attempt, with an optional lower per-principal cap, but it assumes a
+  single API replica and manually configured prices. Multiple replicas need a
+  shared billing store. All shared API-key clients count as one principal.
 - **Dependencies:** Zod was upgraded to the patched 4.6.6 release; `pnpm audit --prod`
   currently reports no known vulnerabilities. Dependency and release-age gates must
   stay in CI as new advisories appear.

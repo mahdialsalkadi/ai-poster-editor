@@ -119,7 +119,7 @@ export class AiService {
       style: input.style,
     });
 
-    const result = await this.attempt(messages, (html) => {
+    const result = await this.attempt(messages, context.sessionId, (html) => {
       const parsed = parseDesignHtml(html);
       if (parsed.doc.layers.length > LIMITS.ai.maxLayers) {
         throw new DesignError(
@@ -163,7 +163,7 @@ export class AiService {
       allowNewLayers: input.allowNewLayers,
     });
 
-    const result = await this.attempt(messages, (html) => {
+    const result = await this.attempt(messages, context.sessionId, (html) => {
       const patch = parseDesignHtml(html).doc;
       if (!input.allowNewLayers) {
         const unknown = patch.layers
@@ -238,6 +238,7 @@ export class AiService {
    */
   private async attempt<T>(
     messages: AiMessage[],
+    principal: string,
     interpret: (html: string) => Attempt<T>,
   ): Promise<Attempt<T> & { usage: AiUsage }> {
     const usage = this.startUsage();
@@ -249,7 +250,7 @@ export class AiService {
         { input: estimatePromptTokens(outgoing), output: this.maxOutputTokens },
         this.prices,
       );
-      const reserved = this.ledger.reserve(estimate);
+      const reserved = this.ledger.reserve(estimate, principal);
       let reply: ProviderReply;
       try {
         reply = await this.provider.complete(outgoing, {
@@ -257,7 +258,7 @@ export class AiService {
           timeoutMs: this.timeoutMs,
         });
       } catch (error) {
-        this.ledger.settle(reserved, 0);
+        this.ledger.settle(reserved, 0, undefined, principal);
         throw error;
       }
 
@@ -266,6 +267,7 @@ export class AiService {
         reserved,
         estimateCost({ input: reply.inputTokens, output: reply.outputTokens }, this.prices),
         reply.model,
+        principal,
       );
 
       const html = extractDesignHtml(reply.text);
@@ -325,9 +327,16 @@ export function createAiServiceFromEnv(
   if (!config) return null;
 
   const cap = positiveNumber(env.AI_DAILY_SPEND_CAP_USD ?? env.AI_DAILY_BUDGET_USD, 5);
+  const effectiveCap = cap > 0 ? cap : 5;
+  const userCapRaw = env.AI_USER_DAILY_SPEND_CAP_USD?.trim();
+  const userCap = userCapRaw ? Number(userCapRaw) : effectiveCap;
+  if (!Number.isFinite(userCap) || userCap < 0) {
+    throw new Error('AI_USER_DAILY_SPEND_CAP_USD must be a non-negative number');
+  }
   const ledgerPath = env.AI_SPEND_LEDGER_PATH?.trim() || '.data/ai-spend.json';
   const ledger = new DailySpendLedger({
-    capUsd: cap > 0 ? cap : 5,
+    capUsd: effectiveCap,
+    userCapUsd: userCap,
     store: new FileSpendStore(ledgerPath),
     ...(logger
       ? {

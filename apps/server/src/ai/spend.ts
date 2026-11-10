@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { DesignError } from '@poster/core';
 
 export type Prices = { inputPerMTok: number; outputPerMTok: number };
@@ -16,7 +16,12 @@ export function utcDay(at: number): string {
   return new Date(at).toISOString().slice(0, 10);
 }
 
-export type SpendState = { day: string; spentUsd: number };
+export type SpendState = { day: string; spentUsd: number; byPrincipal?: Record<string, number> };
+const MAX_PRINCIPALS = 10_000;
+
+function principalKey(principal: string): string {
+  return createHash('sha256').update(principal).digest('hex');
+}
 
 export type SettlementInfo = {
   day: string;
@@ -64,7 +69,7 @@ export class FileSpendStore implements SpendStore {
     if (typeof parsed !== 'object' || parsed === null) {
       throw new Error(`Spend ledger ${this.file} has an invalid shape`);
     }
-    const state = parsed as { day?: unknown; spentUsd?: unknown };
+    const state = parsed as { day?: unknown; spentUsd?: unknown; byPrincipal?: unknown };
     if (
       typeof state.day !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}$/.test(state.day) ||
@@ -74,23 +79,46 @@ export class FileSpendStore implements SpendStore {
     ) {
       throw new Error(`Spend ledger ${this.file} has invalid values`);
     }
+    if (state.byPrincipal !== undefined) {
+      if (
+        typeof state.byPrincipal !== 'object' ||
+        state.byPrincipal === null ||
+        Array.isArray(state.byPrincipal)
+      ) {
+        throw new Error(`Spend ledger ${this.file} has invalid principal totals`);
+      }
+      const entries = Object.entries(state.byPrincipal);
+      if (
+        entries.length > MAX_PRINCIPALS ||
+        entries.some(
+          ([key, value]) =>
+            !/^[a-f0-9]{64}$/.test(key) ||
+            typeof value !== 'number' ||
+            !Number.isFinite(value) ||
+            value < 0,
+        )
+      )
+        throw new Error(`Spend ledger ${this.file} has invalid principal totals`);
+      const totals = Object.fromEntries(entries) as Record<string, number>;
+      const sum = Object.values(totals).reduce((total, value) => total + value, 0);
+      if (sum > state.spentUsd + 1e-8)
+        throw new Error(`Spend ledger ${this.file} has inconsistent principal totals`);
+      return { day: state.day, spentUsd: state.spentUsd, byPrincipal: totals };
+    }
     return { day: state.day, spentUsd: state.spentUsd };
   }
 
   save(state: SpendState): void {
     mkdirSync(dirname(this.file), { recursive: true });
     const temporary = `${this.file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
-    writeFileSync(
-      temporary,
-      `${JSON.stringify({ day: state.day, spentUsd: Math.round(state.spentUsd * 1e6) / 1e6 })}\n`,
-      { mode: 0o600 },
-    );
+    writeFileSync(temporary, `${JSON.stringify(state)}\n`, { mode: 0o600 });
     renameSync(temporary, this.file);
   }
 }
 
 export type DailySpendLedgerOptions = {
   capUsd: number;
+  userCapUsd?: number;
   store?: SpendStore;
   now?: () => number;
   onSettle?: (info: SettlementInfo) => void;
@@ -103,12 +131,16 @@ export type DailySpendLedgerOptions = {
  */
 export class DailySpendLedger {
   private readonly capUsd: number;
+  private readonly userCapUsd: number;
   private readonly store: SpendStore | undefined;
   private readonly now: () => number;
   private readonly onSettle: ((info: SettlementInfo) => void) | undefined;
   private day = '';
   private spent = 0;
   private reserved = 0;
+  private readonly byPrincipal = new Map<string, number>();
+  private readonly reservedByPrincipal = new Map<string, number>();
+  private legacySpend = 0;
   private storageFailed = false;
 
   constructor(options: DailySpendLedgerOptions);
@@ -116,11 +148,13 @@ export class DailySpendLedger {
   constructor(options: DailySpendLedgerOptions | number, now: () => number = Date.now) {
     if (typeof options === 'number') {
       this.capUsd = options;
+      this.userCapUsd = options;
       this.now = now;
       this.store = undefined;
       this.onSettle = undefined;
     } else {
       this.capUsd = options.capUsd;
+      this.userCapUsd = options.userCapUsd ?? options.capUsd;
       this.now = options.now ?? Date.now;
       this.store = options.store;
       this.onSettle = options.onSettle;
@@ -129,6 +163,12 @@ export class DailySpendLedger {
     if (loaded) {
       this.day = loaded.day;
       this.spent = loaded.spentUsd;
+      for (const [key, amount] of Object.entries(loaded.byPrincipal ?? {}))
+        this.byPrincipal.set(key, amount);
+      this.legacySpend = Math.max(
+        0,
+        this.spent - [...this.byPrincipal.values()].reduce((a, b) => a + b, 0),
+      );
     }
   }
 
@@ -137,7 +177,8 @@ export class DailySpendLedger {
     if (today !== this.day) {
       this.day = today;
       this.spent = 0;
-      this.reserved = 0;
+      this.byPrincipal.clear();
+      this.legacySpend = 0;
       this.persist();
     }
   }
@@ -145,7 +186,11 @@ export class DailySpendLedger {
   private persist(): void {
     if (!this.store) return;
     try {
-      this.store.save({ day: this.day, spentUsd: this.spent });
+      this.store.save({
+        day: this.day,
+        spentUsd: this.spent,
+        byPrincipal: Object.fromEntries(this.byPrincipal),
+      });
     } catch (cause) {
       this.storageFailed = true;
       throw new DesignError(
@@ -157,7 +202,7 @@ export class DailySpendLedger {
     }
   }
 
-  reserve(estimateUsd: number): number {
+  reserve(estimateUsd: number, principal = 'anonymous'): number {
     this.roll();
     if (this.storageFailed) {
       throw new DesignError(
@@ -167,6 +212,7 @@ export class DailySpendLedger {
       );
     }
     const amount = Math.max(0, estimateUsd);
+    const key = principalKey(principal);
     if (this.spent + this.reserved + amount > this.capUsd + 1e-9) {
       throw new DesignError(
         'SPEND_CAP_EXCEEDED',
@@ -179,14 +225,52 @@ export class DailySpendLedger {
         },
       );
     }
+    const userSpent = this.legacySpend + (this.byPrincipal.get(key) ?? 0);
+    const userReserved = this.reservedByPrincipal.get(key) ?? 0;
+    if (userSpent + userReserved + amount > this.userCapUsd + 1e-9) {
+      throw new DesignError(
+        'SPEND_CAP_EXCEEDED',
+        'The per-user daily AI spend cap would be exceeded',
+        'ai',
+        {
+          capUsd: this.userCapUsd,
+          spentUsd: Math.round(userSpent * 1e6) / 1e6,
+          reservedUsd: Math.round(userReserved * 1e6) / 1e6,
+        },
+      );
+    }
+    if (
+      !this.byPrincipal.has(key) &&
+      !this.reservedByPrincipal.has(key) &&
+      this.byPrincipal.size + this.reservedByPrincipal.size >= MAX_PRINCIPALS &&
+      new Set([...this.byPrincipal.keys(), ...this.reservedByPrincipal.keys()]).size >=
+        MAX_PRINCIPALS
+    ) {
+      throw new DesignError(
+        'SPEND_CAP_EXCEEDED',
+        'The daily AI principal limit has been reached',
+        'ai',
+      );
+    }
+    if (!this.byPrincipal.has(key)) this.byPrincipal.set(key, 0);
     this.reserved += amount;
+    this.reservedByPrincipal.set(key, userReserved + amount);
     return amount;
   }
 
-  settle(reservedUsd: number, actualUsd: number, model?: string): void {
+  settle(reservedUsd: number, actualUsd: number, model?: string, principal = 'anonymous'): void {
+    this.roll();
+    const key = principalKey(principal);
     this.reserved = Math.max(0, this.reserved - Math.max(0, reservedUsd));
+    const remaining = Math.max(
+      0,
+      (this.reservedByPrincipal.get(key) ?? 0) - Math.max(0, reservedUsd),
+    );
+    if (remaining === 0) this.reservedByPrincipal.delete(key);
+    else this.reservedByPrincipal.set(key, remaining);
     const actual = Math.max(0, actualUsd);
     this.spent += actual;
+    if (actual > 0) this.byPrincipal.set(key, (this.byPrincipal.get(key) ?? 0) + actual);
     let persistenceError: DesignError | undefined;
     try {
       this.persist();

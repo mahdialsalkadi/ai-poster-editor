@@ -761,10 +761,13 @@ entry after a successful restore. Snapshots never leave the browser and the
 server keeps none. They are lost when site data is cleared and are a convenience,
 not durable version history or a collaborative conflict mechanism.
 
-**Daily spend cap.** The spent total is persisted per UTC day in a small JSON file
+**Daily spend cap.** The total and per-principal totals are persisted per UTC day in a JSON file
 (`AI_SPEND_LEDGER_PATH`, default `.data/ai-spend.json`). Writes replace the file by
 atomic rename; corrupt content makes startup fail closed rather than silently
-resetting the budget. Reservations stay in memory.
+resetting the budget. Principals are represented by SHA-256 hashes, which are
+pseudonymous rather than anonymous. Reservations stay in memory, including across
+UTC midnight while attempts are in flight, and are lost on process restart. A
+legacy ledger's unattributed spend counts against each principal until rollover.
 
 Before **each provider attempt** the ledger reserves:
 
@@ -776,7 +779,10 @@ estimatedPromptTokens × inputPrice / 1,000,000
 If `spent + reserved + estimate` exceeds the configured cap, it returns
 `SPEND_CAP_EXCEEDED` (HTTP 402) before that attempt is sent. The reservation is
 settled to reported usage immediately after the reply, so a validation retry
-reserves its own budget. The prompt estimate remains character-count/4; provider
+reserves its own budget. `AI_USER_DAILY_SPEND_CAP_USD` optionally limits each
+authenticated principal and defaults to the deployment cap; all clients sharing
+the API key share one principal. At most 10,000 principals are admitted per day;
+new principals fail closed when that bound is reached. The prompt estimate remains character-count/4; provider
 usage omitted from a reply is treated as zero. Both prices are required at startup
 when `AI_PROVIDER` is configured instead of silently defaulting. `AI_DISABLED=true`
 turns AI off. Every settlement (reserved, actual, cumulative and model) is logged.

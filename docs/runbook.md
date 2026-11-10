@@ -16,7 +16,9 @@ designs, request bodies and full environment dumps out of tickets and logs.
   Do not enable `ALLOW_PUBLIC_API` on an exposed instance. Configure and test TLS,
   the Chromium sandbox, worker network isolation and backups before exposure.
 - Leave `AI_PROVIDER` empty or set `AI_DISABLED=true` until a provider, prices,
-  cap and any paid usage are explicitly approved. Model prices are configured by
+  cap and any paid usage are explicitly approved. Set a lower
+  `AI_USER_DAILY_SPEND_CAP_USD` if users should not consume the entire deployment
+  cap; shared API-key clients count as one principal. Model prices are configured by
   the operator, not fetched or validated against a live price table.
 - Configure log collection, retention, access controls and alerts externally;
   this repository does not ship an alerting service. Compose's local JSON-file
@@ -89,7 +91,8 @@ UTC day and reconcile provider-side usage. Do **not** delete, truncate or reset
 the ledger to restore service; that can silently reopen budget headroom.
 
 Stop the API before restoring a verified backup using the host's approved volume
-backup procedure. Restore the `day` and non-negative `spentUsd` as valid JSON,
+backup procedure. Restore the entire ledger, including `day`, `spentUsd` and
+`byPrincipal` (hashed principal totals), as valid JSON,
 with permissions allowing only the intended API account; confirm the recovered
 amount does not understate provider charges, including in-flight attempts.
 Preserve evidence and escalate if the correct total is uncertain. Start a single

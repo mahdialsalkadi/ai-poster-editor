@@ -1270,3 +1270,22 @@ All 25 targeted export/queue tests and workspace typecheck passed. The initial
 parallel typecheck/test run briefly used a stale compiled core constant; rerunning
 after the core build passed. This is a bounded response deadline, not proof of a
 forcibly terminated native operation or a timeout on incoming multipart bytes.
+
+### G2 — Per-principal AI budget
+
+`apps/server/src/ai/service.ts:122,166,239-271,331-342` carries the authenticated
+session principal into per-attempt reservations and reads the optional
+`AI_USER_DAILY_SPEND_CAP_USD` (default: deployment cap). The file-backed ledger
+validates and persists hashed principal totals (`apps/server/src/ai/spend.ts:19-24,72-109`),
+and enforces global and individual caps (`apps/server/src/ai/spend.ts:205-259`).
+Legacy unattributed spend is conservatively counted against each principal for
+the rest of the UTC day. In-flight reservations remain counted across midnight;
+settlements are attributed to the day they settle (`apps/server/src/ai/spend.ts:175-183,261-290`).
+All shared API-key users share one principal, hashes are pseudonymous, and the
+single-replica and in-memory-reservation limitations remain. Admission of new
+principal IDs fails closed at 10,000; the limiter-key task is separate.
+
+`apps/server/test/spend.test.ts:104-215,274-280` tests separate and concurrent
+users, persistence and restart, legacy migration, midnight, malformed state and
+configuration. Targeted AI/auth/spend suites passed 46 tests; server typecheck
+and lint passed. No paid or live AI provider was contacted.
