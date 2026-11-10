@@ -1000,7 +1000,22 @@ export function App() {
           onAccount={() => setModal('account')}
         />
 
-        <div className="workspace">
+        <div
+          className="workspace"
+          onDragOver={(event) => {
+            if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            const supported = Array.from(event.dataTransfer.files).filter((file) =>
+              /^image\/(png|jpeg|webp)$/.test(file.type),
+            );
+            if (supported.length === 0) return;
+            event.preventDefault();
+            const transfer = new DataTransfer();
+            supported.forEach((file) => transfer.items.add(file));
+            void handleUpload(transfer.files);
+          }}
+        >
           <LeftRail
             panel={panel}
             onPanelChange={(next) => setPanel((current) => (current === next ? null : next))}

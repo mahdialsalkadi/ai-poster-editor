@@ -9,9 +9,9 @@ import {
 } from './layers.js';
 
 describe('element and text library', () => {
-  it('exposes 14 unique elements and 6 unique text presets', () => {
-    expect(ELEMENT_KINDS).toHaveLength(14);
-    expect(new Set(ELEMENT_KINDS).size).toBe(14);
+  it('exposes 26 unique elements and 6 unique text presets', () => {
+    expect(ELEMENT_KINDS).toHaveLength(26);
+    expect(new Set(ELEMENT_KINDS).size).toBe(26);
     expect(TEXT_PRESETS).toHaveLength(6);
     expect(new Set(TEXT_PRESETS.map((preset) => preset.id)).size).toBe(6);
   });

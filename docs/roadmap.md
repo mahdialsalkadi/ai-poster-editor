@@ -48,13 +48,12 @@ run for it.
 
 ## Known gaps at 1.0.0
 
-- **Element library:** 14 of the planned 26 kinds ship. The remaining twelve need
-  the plan's enumerated list; the six added in this cycle are triangle, diamond,
-  hexagon, cross, plus and heart.
+- **Element library:** complete at 26 kinds, each with a shared `ELEMENT_PATHS`
+  glyph, an Arabic label and bilingual UI keys.
 - **Template palette application:** `applyTemplatePalette` through
   `mergeDesignDoc` is not implemented yet.
-- **Drag-and-drop uploads:** files can be added from the rail picker, not by
-  dropping them on the canvas.
+- **Drag-and-drop uploads:** images can be dropped on the workspace and go through
+  the same MIME, size and count guards as the rail picker.
 - **Two-column export layout:** attempted and reverted because it made the 1×
   scale control unclickable in Playwright; export is single-column.
 - **Clipboard copy:** implemented, but not covered by an automated test because

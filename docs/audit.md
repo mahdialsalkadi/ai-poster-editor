@@ -1963,3 +1963,29 @@ complete.
 **Verdict: PASS** for the local release checklist. Tag `v1.0.0` marks this
 commit. Deployment hardening (container isolation, TLS, live auth) remains out
 of scope and is called out both in the README and the roadmap.
+
+### Phase 11.1 — 26-element catalogue and drag-and-drop uploads
+
+**What changed:**
+
+- `apps/web/src/editor/layers.ts` completes `ElementKind` at **26** kinds,
+  adding ellipse, square, chevron, shield, badge, speech, burst, wave, frame,
+  arrowUp, dots and quote. Their glyphs live in the single exported
+  `ELEMENT_PATHS` map used by both `createElementLayer` and the rail thumbnail,
+  and every kind has an Arabic label plus bilingual `MessageKey`s.
+- `apps/web/src/App.tsx` accepts image drops on the workspace. `dragover` is
+  cancelled only for file drags; `drop` filters the transfer to
+  `image/png|jpeg|webp`, rebuilds a `FileList` and reuses `handleUpload`, so the
+  existing MIME, byte, dimension, count and rate guards all still apply.
+- `docs/roadmap.md` moves both items out of the known-gaps list.
+
+**Measured contract:** `apps/web/src/editor/library.test.ts` now asserts 26
+unique kinds and inserts all of them, checking unique kind-prefixed ids, positive
+width, positive height and non-empty SVG nodes; the six text presets are still
+built and checked.
+
+**Gates:** typecheck, lint, build and all web unit suites (**11 files**) passed.
+
+**Verdict: PASS.** The drop path itself is not covered by a browser test; it
+reuses the same upload function as the picker, whose guards are covered by
+`e2e/uploads.spec.ts`.

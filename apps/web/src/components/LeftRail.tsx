@@ -43,6 +43,18 @@ const ELEMENT_KEYS: Record<ElementKind, MessageKey> = {
   cross: 'elementCross',
   plus: 'elementPlus',
   heart: 'elementHeart',
+  ellipse: 'elementEllipse',
+  square: 'elementSquare',
+  chevron: 'elementChevron',
+  shield: 'elementShield',
+  badge: 'elementBadge',
+  speech: 'elementSpeech',
+  burst: 'elementBurst',
+  wave: 'elementWave',
+  frame: 'elementFrame',
+  arrowUp: 'elementArrowUp',
+  dots: 'elementDots',
+  quote: 'elementQuote',
 };
 
 const PRESET_KEYS: Record<string, MessageKey> = {

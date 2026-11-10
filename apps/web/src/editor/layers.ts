@@ -33,7 +33,19 @@ export type ElementKind =
   | 'hexagon'
   | 'cross'
   | 'plus'
-  | 'heart';
+  | 'heart'
+  | 'ellipse'
+  | 'square'
+  | 'chevron'
+  | 'shield'
+  | 'badge'
+  | 'speech'
+  | 'burst'
+  | 'wave'
+  | 'frame'
+  | 'arrowUp'
+  | 'dots'
+  | 'quote';
 
 export const ELEMENT_LABELS: Record<ElementKind, string> = {
   rectangle: 'مستطيل',
@@ -50,6 +62,18 @@ export const ELEMENT_LABELS: Record<ElementKind, string> = {
   cross: 'تصالب',
   plus: 'زائد',
   heart: 'قلب',
+  ellipse: 'بيضاوي',
+  square: 'مربع',
+  chevron: 'شيفرون',
+  shield: 'درع',
+  badge: 'شارة',
+  speech: 'فقاعة حوار',
+  burst: 'انفجار',
+  wave: 'موجة',
+  frame: 'إطار',
+  arrowUp: 'سهم أعلى',
+  dots: 'نقاط',
+  quote: 'اقتباس',
 };
 
 /** Simple 100×100 glyphs shared by the canvas layer and the rail thumbnail. */
@@ -60,6 +84,21 @@ export const ELEMENT_PATHS: Partial<Record<ElementKind, string>> = {
   cross: 'M20 8 L50 38 L80 8 L92 20 L62 50 L92 80 L80 92 L50 62 L20 92 L8 80 L38 50 L8 20 Z',
   plus: 'M38 8 H62 V38 H92 V62 H62 V92 H38 V62 H8 V38 H38 Z',
   heart: 'M50 88 C20 66 8 48 8 34 A20 20 0 0 1 50 24 A20 20 0 0 1 92 34 C92 48 80 66 50 88 Z',
+  ellipse: 'M6 50 A44 30 0 1 0 94 50 A44 30 0 1 0 6 50 Z',
+  square: 'M10 10 H90 V90 H10 Z',
+  chevron: 'M20 12 L52 50 L20 88 H38 L70 50 L38 12 Z',
+  shield: 'M50 6 L90 20 V50 C90 74 72 90 50 96 C28 90 10 74 10 50 V20 Z',
+  badge:
+    'M50 6 L62 26 L85 20 L79 43 L96 50 L79 57 L85 80 L62 74 L50 94 L38 74 L15 80 L21 57 L4 50 L21 43 L15 20 L38 26 Z',
+  speech: 'M12 14 H88 V66 H52 L36 88 V66 H12 Z',
+  burst:
+    'M50 2 L58 30 L84 14 L74 42 L98 50 L74 58 L84 86 L58 70 L50 98 L42 70 L16 86 L26 58 L2 50 L26 42 L16 14 L42 30 Z',
+  wave: 'M4 62 C24 34 38 34 50 50 C62 66 76 66 96 38 V74 H4 Z',
+  frame: 'M10 10 H90 V90 H10 Z M26 26 V74 H74 V26 Z',
+  arrowUp: 'M50 8 L92 50 H68 V92 H32 V50 H8 Z',
+  dots: 'M20 20h8v8h-8Z M46 20h8v8h-8Z M72 20h8v8h-8Z M20 46h8v8h-8Z M46 46h8v8h-8Z M72 46h8v8h-8Z M20 72h8v8h-8Z M46 72h8v8h-8Z M72 72h8v8h-8Z',
+  quote:
+    'M14 20 H44 V46 C44 66 34 80 14 86 L10 70 C22 66 28 58 28 46 H14 Z M54 20 H84 V46 C84 66 74 80 54 86 L50 70 C62 66 68 58 68 46 H54 Z',
 };
 
 export const ELEMENT_KINDS: ElementKind[] = [
@@ -77,6 +116,18 @@ export const ELEMENT_KINDS: ElementKind[] = [
   'cross',
   'plus',
   'heart',
+  'ellipse',
+  'square',
+  'chevron',
+  'shield',
+  'badge',
+  'speech',
+  'burst',
+  'wave',
+  'frame',
+  'arrowUp',
+  'dots',
+  'quote',
 ];
 
 function truncate(value: string, max: number): string {
