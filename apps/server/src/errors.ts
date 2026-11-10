@@ -2,10 +2,17 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { DesignError } from '@poster/core';
 import { API_ERROR_STATUS, type ErrorEnvelope } from '@poster/contracts';
 import { ZodError } from 'zod';
+import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
+
+const REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
+
+export function safeRequestId(request: IncomingMessage): string {
+  const header = request.headers['x-request-id'];
+  return typeof header === 'string' && REQUEST_ID.test(header) ? header : randomUUID();
+}
 
 export function requestIdOf(request: FastifyRequest): string {
-  const header = request.headers['x-request-id'];
-  if (typeof header === 'string' && header.length >= 8 && header.length <= 128) return header;
   return request.id;
 }
 

@@ -7,7 +7,7 @@ import { createAiServiceFromEnv, type AiService } from './ai/service.js';
 import { SlidingWindowLimiter } from './ai/rate-limit.js';
 import { assertProductionAuth, createAuthFromEnv, type AuthService } from './auth/service.js';
 import { authGuard, rateLimitGuard } from './auth/guard.js';
-import { registerErrorHandler, requestIdOf } from './errors.js';
+import { registerErrorHandler, requestIdOf, safeRequestId } from './errors.js';
 import { loggerOptions } from './logging.js';
 import { ExportService } from './export/service.js';
 import { RenderQueue } from './export/queue.js';
@@ -51,7 +51,8 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
   const app = Fastify({
     logger: (options.logger ?? process.env.NODE_ENV !== 'test') && loggerOptions(options.logStream),
     bodyLimit: 1024 * 1024,
-    requestIdHeader: 'x-request-id',
+    requestIdHeader: false,
+    genReqId: safeRequestId,
     trustProxy: trustProxy(process.env.TRUST_PROXY),
   });
 

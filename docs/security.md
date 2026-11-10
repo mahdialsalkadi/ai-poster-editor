@@ -88,6 +88,10 @@ to return well-formed or benign data.
   removes expired keys first, then evicts the oldest active key. An evicted
   identity can start a fresh window, so a high-cardinality flood can weaken
   rate enforcement. Use an upstream WAF or shared limiter for public operation.
+- **Caller request IDs.** IDs are restricted to 8–64 ASCII letters, digits,
+  dots, underscores and hyphens; invalid IDs are replaced before request logging.
+  A credential that happens to match that syntax cannot be recognized as a
+  secret, so clients and proxies must never put credentials in request IDs.
 - **Browser-local snapshots.** They are not encrypted at rest and are lost when
   site data is cleared.
 - **Container behaviour is unverified here.** The images, compose file and proxy

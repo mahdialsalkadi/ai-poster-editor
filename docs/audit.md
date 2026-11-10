@@ -1301,3 +1301,14 @@ typecheck and lint passed. **Residual security tradeoff:** active-key eviction
 can reset an evicted identity's window under a high-cardinality flood; this bound
 prevents unbounded memory growth but does not replace an upstream WAF or shared
 rate limiter.
+
+### G3 — Request ID validation
+
+`apps/server/src/errors.ts:6-16` accepts only 8–64 ASCII alphanumeric, dot,
+underscore or hyphen characters and generates a UUID otherwise. Fastify's raw
+header shortcut is disabled and the generator is installed before logging
+(`apps/server/src/app.ts:54-55`), so `request.id`, log records and API envelopes
+agree. `apps/server/test/request-id.test.ts` verifies valid and invalid IDs in
+responses and logs; request-ID, logging and export suites passed 16 tests, and
+server typecheck/lint passed. The allow-list does not recognize credentials that
+already fit the syntax; clients must never use secrets as request IDs.
