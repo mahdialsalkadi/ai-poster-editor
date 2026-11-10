@@ -842,6 +842,12 @@ the version lives on `DesignDoc`, and `canonicalizeDoc` rejects a document whose
 
 ## 15. Contract changelog
 
+### 2026-11-10 — Phase 8 UI language
+
+- Editor chrome uses typed Arabic/English dictionaries. The `AR / EN` toggle
+  persists to `localStorage` under `poster.ui.lang` and updates the app and
+  document `dir`/`lang`; design content is not translated.
+
 ### 2026-11-10 — Phase 3 correctness and editor persistence
 
 - Artboard data dimensions accept positive numbers or px; output stays canonical px.

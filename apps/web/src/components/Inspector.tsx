@@ -19,6 +19,7 @@ import {
   type TextLayer,
   type TextTransform,
 } from '@poster/core';
+import { useI18n, type MessageKey, type Translator } from '../i18n.js';
 import type { AssetEntry } from '../editor/assets.js';
 import { insertStop, normalizeStops, reverseGradient } from '../editor/fills.js';
 import type { UpdateOptions } from '../editor/history.js';
@@ -62,33 +63,35 @@ export type InspectorProps = {
   onReplaceImage: (layerId: string, asset: AssetEntry) => void;
 };
 
-const FONT_GROUPS = [
-  {
-    label: 'خطوط عربية',
-    options: ALLOWED_FONTS.filter((font) => ARABIC_FONTS.has(font)).map((font) => ({
-      value: font,
-      label: font,
-    })),
-  },
-  {
-    label: 'خطوط لاتينية',
-    options: ALLOWED_FONTS.filter((font) => !ARABIC_FONTS.has(font)).map((font) => ({
-      value: font,
-      label: font,
-    })),
-  },
-];
+function fontGroups(t: Translator) {
+  return [
+    {
+      label: t('fontGroupArabic'),
+      options: ALLOWED_FONTS.filter((font) => ARABIC_FONTS.has(font)).map((font) => ({
+        value: font,
+        label: font,
+      })),
+    },
+    {
+      label: t('fontGroupLatin'),
+      options: ALLOWED_FONTS.filter((font) => !ARABIC_FONTS.has(font)).map((font) => ({
+        value: font,
+        label: font,
+      })),
+    },
+  ];
+}
 
 const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => ({
   value: String(weight),
   label: String(weight),
 }));
 
-const TYPE_LABEL: Record<Layer['type'], string> = {
-  text: 'نص',
-  shape: 'شكل',
-  image: 'صورة',
-  svg: 'رسم SVG',
+const TYPE_LABEL: Record<Layer['type'], MessageKey> = {
+  text: 'layerText',
+  shape: 'layerShape',
+  image: 'layerImage',
+  svg: 'layerSvg',
 };
 
 function clampArtboard(width: number, height: number): { width: number; height: number } {
@@ -112,6 +115,7 @@ function clampArtboard(width: number, height: number): { width: number; height: 
 }
 
 function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => void }) {
+  const { t } = useI18n();
   const updateStop = (index: number, patch: { color?: string; pos?: number }) => {
     if (fill.kind !== 'linear') return;
     const stops = fill.stops.map((stop, stopIndex) =>
@@ -129,7 +133,7 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
     <div className="fill-editor">
       <Segmented
         value={fill.kind}
-        ariaLabel="نوع التعبئة"
+        ariaLabel={t('fillType')}
         onChange={(kind) => {
           if (kind === fill.kind) return;
           if (kind === 'solid') {
@@ -148,8 +152,8 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
           }
         }}
         options={[
-          { value: 'solid', label: 'لون', title: 'لون واحد' },
-          { value: 'linear', label: 'تدرج', title: 'تدرج خطي' },
+          { value: 'solid', label: t('solid'), title: t('solidColor') },
+          { value: 'linear', label: t('gradient'), title: t('linearGradient') },
         ]}
       />
 
@@ -159,7 +163,7 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
         <div className="gradient-editor">
           <div className="gradient-preview" style={{ background: fillToCss(fill) }} />
           <Row cols={2}>
-            <Field label="الزاوية">
+            <Field label={t('angle')}>
               <NumberInput
                 value={fill.angle}
                 min={0}
@@ -168,7 +172,7 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
                 suffix="°"
               />
             </Field>
-            <Field label="الألوان">
+            <Field label={t('colors')}>
               <span className="muted-value">
                 {fill.stops.length} / {LIMITS.gradient.maxStops}
               </span>
@@ -178,7 +182,7 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
             <div key={index} className="gradient-stop">
               <ColorInput
                 value={stop.color}
-                ariaLabel={`لون التوقف ${index + 1}`}
+                ariaLabel={t('stopColor', { index: index + 1 })}
                 onChange={(color) => updateStop(index, { color })}
               />
               <NumberInput
@@ -190,7 +194,7 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
               />
               <IconButton
                 icon="trash"
-                label="حذف توقف اللون"
+                label={t('deleteStop')}
                 size="sm"
                 disabled={fill.stops.length <= LIMITS.gradient.minStops}
                 onClick={() => removeStop(index)}
@@ -199,14 +203,14 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
           ))}
           <div className="gradient-actions">
             <Button icon="backward" onClick={() => onChange(reverseGradient(fill))}>
-              عكس التدرج
+              {t('reverseGradient')}
             </Button>
             {fill.stops.length < LIMITS.gradient.maxStops ? (
               <Button
                 icon="plus"
                 onClick={() => onChange({ ...fill, stops: insertStop(fill.stops) })}
               >
-                إضافة لون
+                {t('addColor')}
               </Button>
             ) : null}
           </div>
@@ -223,11 +227,12 @@ function BorderEditor({
   value: Border | undefined;
   onChange: (border: Border | undefined) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="sub-editor">
       <Toggle
         checked={value !== undefined}
-        label="إطار"
+        label={t('border')}
         onChange={(checked) =>
           onChange(checked ? { width: 2, style: 'solid', color: '#f5a524' } : undefined)
         }
@@ -235,7 +240,7 @@ function BorderEditor({
       {value ? (
         <>
           <Row cols={2}>
-            <Field label="السماكة">
+            <Field label={t('thickness')}>
               <NumberInput
                 value={value.width}
                 min={1}
@@ -244,20 +249,20 @@ function BorderEditor({
                 suffix="px"
               />
             </Field>
-            <Field label="النمط">
+            <Field label={t('styleLabel')}>
               <Select
                 value={value.style}
-                ariaLabel="نمط الإطار"
+                ariaLabel={t('borderStyle')}
                 onChange={(style: Border['style']) => onChange({ ...value, style })}
                 options={[
-                  { value: 'solid', label: 'متصل' },
-                  { value: 'dashed', label: 'متقطع' },
-                  { value: 'dotted', label: 'منقط' },
+                  { value: 'solid', label: t('borderSolid') },
+                  { value: 'dashed', label: t('borderDashed') },
+                  { value: 'dotted', label: t('borderDotted') },
                 ]}
               />
             </Field>
           </Row>
-          <Field label="لون الإطار" wide>
+          <Field label={t('borderColor')} wide>
             <ColorInput value={value.color} onChange={(color) => onChange({ ...value, color })} />
           </Field>
         </>
@@ -273,11 +278,12 @@ function ShadowEditor({
   value: Shadow | undefined;
   onChange: (shadow: Shadow | undefined) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="sub-editor">
       <Toggle
         checked={value !== undefined}
-        label="ظل"
+        label={t('shadow')}
         onChange={(checked) =>
           onChange(checked ? { x: 0, y: 18, blur: 36, color: '#00000066' } : undefined)
         }
@@ -285,7 +291,7 @@ function ShadowEditor({
       {value ? (
         <>
           <Row cols={3}>
-            <Field label="أفقي">
+            <Field label={t('horizontal')}>
               <NumberInput
                 value={value.x}
                 min={-500}
@@ -293,7 +299,7 @@ function ShadowEditor({
                 onChange={(x) => onChange({ ...value, x })}
               />
             </Field>
-            <Field label="رأسي">
+            <Field label={t('vertical')}>
               <NumberInput
                 value={value.y}
                 min={-500}
@@ -301,7 +307,7 @@ function ShadowEditor({
                 onChange={(y) => onChange({ ...value, y })}
               />
             </Field>
-            <Field label="التمويه">
+            <Field label={t('blur')}>
               <NumberInput
                 value={value.blur}
                 min={0}
@@ -310,7 +316,7 @@ function ShadowEditor({
               />
             </Field>
           </Row>
-          <Field label="لون الظل" wide>
+          <Field label={t('shadowColor')} wide>
             <ColorInput value={value.color} onChange={(color) => onChange({ ...value, color })} />
           </Field>
         </>
@@ -326,6 +332,7 @@ function DocumentPanel({
   doc: DesignDoc;
   onUpdate: InspectorProps['onUpdate'];
 }) {
+  const { t } = useI18n();
   const setSize = (width: number, height: number) => {
     const next = clampArtboard(width, height);
     onUpdate((current) => ({ ...current, width: next.width, height: next.height }), {
@@ -335,9 +342,9 @@ function DocumentPanel({
 
   return (
     <>
-      <Section title="مقاس اللوحة" icon="grid">
+      <Section title={t('artboardSize')} icon="grid">
         <Row cols={2}>
-          <Field label="العرض">
+          <Field label={t('width')}>
             <NumberInput
               value={doc.width}
               min={LIMITS.document.minArtboardSide}
@@ -346,7 +353,7 @@ function DocumentPanel({
               onChange={(width) => setSize(width, doc.height)}
             />
           </Field>
-          <Field label="الارتفاع">
+          <Field label={t('height')}>
             <NumberInput
               value={doc.height}
               min={LIMITS.document.minArtboardSide}
@@ -359,9 +366,9 @@ function DocumentPanel({
         <div className="size-presets">
           {[
             { label: '4:5', width: 1080, height: 1350 },
-            { label: 'مربع', width: 1080, height: 1080 },
-            { label: 'ستوري', width: 1080, height: 1920 },
-            { label: 'أفقي', width: 1920, height: 1080 },
+            { label: t('square'), width: 1080, height: 1080 },
+            { label: t('story'), width: 1080, height: 1920 },
+            { label: t('landscape'), width: 1920, height: 1080 },
             { label: 'A4', ...A4_SIZE },
           ].map((preset) => (
             <button
@@ -377,34 +384,36 @@ function DocumentPanel({
           ))}
         </div>
         <p className="panel-hint">
-          الحد الأقصى {LIMITS.document.maxArtboardSide}px لكل ضلع و
-          {Math.round(LIMITS.document.maxArtboardPixels / 1_000_000)} مليون بكسل.
+          {t('sizeLimit', {
+            side: LIMITS.document.maxArtboardSide,
+            megapixels: Math.round(LIMITS.document.maxArtboardPixels / 1_000_000),
+          })}
         </p>
       </Section>
 
-      <Section title="الخلفية" icon="image">
+      <Section title={t('background')} icon="image">
         <FillEditor
           fill={doc.background}
           onChange={(background) => onUpdate((current) => ({ ...current, background }))}
         />
       </Section>
 
-      <Section title="التصميم" icon="layers">
+      <Section title={t('design')} icon="layers">
         <div className="stat-list">
           <div>
-            <span>الطبقات</span>
+            <span>{t('layers')}</span>
             <strong>
               {doc.layers.length} / {LIMITS.document.maxLayers}
             </strong>
           </div>
           <div>
-            <span>المقاس</span>
+            <span>{t('size')}</span>
             <strong>
               {doc.width} × {doc.height}
             </strong>
           </div>
           <div>
-            <span>الإصدار</span>
+            <span>{t('version')}</span>
             <strong>v{doc.schemaVersion}</strong>
           </div>
         </div>
@@ -414,6 +423,7 @@ function DocumentPanel({
 }
 
 function LayerHeader({ layer, onUpdate }: { layer: Layer; onUpdate: InspectorProps['onUpdate'] }) {
+  const { t } = useI18n();
   return (
     <div className="inspector-layer-head">
       <span className={`layer-type layer-type--${layer.type}`}>
@@ -434,7 +444,7 @@ function LayerHeader({ layer, onUpdate }: { layer: Layer; onUpdate: InspectorPro
         <TextInput
           value={layer.name}
           maxLength={LIMITS.document.maxLayerNameLength}
-          ariaLabel="اسم الطبقة"
+          ariaLabel={t('layerName')}
           onChange={(name) =>
             onUpdate(
               (doc) => updateLayer(doc, layer.id, (item) => ({ ...item, name: name || item.name })),
@@ -443,13 +453,13 @@ function LayerHeader({ layer, onUpdate }: { layer: Layer; onUpdate: InspectorPro
           }
         />
         <span className="inspector-layer-sub">
-          {TYPE_LABEL[layer.type]} · {layer.id}
+          {t(TYPE_LABEL[layer.type])} · {layer.id}
         </span>
       </div>
       <div className="inspector-layer-flags">
         <IconButton
           icon={layer.hidden ? 'eyeOff' : 'eye'}
-          label={layer.hidden ? 'إظهار الطبقة' : 'إخفاء الطبقة'}
+          label={layer.hidden ? t('showLayer') : t('hideLayer')}
           size="sm"
           active={layer.hidden}
           onClick={() =>
@@ -460,7 +470,7 @@ function LayerHeader({ layer, onUpdate }: { layer: Layer; onUpdate: InspectorPro
         />
         <IconButton
           icon={layer.locked ? 'lock' : 'unlock'}
-          label={layer.locked ? 'فتح القفل' : 'قفل الطبقة'}
+          label={layer.locked ? t('unlockLayer') : t('lockLayer')}
           size="sm"
           active={layer.locked}
           onClick={() =>
@@ -483,6 +493,7 @@ function TransformSection({
   layer: Layer;
   onUpdate: InspectorProps['onUpdate'];
 }) {
+  const { t } = useI18n();
   const height = 'height' in layer ? layer.height : estimatedLayerHeight(layer);
   const patch = (
     values: Partial<Pick<Layer, 'left' | 'top' | 'width' | 'rotation' | 'opacity'>>,
@@ -508,7 +519,7 @@ function TransformSection({
   };
 
   return (
-    <Section title="الموضع والحجم" icon="fit">
+    <Section title={t('positionAndSize')} icon="fit">
       <Row cols={2}>
         <Field label="X">
           <NumberInput value={layer.left} onChange={(left) => patch({ left })} suffix="px" />
@@ -518,7 +529,7 @@ function TransformSection({
         </Field>
       </Row>
       <Row cols={2}>
-        <Field label="العرض">
+        <Field label={t('width')}>
           <NumberInput
             value={layer.width}
             min={1}
@@ -527,7 +538,7 @@ function TransformSection({
             suffix="px"
           />
         </Field>
-        <Field label="الارتفاع">
+        <Field label={t('height')}>
           <NumberInput
             value={Math.round(height)}
             min={1}
@@ -539,7 +550,7 @@ function TransformSection({
         </Field>
       </Row>
       <Row cols={2}>
-        <Field label="الدوران">
+        <Field label={t('rotation')}>
           <NumberInput
             value={layer.rotation}
             min={0}
@@ -548,33 +559,33 @@ function TransformSection({
             suffix="°"
           />
         </Field>
-        <Field label="الشفافية">
+        <Field label={t('opacity')}>
           <Slider
             value={Math.round(layer.opacity * 100)}
             min={0}
             max={100}
-            ariaLabel="شفافية الطبقة"
+            ariaLabel={t('layerOpacity')}
             onChange={(value) => patch({ opacity: value / 100 })}
           />
         </Field>
       </Row>
       <div className="transform-actions">
-        <Button icon="alignLeft" onClick={() => patch({ left: 0 })} title="محاذاة إلى يسار اللوحة">
-          يسار
+        <Button icon="alignLeft" onClick={() => patch({ left: 0 })} title={t('alignLeftCanvas')}>
+          {t('left')}
         </Button>
         <Button
           icon="alignCenter"
           onClick={() => patch({ left: Math.round((doc.width - layer.width) / 2) })}
-          title="توسيط أفقي"
+          title={t('centerHorizontally')}
         >
-          وسط
+          {t('center')}
         </Button>
         <Button
           icon="alignRight"
           onClick={() => patch({ left: Math.round(doc.width - layer.width) })}
-          title="محاذاة إلى يمين اللوحة"
+          title={t('alignRightCanvas')}
         >
-          يمين
+          {t('right')}
         </Button>
       </div>
     </Section>
@@ -590,6 +601,7 @@ function TextSection({
   onUpdate: InspectorProps['onUpdate'];
   onStartEditText: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const patchStyle = (values: Partial<TextLayer['style']>) => {
     onUpdate(
       (doc) =>
@@ -608,14 +620,14 @@ function TextSection({
 
   return (
     <>
-      <Section title="النص" icon="text">
-        <Field label="المحتوى" wide>
+      <Section title={t('text')} icon="text">
+        <Field label={t('content')} wide>
           <TextArea
             value={inlineToPlain(layer.content)}
             rows={4}
             maxLength={LIMITS.text.maxCodepointsPerLayer}
             dir={layer.dir}
-            ariaLabel="محتوى النص"
+            ariaLabel={t('textContent')}
             onChange={(value) =>
               onUpdate((doc) => replaceTextContent(doc, layer.id, plainToInline(value)), {
                 coalesceKey: `text-content-${layer.id}`,
@@ -624,27 +636,24 @@ function TextSection({
           />
         </Field>
         {layer.content.some((node) => node.kind === 'span') ? (
-          <p className="panel-hint">
-            هذا النص يحتوي تنسيقات داخلية (عريض أو مائل أو لون). تحرير المحتوى أو التحرير المباشر
-            يحوّل النص إلى نمط واحد.
-          </p>
+          <p className="panel-hint">{t('richTextHint')}</p>
         ) : null}
         <Button icon="text" onClick={() => onStartEditText(layer.id)} full>
-          تحرير مباشر على اللوحة
+          {t('editOnCanvas')}
         </Button>
       </Section>
 
-      <Section title="الخط" icon="textLayer">
-        <Field label="العائلة" wide>
+      <Section title={t('font')} icon="textLayer">
+        <Field label={t('family')} wide>
           <Select
             value={layer.style.fontFamily}
-            groups={FONT_GROUPS}
-            ariaLabel="عائلة الخط"
+            groups={fontGroups(t)}
+            ariaLabel={t('fontFamily')}
             onChange={(fontFamily: AllowedFont) => patchStyle({ fontFamily })}
           />
         </Field>
         <Row cols={2}>
-          <Field label="الحجم">
+          <Field label={t('fontSize')}>
             <NumberInput
               value={layer.style.fontSize}
               min={LIMITS.text.minFontSize}
@@ -653,17 +662,17 @@ function TextSection({
               onChange={(fontSize) => patchStyle({ fontSize })}
             />
           </Field>
-          <Field label="الوزن">
+          <Field label={t('weight')}>
             <Select
               value={String(layer.style.fontWeight)}
               options={WEIGHTS}
-              ariaLabel="وزن الخط"
+              ariaLabel={t('fontWeight')}
               onChange={(weight) => patchStyle({ fontWeight: Number(weight) })}
             />
           </Field>
         </Row>
         <Row cols={2}>
-          <Field label="تباعد الأسطر">
+          <Field label={t('lineHeight')}>
             <NumberInput
               value={layer.style.lineHeight}
               min={LIMITS.text.minLineHeight}
@@ -672,10 +681,10 @@ function TextSection({
               onChange={(lineHeight) => patchStyle({ lineHeight })}
             />
           </Field>
-          <Field label="تباعد الحروف">
+          <Field label={t('letterSpacing')}>
             <NumberInput
               value={layer.style.letterSpacing}
-              ariaLabel="تباعد الحروف"
+              ariaLabel={t('letterSpacing')}
               disabled={requiresZeroLetterSpacing(layer.dir, inlineToPlain(layer.content))}
               min={LIMITS.text.minLetterSpacing}
               max={LIMITS.text.maxLetterSpacing}
@@ -684,55 +693,55 @@ function TextSection({
             />
           </Field>
         </Row>
-        <Field label="المحاذاة" wide>
+        <Field label={t('alignment')} wide>
           <Segmented
             value={layer.style.align}
-            ariaLabel="محاذاة النص"
+            ariaLabel={t('textAlignment')}
             onChange={(align: TextAlign) => patchStyle({ align })}
             options={[
-              { value: 'left', icon: 'alignLeft', title: 'يسار' },
-              { value: 'center', icon: 'alignCenter', title: 'وسط' },
-              { value: 'right', icon: 'alignRight', title: 'يمين' },
-              { value: 'justify', icon: 'alignJustify', title: 'ضبط' },
+              { value: 'left', icon: 'alignLeft', title: t('left') },
+              { value: 'center', icon: 'alignCenter', title: t('center') },
+              { value: 'right', icon: 'alignRight', title: t('right') },
+              { value: 'justify', icon: 'alignJustify', title: t('justify') },
             ]}
           />
         </Field>
-        <Field label="الاتجاه" wide>
+        <Field label={t('direction')} wide>
           <Segmented
             value={layer.dir}
-            ariaLabel="اتجاه النص"
+            ariaLabel={t('textDirection')}
             onChange={(dir) => patchLayer({ dir })}
             options={[
-              { value: 'rtl', label: 'RTL', title: 'من اليمين إلى اليسار' },
-              { value: 'ltr', label: 'LTR', title: 'من اليسار إلى اليمين' },
+              { value: 'rtl', label: 'RTL', title: t('rtlTitle') },
+              { value: 'ltr', label: 'LTR', title: t('ltrTitle') },
             ]}
           />
         </Field>
-        <Field label="لون النص" wide>
+        <Field label={t('textColor')} wide>
           <ColorInput value={layer.style.color} onChange={(color) => patchStyle({ color })} />
         </Field>
-        <Field label="التحويل" wide>
+        <Field label={t('transform')} wide>
           <Select
             value={layer.style.textTransform}
-            ariaLabel="تحويل حالة الأحرف"
+            ariaLabel={t('textTransform')}
             onChange={(textTransform: TextTransform) => patchStyle({ textTransform })}
             options={[
-              { value: 'none', label: 'بدون' },
-              { value: 'uppercase', label: 'أحرف كبيرة' },
-              { value: 'lowercase', label: 'أحرف صغيرة' },
-              { value: 'capitalize', label: 'أول حرف كبير' },
+              { value: 'none', label: t('none') },
+              { value: 'uppercase', label: t('uppercase') },
+              { value: 'lowercase', label: t('lowercase') },
+              { value: 'capitalize', label: t('capitalize') },
             ]}
           />
         </Field>
         <div className="inline-toggles">
           <Toggle
             checked={layer.style.italic}
-            label="مائل"
+            label={t('italic')}
             onChange={(italic) => patchStyle({ italic })}
           />
           <Toggle
             checked={layer.style.underline}
-            label="تسطير"
+            label={t('underline')}
             onChange={(underline) => patchStyle({ underline })}
           />
         </div>
@@ -760,6 +769,7 @@ function ShapeSection({
   layer: ShapeLayer;
   onUpdate: InspectorProps['onUpdate'];
 }) {
+  const { t } = useI18n();
   const patchStyle = (updater: (style: ShapeLayer['style']) => ShapeLayer['style']) => {
     onUpdate(
       (doc) =>
@@ -771,14 +781,14 @@ function ShapeSection({
   };
 
   return (
-    <Section title="الشكل" icon="shape">
-      <Field label="التعبئة" wide>
+    <Section title={t('shape')} icon="shape">
+      <Field label={t('fill')} wide>
         <FillEditor
           fill={layer.style.fill}
           onChange={(fill) => patchStyle((style) => ({ ...style, fill }))}
         />
       </Field>
-      <Field label="استدارة الزوايا" wide>
+      <Field label={t('cornerRadius')} wide>
         <NumberInput
           value={layer.style.radius}
           min={0}
@@ -820,6 +830,7 @@ function ImageSection({
   onUpdate: InspectorProps['onUpdate'];
   onReplaceImage: (layerId: string, asset: AssetEntry) => void;
 }) {
+  const { t } = useI18n();
   const currentAssetId = layer.src.startsWith('asset:') ? layer.src.slice('asset:'.length) : '';
   const patchStyle = (values: Partial<ImageLayer['style']>) => {
     onUpdate(
@@ -832,20 +843,20 @@ function ImageSection({
   };
 
   return (
-    <Section title="الصورة" icon="image">
-      <Field label="الاقتصاص" wide>
+    <Section title={t('image')} icon="image">
+      <Field label={t('crop')} wide>
         <Segmented
           value={layer.style.fit}
-          ariaLabel="طريقة ملء الإطار"
+          ariaLabel={t('crop')}
           onChange={(fit: ObjectFit) => patchStyle({ fit })}
           options={[
-            { value: 'cover', label: 'تغطية', title: 'املأ الإطار واقتطع الزائد' },
-            { value: 'contain', label: 'احتواء', title: 'أظهر الصورة كاملة' },
-            { value: 'fill', label: 'تمديد', title: 'مدد الصورة لملء الإطار' },
+            { value: 'cover', label: t('cover'), title: t('coverTitle') },
+            { value: 'contain', label: t('contain'), title: t('containTitle') },
+            { value: 'fill', label: t('fillImage'), title: t('fillTitle') },
           ]}
         />
       </Field>
-      <Field label="استدارة الزوايا" wide>
+      <Field label={t('cornerRadius')} wide>
         <NumberInput
           value={layer.style.radius}
           min={0}
@@ -855,30 +866,30 @@ function ImageSection({
         />
       </Field>
       <Row cols={2}>
-        <Field label="التمركز الأفقي">
+        <Field label={t('horizontalPosition')}>
           <Slider
             value={layer.style.position.x}
             min={0}
             max={100}
-            ariaLabel="التمركز الأفقي للصورة"
+            ariaLabel={t('imageHorizontalPosition')}
             onChange={(x) => patchStyle({ position: { ...layer.style.position, x } })}
           />
         </Field>
-        <Field label="التمركز الرأسي">
+        <Field label={t('verticalPosition')}>
           <Slider
             value={layer.style.position.y}
             min={0}
             max={100}
-            ariaLabel="التمركز الرأسي للصورة"
+            ariaLabel={t('imageVerticalPosition')}
             onChange={(y) => patchStyle({ position: { ...layer.style.position, y } })}
           />
         </Field>
       </Row>
-      <Field label="النص البديل" wide hint="وصف قصير لقارئات الشاشة ومحركات البحث">
+      <Field label={t('altText')} wide hint={t('altHint')}>
         <TextInput
           value={layer.alt ?? ''}
           maxLength={300}
-          ariaLabel="النص البديل للصورة"
+          ariaLabel={t('imageAlt')}
           onChange={(alt) =>
             onUpdate(
               (doc) =>
@@ -891,17 +902,17 @@ function ImageSection({
         />
       </Field>
       {assets.length > 0 ? (
-        <Field label="استبدال الصورة" wide>
+        <Field label={t('replaceImage')} wide>
           <Select
             value={currentAssetId}
-            ariaLabel="استبدال الصورة"
+            ariaLabel={t('replaceImage')}
             onChange={(assetId) => {
               const asset = assets.find((item) => item.id === assetId);
               if (asset) onReplaceImage(layer.id, asset);
             }}
             options={[
               ...(currentAssetId && !assets.some((asset) => asset.id === currentAssetId)
-                ? [{ value: currentAssetId, label: 'الصورة الحالية (غير متاحة)' }]
+                ? [{ value: currentAssetId, label: t('currentImageUnavailable') }]
                 : []),
               ...assets.map((asset) => ({
                 value: asset.id,
@@ -911,7 +922,7 @@ function ImageSection({
           />
         </Field>
       ) : (
-        <p className="panel-hint">أضف صورة من لوحة «الصور» لاستبدال هذه الطبقة.</p>
+        <p className="panel-hint">{t('addImageHint')}</p>
       )}
       <BorderEditor
         value={layer.style.border}
@@ -936,6 +947,7 @@ function ImageSection({
 }
 
 function SvgSection({ layer }: { layer: SvgLayer }) {
+  const { t } = useI18n();
   const count = (() => {
     let total = 0;
     const walk = (nodes: SvgLayer['nodes']): void => {
@@ -951,21 +963,18 @@ function SvgSection({ layer }: { layer: SvgLayer }) {
   })();
 
   return (
-    <Section title="رسم SVG" icon="svgLayer">
+    <Section title={t('svgDrawing')} icon="svgLayer">
       <div className="stat-list">
         <div>
-          <span>العناصر</span>
+          <span>{t('elements')}</span>
           <strong>{count}</strong>
         </div>
         <div>
           <span>viewBox</span>
-          <strong className="mono">{layer.viewBox ?? 'تلقائي'}</strong>
+          <strong className="mono">{layer.viewBox ?? t('automatic')}</strong>
         </div>
       </div>
-      <p className="panel-hint">
-        الرسوم تمر عبر قائمة SVG المسموحة فقط. عدّل الألوان من الخصائص العامة أو استبدل الرسم من
-        العناصر.
-      </p>
+      <p className="panel-hint">{t('svgHint')}</p>
     </Section>
   );
 }
@@ -987,58 +996,76 @@ function ArrangeSection({
   onDuplicate: InspectorProps['onDuplicate'];
   onDelete: InspectorProps['onDelete'];
 }) {
+  const { t } = useI18n();
   const single = selection.length === 1 ? selection[0] : null;
 
   return (
-    <Section title="الترتيب والمحاذاة" icon="layers">
+    <Section title={t('arrange')} icon="layers">
       {single ? (
         <div className="arrange-grid">
-          <Button icon="front" onClick={() => onReorder(single, 'front')} title="إلى الأمام تماماً">
-            أمام
+          <Button icon="front" onClick={() => onReorder(single, 'front')} title={t('frontTitle')}>
+            {t('front')}
           </Button>
-          <Button icon="forward" onClick={() => onReorder(single, 'forward')} title="خطوة للأمام">
-            تقديم
+          <Button
+            icon="forward"
+            onClick={() => onReorder(single, 'forward')}
+            title={t('forwardTitle')}
+          >
+            {t('forward')}
           </Button>
-          <Button icon="back" onClick={() => onReorder(single, 'back')} title="إلى الخلف تماماً">
-            خلف
+          <Button icon="back" onClick={() => onReorder(single, 'back')} title={t('backTitle')}>
+            {t('back')}
           </Button>
-          <Button icon="backward" onClick={() => onReorder(single, 'backward')} title="خطوة للخلف">
-            تأخير
+          <Button
+            icon="backward"
+            onClick={() => onReorder(single, 'backward')}
+            title={t('backwardTitle')}
+          >
+            {t('backward')}
           </Button>
         </div>
       ) : null}
 
       <div className="align-grid">
-        <IconButton icon="alignLeft" label="محاذاة يسار" onClick={() => onAlign('left')} />
-        <IconButton icon="alignCenter" label="توسيط أفقي" onClick={() => onAlign('centerX')} />
-        <IconButton icon="alignRight" label="محاذاة يمين" onClick={() => onAlign('right')} />
-        <IconButton icon="alignTop" label="محاذاة أعلى" onClick={() => onAlign('top')} />
-        <IconButton icon="alignMiddle" label="توسيط رأسي" onClick={() => onAlign('centerY')} />
-        <IconButton icon="alignBottom" label="محاذاة أسفل" onClick={() => onAlign('bottom')} />
+        <IconButton icon="alignLeft" label={t('alignLeft')} onClick={() => onAlign('left')} />
+        <IconButton
+          icon="alignCenter"
+          label={t('alignCenterX')}
+          onClick={() => onAlign('centerX')}
+        />
+        <IconButton icon="alignRight" label={t('alignRight')} onClick={() => onAlign('right')} />
+        <IconButton icon="alignTop" label={t('alignTop')} onClick={() => onAlign('top')} />
+        <IconButton
+          icon="alignMiddle"
+          label={t('alignCenterY')}
+          onClick={() => onAlign('centerY')}
+        />
+        <IconButton icon="alignBottom" label={t('alignBottom')} onClick={() => onAlign('bottom')} />
       </div>
 
       {selection.length >= 3 ? (
         <div className="row">
           <Button icon="alignJustify" onClick={() => onDistribute('horizontal')}>
-            توزيع أفقي
+            {t('distributeHorizontal')}
           </Button>
           <Button icon="alignMiddle" onClick={() => onDistribute('vertical')}>
-            توزيع رأسي
+            {t('distributeVertical')}
           </Button>
         </div>
       ) : null}
 
       <div className="row">
         <Button icon="duplicate" onClick={() => onDuplicate(selection)}>
-          تكرار
+          {t('duplicate')}
         </Button>
         <Button icon="trash" variant="danger" onClick={() => onDelete(selection)}>
-          حذف
+          {t('delete')}
         </Button>
       </div>
 
       <div className="nudge-hint">
-        <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> للتحريك، مع <kbd>Shift</kbd> خطوة كبيرة.
+        <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> {t('nudgeMove')} <kbd>Shift</kbd>{' '}
+        {t('nudgeLargeStep')}
       </div>
       <Button
         icon="grid"
@@ -1054,7 +1081,7 @@ function ArrangeSection({
           }))
         }
       >
-        محاذاة إلى شبكة البكسل
+        {t('snapToPixelGrid')}
       </Button>
     </Section>
   );
@@ -1073,18 +1100,25 @@ function MultiPanel({
   onDuplicate: InspectorProps['onDuplicate'];
   onDelete: InspectorProps['onDelete'];
 }) {
+  const { t } = useI18n();
   return (
-    <Section title={`${selection.length} طبقات محددة`} icon="layers">
-      <p className="panel-hint">
-        تنطبق المحاذاة على حدود اللوحة. التوزيع يحتاج ثلاث طبقات أو أكثر.
-      </p>
+    <Section title={t('multipleSelected', { count: selection.length })} icon="layers">
+      <p className="panel-hint">{t('multiHint')}</p>
       <div className="align-grid">
-        <IconButton icon="alignLeft" label="محاذاة يسار" onClick={() => onAlign('left')} />
-        <IconButton icon="alignCenter" label="توسيط أفقي" onClick={() => onAlign('centerX')} />
-        <IconButton icon="alignRight" label="محاذاة يمين" onClick={() => onAlign('right')} />
-        <IconButton icon="alignTop" label="محاذاة أعلى" onClick={() => onAlign('top')} />
-        <IconButton icon="alignMiddle" label="توسيط رأسي" onClick={() => onAlign('centerY')} />
-        <IconButton icon="alignBottom" label="محاذاة أسفل" onClick={() => onAlign('bottom')} />
+        <IconButton icon="alignLeft" label={t('alignLeft')} onClick={() => onAlign('left')} />
+        <IconButton
+          icon="alignCenter"
+          label={t('alignCenterX')}
+          onClick={() => onAlign('centerX')}
+        />
+        <IconButton icon="alignRight" label={t('alignRight')} onClick={() => onAlign('right')} />
+        <IconButton icon="alignTop" label={t('alignTop')} onClick={() => onAlign('top')} />
+        <IconButton
+          icon="alignMiddle"
+          label={t('alignCenterY')}
+          onClick={() => onAlign('centerY')}
+        />
+        <IconButton icon="alignBottom" label={t('alignBottom')} onClick={() => onAlign('bottom')} />
       </div>
       <div className="row">
         <Button
@@ -1092,22 +1126,22 @@ function MultiPanel({
           onClick={() => onDistribute('horizontal')}
           disabled={selection.length < 3}
         >
-          توزيع أفقي
+          {t('distributeHorizontal')}
         </Button>
         <Button
           icon="alignMiddle"
           onClick={() => onDistribute('vertical')}
           disabled={selection.length < 3}
         >
-          توزيع رأسي
+          {t('distributeVertical')}
         </Button>
       </div>
       <div className="row">
         <Button icon="duplicate" onClick={() => onDuplicate(selection)}>
-          تكرار
+          {t('duplicate')}
         </Button>
         <Button icon="trash" variant="danger" onClick={() => onDelete(selection)}>
-          حذف
+          {t('delete')}
         </Button>
       </div>
     </Section>
@@ -1127,16 +1161,17 @@ export function Inspector({
   onStartEditText,
   onReplaceImage,
 }: InspectorProps) {
+  const { t } = useI18n();
   const selectedLayers = doc.layers.filter((layer) => selection.includes(layer.id));
   const single = selectedLayers.length === 1 ? selectedLayers[0] : null;
 
   return (
-    <aside className="inspector" aria-label="خصائص التصميم">
+    <aside className="inspector" aria-label={t('inspectorAria')}>
       <header className="inspector-header">
         <span className="panel-icon">
           <Icon name="panel" size={17} />
         </span>
-        <h2>الخصائص</h2>
+        <h2>{t('inspectorTitle')}</h2>
         {selection.length > 0 ? (
           <span className="badge badge--accent">{selection.length}</span>
         ) : null}

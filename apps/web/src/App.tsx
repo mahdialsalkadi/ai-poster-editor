@@ -23,6 +23,14 @@ import { LeftRail, type PanelId } from './components/LeftRail.js';
 import { Toasts, type ToastItem, type ToastTone } from './components/Toasts.js';
 import { TopBar, type SaveState } from './components/TopBar.js';
 import { WarningsBar } from './components/WarningsBar.js';
+import {
+  I18nContext,
+  applyDocumentLang,
+  readStoredLang,
+  translator,
+  writeStoredLang,
+  type Lang,
+} from './i18n.js';
 import { currentUser, editDesign, generateDesign, type AiUsage } from './editor/api.js';
 import {
   createAssetFromBase64,
@@ -301,11 +309,20 @@ export function App() {
   const [snapshots, setSnapshots] = useState<StoredSnapshot[]>([]);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [uiLang, setUiLang] = useState<Lang>(() => readStoredLang());
   const importRef = useRef<HTMLInputElement>(null);
   const layerClipboard = useRef<Layer[]>([]);
   const pasteCount = useRef(0);
 
   const scale = Math.min(2, Math.max(0.08, fitScale * zoom));
+  const t = useMemo(() => translator(uiLang), [uiLang]);
+  const dir = uiLang === 'ar' ? ('rtl' as const) : ('ltr' as const);
+  const i18n = useMemo(() => ({ lang: uiLang, dir, t, setLang: setUiLang }), [uiLang, dir, t]);
+
+  useEffect(() => {
+    applyDocumentLang(uiLang);
+    writeStoredLang(uiLang);
+  }, [uiLang]);
 
   const notify = useCallback((tone: ToastTone, message: string) => {
     const id = `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -458,7 +475,7 @@ export function App() {
   const addText = useCallback(
     (preset: TextPreset) => {
       if (!canAddLayer(doc)) {
-        notify('error', 'وصلت إلى الحد الأقصى للطبقات');
+        notify('error', t('toastMaxLayers'));
         return;
       }
       const layer = textLayerFor(doc, preset, doc.layers.length);
@@ -466,33 +483,33 @@ export function App() {
       setSelection([layer.id]);
       setPanel('layers');
     },
-    [doc, history, notify],
+    [doc, history, notify, t],
   );
 
   const addElement = useCallback(
     (kind: ElementKind) => {
       if (!canAddLayer(doc)) {
-        notify('error', 'وصلت إلى الحد الأقصى للطبقات');
+        notify('error', t('toastMaxLayers'));
         return;
       }
       const layer = elementLayerFor(doc, kind);
       history.update((current) => addLayer(current, layer));
       setSelection([layer.id]);
     },
-    [doc, history, notify],
+    [doc, history, notify, t],
   );
 
   const addImage = useCallback(
     (asset: AssetEntry) => {
       if (!canAddLayer(doc)) {
-        notify('error', 'وصلت إلى الحد الأقصى للطبقات');
+        notify('error', t('toastMaxLayers'));
         return;
       }
       const layer = imageLayerFor(doc, asset);
       history.update((current) => addLayer(current, layer));
       setSelection([layer.id]);
     },
-    [doc, history, notify],
+    [doc, history, notify, t],
   );
 
   const handleUpload = useCallback(
@@ -506,21 +523,21 @@ export function App() {
           added.push(entry);
         }
         setAssets((current) => [...current, ...added]);
-        notify('success', `أُضيفت ${added.length} صورة`);
+        notify('success', t('toastImagesAdded', { count: added.length }));
       } catch (cause) {
         added.forEach(revokeAsset);
-        notify('error', cause instanceof Error ? cause.message : 'تعذر رفع الصورة');
+        notify('error', cause instanceof Error ? cause.message : t('toastUploadFailed'));
       } finally {
         setUploadBusy(false);
       }
     },
-    [assets.length, notify],
+    [assets.length, notify, t],
   );
 
   const handleGenerate = useCallback(async () => {
     const trimmed = prompt.trim();
     if (trimmed.length < 3) {
-      notify('error', 'اكتب وصفًا أطول للتصميم');
+      notify('error', t('toastPromptTooShort'));
       return;
     }
     setAiBusy(true);
@@ -543,11 +560,11 @@ export function App() {
       setSelection([]);
       setWarnings(parsed.warnings);
       setLastUsage(result.data.usage);
-      notify('success', 'تم توليد التصميم');
+      notify('success', t('toastDesignGenerated'));
     } catch (cause) {
-      notify('error', cause instanceof Error ? cause.message : 'مخرج التوليد غير صالح');
+      notify('error', cause instanceof Error ? cause.message : t('toastInvalidOutput'));
     }
-  }, [prompt, doc.width, doc.height, language, style, history, notify]);
+  }, [prompt, doc.width, doc.height, language, style, history, notify, t]);
 
   const handleEdit = useCallback(
     async (instruction: string) => {
@@ -577,12 +594,12 @@ export function App() {
         history.replace(parsed.doc);
         setWarnings(parsed.warnings);
         setLastUsage(result.data.usage);
-        notify('success', 'تم تطبيق التعديل');
+        notify('success', t('toastEditApplied'));
       } catch (cause) {
-        notify('error', cause instanceof Error ? cause.message : 'مخرج التعديل غير صالح');
+        notify('error', cause instanceof Error ? cause.message : t('toastEditInvalid'));
       }
     },
-    [doc, history, notify, selection],
+    [doc, history, notify, selection, t],
   );
 
   const handleRestoreSnapshot = useCallback(
@@ -595,22 +612,22 @@ export function App() {
         setWarnings(parsed.warnings);
         await deleteSnapshotRecord(id);
         setSnapshots((current) => current.filter((item) => item.id !== id));
-        notify('success', 'تمت استعادة النسخة السابقة');
+        notify('success', t('toastSnapshotRestored'));
       } catch {
-        notify('error', 'النسخة السابقة غير صالحة');
+        notify('error', t('toastSnapshotInvalid'));
       }
     },
-    [snapshots, history, notify],
+    [snapshots, history, notify, t],
   );
 
   const copyHtml = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(serializeDesignDoc(doc));
-      notify('success', 'تم نسخ Design HTML إلى الحافظة');
+      notify('success', t('toastHtmlCopied'));
     } catch {
-      notify('error', 'تعذر النسخ إلى الحافظة');
+      notify('error', t('toastCopyFailed'));
     }
-  }, [doc, notify]);
+  }, [doc, notify, t]);
 
   const saveNow = useCallback(async () => {
     if (!storageReady || storageConflict) return;
@@ -619,13 +636,13 @@ export function App() {
       const record = await persist(doc, name);
       setLastSavedAt(record.savedAt);
       setSaveState('saved');
-      notify('success', 'تم الحفظ محليًا');
+      notify('success', t('toastSavedLocally'));
     } catch (cause) {
       if (cause instanceof DocumentConflictError) setStorageConflict(true);
       setSaveState('error');
-      notify('error', 'تعذر الحفظ محليًا');
+      notify('error', t('toastSaveFailed'));
     }
-  }, [doc, name, notify, persist, storageReady, storageConflict]);
+  }, [doc, name, notify, persist, storageReady, storageConflict, t]);
 
   const handleImportFile = useCallback(
     async (file: File) => {
@@ -650,13 +667,13 @@ export function App() {
         setWarnings(imported.warnings);
         setSelection([]);
         setEditingId(null);
-        notify('success', `تم استيراد ${file.name}`);
+        notify('success', t('toastImported', { name: file.name }));
       } catch (cause) {
         added.forEach(revokeAsset);
-        notify('error', cause instanceof Error ? cause.message : 'تعذر استيراد الملف');
+        notify('error', cause instanceof Error ? cause.message : t('toastImportFailed'));
       }
     },
-    [assets.length, history, notify],
+    [assets.length, history, notify, t],
   );
 
   useEffect(() => {
@@ -677,7 +694,7 @@ export function App() {
         event.preventDefault();
         const result = pasteLayers(doc, layerClipboard.current, (pasteCount.current + 1) * 20);
         if (result.ids.length === 0) {
-          notify('error', 'وصلت إلى الحد الأقصى للطبقات');
+          notify('error', t('toastMaxLayers'));
           return;
         }
         pasteCount.current += 1;
@@ -779,363 +796,371 @@ export function App() {
     storageReady,
     storageConflict,
     notify,
+    t,
   ]);
 
   return (
-    <div className="app" dir="rtl">
-      {!storageReady || storageConflict ? (
-        <div className="modal" role="dialog" aria-modal="true" aria-label="استعادة الحفظ المحلي">
-          <div className="modal-panel">
-            <div className="modal-body">
-              {storageConflict ? (
-                <>
-                  <p>
-                    حُفظ إصدار أحدث في تبويب آخر. توقف الحفظ لحماية عملك. انسخ التصميم قبل إعادة
-                    التحميل.
-                  </p>
-                  <button onClick={() => void copyHtml()}>نسخ التصميم الحالي</button>
-                  <button onClick={() => window.location.reload()}>إعادة التحميل</button>
-                </>
-              ) : recovery ? (
-                <>
-                  <p>النسخة المحفوظة تالفة أو غير مدعومة. لن نستبدلها دون اختيارك.</p>
-                  {recovery.backup ? (
+    <I18nContext.Provider value={i18n}>
+      <div className="app" dir={dir}>
+        {!storageReady || storageConflict ? (
+          <div className="modal" role="dialog" aria-modal="true" aria-label="استعادة الحفظ المحلي">
+            <div className="modal-panel">
+              <div className="modal-body">
+                {storageConflict ? (
+                  <>
+                    <p>
+                      حُفظ إصدار أحدث في تبويب آخر. توقف الحفظ لحماية عملك. انسخ التصميم قبل إعادة
+                      التحميل.
+                    </p>
+                    <button onClick={() => void copyHtml()}>نسخ التصميم الحالي</button>
+                    <button onClick={() => window.location.reload()}>إعادة التحميل</button>
+                  </>
+                ) : recovery ? (
+                  <>
+                    <p>النسخة المحفوظة تالفة أو غير مدعومة. لن نستبدلها دون اختيارك.</p>
+                    {recovery.backup ? (
+                      <button
+                        onClick={() => {
+                          if (!recovery.backup) return;
+                          history.reset(recovery.backup.doc);
+                          setName(recovery.backup.record.name);
+                          setRecovery(null);
+                          setStorageReady(true);
+                        }}
+                      >
+                        استعادة النسخة الاحتياطية
+                      </button>
+                    ) : null}
                     <button
                       onClick={() => {
-                        if (!recovery.backup) return;
-                        history.reset(recovery.backup.doc);
-                        setName(recovery.backup.record.name);
+                        history.reset(createBlankDoc());
                         setRecovery(null);
                         setStorageReady(true);
                       }}
                     >
-                      استعادة النسخة الاحتياطية
+                      بدء تصميم جديد
                     </button>
-                  ) : null}
-                  <button
-                    onClick={() => {
-                      history.reset(createBlankDoc());
-                      setRecovery(null);
-                      setStorageReady(true);
-                    }}
-                  >
-                    بدء تصميم جديد
-                  </button>
-                </>
-              ) : storageError ? (
-                <>
-                  <p>
-                    تعذر فتح الحفظ المحلي. تحقق من مساحة المتصفح وصلاحيات التخزين؛ لم تتغير البيانات
-                    المحفوظة.
-                  </p>
-                  <button onClick={() => window.location.reload()}>إعادة المحاولة</button>
-                </>
-              ) : (
-                <p>جارٍ تحميل التصميم المحفوظ…</p>
-              )}
+                  </>
+                ) : storageError ? (
+                  <>
+                    <p>
+                      تعذر فتح الحفظ المحلي. تحقق من مساحة المتصفح وصلاحيات التخزين؛ لم تتغير
+                      البيانات المحفوظة.
+                    </p>
+                    <button onClick={() => window.location.reload()}>إعادة المحاولة</button>
+                  </>
+                ) : (
+                  <p>جارٍ تحميل التصميم المحفوظ…</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
-      <TopBar
-        name={name}
-        onNameChange={setName}
-        canUndo={history.canUndo}
-        canRedo={history.canRedo}
-        onUndo={history.undo}
-        onRedo={history.redo}
-        saveState={saveState}
-        lastSavedAt={lastSavedAt}
-        onSave={saveNow}
-        onImport={() => importRef.current?.click()}
-        onCopyHtml={copyHtml}
-        onExport={() => setModal('export')}
-        onPreview={() => setModal('preview')}
-        onHelp={() => setModal('help')}
-        onToggleAi={() => setPanel((current) => (current === 'ai' ? null : 'ai'))}
-        aiActive={panel === 'ai'}
-        aiBusy={aiBusy}
-        accountLabel={authUser?.email ?? (authReady ? 'دخول' : 'الحساب')}
-        onAccount={() => setModal('account')}
-      />
-
-      <div className="workspace">
-        <LeftRail
-          panel={panel}
-          onPanelChange={(next) => setPanel((current) => (current === next ? null : next))}
-          onClosePanel={() => setPanel(null)}
-          doc={doc}
-          selection={selection}
-          assets={assets}
-          onSelect={setSelection}
-          onAddTemplate={(templateDoc, templateName) => {
-            history.reset(templateDoc);
-            setSelection([]);
-            setEditingId(null);
-            notify('success', `تم تطبيق قالب ${templateName}`);
-          }}
-          onAddText={addText}
-          onAddElement={addElement}
-          onUpload={handleUpload}
-          uploadBusy={uploadBusy}
-          onAddImage={addImage}
-          onRemoveAsset={(asset) => {
-            void deleteAssetRecord(asset.id);
-            revokeAsset(asset);
-            setAssets((current) => current.filter((item) => item.id !== asset.id));
-          }}
-          onToggleHidden={(id) => {
-            history.update((current) =>
-              updateLayer(current, id, (layer) => ({ ...layer, hidden: !layer.hidden })),
-            );
-          }}
-          onToggleLocked={(id) => {
-            history.update((current) =>
-              updateLayer(current, id, (layer) => ({ ...layer, locked: !layer.locked })),
-            );
-          }}
-          onDelete={deleteSelection}
-          onDuplicate={duplicateSelection}
-          onReorder={(id: string, move: ReorderMove) => {
-            history.update((current) => reorderLayer(current, id, move));
-          }}
-          onStartEditText={(id) => {
-            setSelection([id]);
-            setEditingId(id);
-          }}
-          templates={TEMPLATES}
-          ai={{
-            prompt,
-            onPromptChange: setPrompt,
-            language,
-            onLanguageChange: setLanguage,
-            style,
-            onStyleChange: setStyle,
-            width: doc.width,
-            height: doc.height,
-            busy: aiBusy,
-            onGenerate: handleGenerate,
-            selectionCount: selection.length,
-            onEdit: handleEdit,
-            lastUsage,
-            snapshots,
-            onRestoreSnapshot: handleRestoreSnapshot,
-          }}
+        ) : null}
+        <TopBar
+          name={name}
+          onNameChange={setName}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={history.undo}
+          onRedo={history.redo}
+          saveState={saveState}
+          lastSavedAt={lastSavedAt}
+          onSave={saveNow}
+          onImport={() => importRef.current?.click()}
+          onCopyHtml={copyHtml}
+          onExport={() => setModal('export')}
+          onPreview={() => setModal('preview')}
+          onHelp={() => setModal('help')}
+          onToggleAi={() => setPanel((current) => (current === 'ai' ? null : 'ai'))}
+          aiActive={panel === 'ai'}
+          aiBusy={aiBusy}
+          accountLabel={authUser?.email ?? (authReady ? t('signIn') : t('account'))}
+          onAccount={() => setModal('account')}
         />
 
-        <main className="canvas-area">
-          <Canvas
+        <div className="workspace">
+          <LeftRail
+            panel={panel}
+            onPanelChange={(next) => setPanel((current) => (current === next ? null : next))}
+            onClosePanel={() => setPanel(null)}
             doc={doc}
-            scale={scale}
             selection={selection}
-            editingId={editingId}
-            assets={assetUrls}
-            showGrid={showGrid}
-            onFitScale={setFitScale}
-            onZoomChange={(next) => setZoom(next / Math.max(fitScale, 0.08))}
-            onSelectionChange={setSelection}
-            onEditingChange={setEditingId}
-            onUpdate={history.update}
-            onCommit={history.commit}
+            assets={assets}
+            onSelect={setSelection}
+            onAddTemplate={(templateDoc, templateName) => {
+              history.reset(templateDoc);
+              setSelection([]);
+              setEditingId(null);
+              notify('success', t('toastTemplateApplied', { name: templateName }));
+            }}
+            onAddText={addText}
+            onAddElement={addElement}
+            onUpload={handleUpload}
+            uploadBusy={uploadBusy}
+            onAddImage={addImage}
+            onRemoveAsset={(asset) => {
+              void deleteAssetRecord(asset.id);
+              revokeAsset(asset);
+              setAssets((current) => current.filter((item) => item.id !== asset.id));
+            }}
+            onToggleHidden={(id) => {
+              history.update((current) =>
+                updateLayer(current, id, (layer) => ({ ...layer, hidden: !layer.hidden })),
+              );
+            }}
+            onToggleLocked={(id) => {
+              history.update((current) =>
+                updateLayer(current, id, (layer) => ({ ...layer, locked: !layer.locked })),
+              );
+            }}
+            onDelete={deleteSelection}
+            onDuplicate={duplicateSelection}
+            onReorder={(id: string, move: ReorderMove) => {
+              history.update((current) => reorderLayer(current, id, move));
+            }}
+            onStartEditText={(id) => {
+              setSelection([id]);
+              setEditingId(id);
+            }}
+            templates={TEMPLATES}
+            ai={{
+              prompt,
+              onPromptChange: setPrompt,
+              language,
+              onLanguageChange: setLanguage,
+              style,
+              onStyleChange: setStyle,
+              width: doc.width,
+              height: doc.height,
+              busy: aiBusy,
+              onGenerate: handleGenerate,
+              selectionCount: selection.length,
+              onEdit: handleEdit,
+              lastUsage,
+              snapshots,
+              onRestoreSnapshot: handleRestoreSnapshot,
+            }}
           />
 
-          <div className="zoom-bar">
-            <button
-              type="button"
-              className="zoom-button"
-              onClick={() => setZoom((current) => Math.max(0.15, current / 1.1))}
-              aria-label="تصغير"
-            >
-              −
-            </button>
-            <span className="zoom-value">{Math.round(scale * 100)}%</span>
-            <button
-              type="button"
-              className="zoom-button"
-              onClick={() => setZoom((current) => Math.min(2, current * 1.1))}
-              aria-label="تكبير"
-            >
-              +
-            </button>
-            <button type="button" className="zoom-button" onClick={() => setZoom(1)}>
-              ملاءمة
-            </button>
-            <button
-              type="button"
-              className={`zoom-button${showGrid ? ' is-active' : ''}`}
-              onClick={() => setShowGrid((current) => !current)}
-              aria-pressed={showGrid}
-            >
-              شبكة
-            </button>
-          </div>
-        </main>
+          <main className="canvas-area">
+            <Canvas
+              doc={doc}
+              scale={scale}
+              selection={selection}
+              editingId={editingId}
+              assets={assetUrls}
+              showGrid={showGrid}
+              onFitScale={setFitScale}
+              onZoomChange={(next) => setZoom(next / Math.max(fitScale, 0.08))}
+              onSelectionChange={setSelection}
+              onEditingChange={setEditingId}
+              onUpdate={history.update}
+              onCommit={history.commit}
+            />
 
-        <Inspector
-          doc={doc}
-          selection={selection}
-          assets={assets}
-          onUpdate={history.update}
-          onDelete={deleteSelection}
-          onDuplicate={duplicateSelection}
-          onReorder={(id, move) => {
-            history.update((current) => reorderLayer(current, id, move));
-          }}
-          onAlign={(target: AlignTarget) => {
-            history.update((current) => alignLayers(current, selection, target));
-          }}
-          onDistribute={(axis) => {
-            history.update((current) => distributeLayers(current, selection, axis));
-          }}
-          onStartEditText={(id) => {
-            setSelection([id]);
-            setEditingId(id);
-          }}
-          onReplaceImage={(layerId, asset) => {
-            history.update((current) =>
-              updateLayer(current, layerId, (layer) =>
-                layer.type === 'image'
-                  ? { ...layer, src: `asset:${asset.id}`, name: asset.name }
-                  : layer,
-              ),
-            );
+            <div className="zoom-bar">
+              <button
+                type="button"
+                className="zoom-button"
+                onClick={() => setZoom((current) => Math.max(0.15, current / 1.1))}
+                aria-label="تصغير"
+              >
+                −
+              </button>
+              <span className="zoom-value">{Math.round(scale * 100)}%</span>
+              <button
+                type="button"
+                className="zoom-button"
+                onClick={() => setZoom((current) => Math.min(2, current * 1.1))}
+                aria-label="تكبير"
+              >
+                +
+              </button>
+              <button type="button" className="zoom-button" onClick={() => setZoom(1)}>
+                ملاءمة
+              </button>
+              <button
+                type="button"
+                className={`zoom-button${showGrid ? ' is-active' : ''}`}
+                onClick={() => setShowGrid((current) => !current)}
+                aria-pressed={showGrid}
+              >
+                شبكة
+              </button>
+            </div>
+          </main>
+
+          <Inspector
+            doc={doc}
+            selection={selection}
+            assets={assets}
+            onUpdate={history.update}
+            onDelete={deleteSelection}
+            onDuplicate={duplicateSelection}
+            onReorder={(id, move) => {
+              history.update((current) => reorderLayer(current, id, move));
+            }}
+            onAlign={(target: AlignTarget) => {
+              history.update((current) => alignLayers(current, selection, target));
+            }}
+            onDistribute={(axis) => {
+              history.update((current) => distributeLayers(current, selection, axis));
+            }}
+            onStartEditText={(id) => {
+              setSelection([id]);
+              setEditingId(id);
+            }}
+            onReplaceImage={(layerId, asset) => {
+              history.update((current) =>
+                updateLayer(current, layerId, (layer) =>
+                  layer.type === 'image'
+                    ? { ...layer, src: `asset:${asset.id}`, name: asset.name }
+                    : layer,
+                ),
+              );
+            }}
+          />
+        </div>
+
+        {warnings.length > 0 ? (
+          <WarningsBar warnings={warnings} onDismiss={() => setWarnings([])} />
+        ) : null}
+
+        <Toasts
+          toasts={toasts}
+          onDismiss={(id) => setToasts((current) => current.filter((item) => item.id !== id))}
+        />
+
+        <input
+          ref={importRef}
+          type="file"
+          accept=".html,.htm,text/html"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void handleImportFile(file);
+            event.target.value = '';
           }}
         />
+
+        {modal === 'export' ? (
+          <ExportDialog
+            doc={doc}
+            assets={assets}
+            name={name}
+            onUnauthorized={() => setModal('account')}
+            onClose={() => setModal(null)}
+          />
+        ) : null}
+
+        {modal === 'account' ? (
+          <AccountDialog
+            user={authUser}
+            onClose={() => setModal(null)}
+            onSignedIn={(user) => {
+              setAuthUser(user);
+              setModal(null);
+              notify('success', t('toastSignedIn'));
+            }}
+            onSignedOut={() => {
+              void refreshAuth();
+              notify('success', t('toastSignedOut'));
+            }}
+          />
+        ) : null}
+
+        {modal === 'preview' ? (
+          <div className="modal" role="dialog" aria-modal="true" aria-label="معاينة التصميم">
+            <div className="modal-panel">
+              <header className="modal-header">
+                <h2>معاينة التصميم</h2>
+                <IconButton icon="close" label="إغلاق المعاينة" onClick={() => setModal(null)} />
+              </header>
+              <div className="modal-body">
+                <DocPreview doc={doc} width={Math.min(760, doc.width)} />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {modal === 'help' ? (
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="اختصارات لوحة المفاتيح"
+          >
+            <div className="modal-panel">
+              <header className="modal-header">
+                <h2>اختصارات لوحة المفاتيح</h2>
+                <IconButton icon="close" label="إغلاق الاختصارات" onClick={() => setModal(null)} />
+              </header>
+              <div className="modal-body">
+                <ul className="shortcut-list">
+                  <li>
+                    <span>نسخ / لصق الطبقات</span>
+                    <kbd>Ctrl/Cmd</kbd>
+                    <kbd>C / V</kbd>
+                  </li>
+                  <li>
+                    <span>تحريك اللوحة</span>
+                    <kbd>Space</kbd>
+                    <span>+ سحب، أو عجلة الفأرة</span>
+                  </li>
+                  <li>
+                    <span>تحديد مستطيل</span>
+                    <span>سحب في الفراغ، Shift للإضافة</span>
+                  </li>
+                  <li>
+                    <span>تراجع</span>
+                    <kbd>Ctrl</kbd> <kbd>Z</kbd>
+                  </li>
+                  <li>
+                    <span>إعادة</span>
+                    <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd>
+                  </li>
+                  <li>
+                    <span>تكرار التحديد</span>
+                    <kbd>Ctrl</kbd> <kbd>D</kbd>
+                  </li>
+                  <li>
+                    <span>حذف التحديد</span>
+                    <kbd>Delete</kbd>
+                  </li>
+                  <li>
+                    <span>تحريك 1px / 10px</span>
+                    <kbd>أسهم</kbd> / <kbd>Shift</kbd> + <kbd>أسهم</kbd>
+                  </li>
+                  <li>
+                    <span>تكبير / تصغير</span>
+                    <kbd>Ctrl</kbd> <kbd>+</kbd> / <kbd>−</kbd>
+                  </li>
+                  <li>
+                    <span>ملاءمة اللوحة</span>
+                    <kbd>Ctrl</kbd> <kbd>0</kbd>
+                  </li>
+                  <li>
+                    <span>إلغاء التحديد</span>
+                    <kbd>Esc</kbd>
+                  </li>
+                  <li>
+                    <span>حفظ الآن</span>
+                    <kbd>Ctrl</kbd> <kbd>S</kbd>
+                  </li>
+                  <li>
+                    <span>فتح التصدير</span>
+                    <kbd>Ctrl</kbd> <kbd>E</kbd>
+                  </li>
+                  <li>
+                    <span>لوحة الاختصارات</span>
+                    <kbd>?</kbd>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
-
-      {warnings.length > 0 ? (
-        <WarningsBar warnings={warnings} onDismiss={() => setWarnings([])} />
-      ) : null}
-
-      <Toasts
-        toasts={toasts}
-        onDismiss={(id) => setToasts((current) => current.filter((item) => item.id !== id))}
-      />
-
-      <input
-        ref={importRef}
-        type="file"
-        accept=".html,.htm,text/html"
-        hidden
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) void handleImportFile(file);
-          event.target.value = '';
-        }}
-      />
-
-      {modal === 'export' ? (
-        <ExportDialog
-          doc={doc}
-          assets={assets}
-          name={name}
-          onUnauthorized={() => setModal('account')}
-          onClose={() => setModal(null)}
-        />
-      ) : null}
-
-      {modal === 'account' ? (
-        <AccountDialog
-          user={authUser}
-          onClose={() => setModal(null)}
-          onSignedIn={(user) => {
-            setAuthUser(user);
-            setModal(null);
-            notify('success', 'تم تسجيل الدخول');
-          }}
-          onSignedOut={() => {
-            void refreshAuth();
-            notify('success', 'تم تسجيل الخروج');
-          }}
-        />
-      ) : null}
-
-      {modal === 'preview' ? (
-        <div className="modal" role="dialog" aria-modal="true" aria-label="معاينة التصميم">
-          <div className="modal-panel">
-            <header className="modal-header">
-              <h2>معاينة التصميم</h2>
-              <IconButton icon="close" label="إغلاق المعاينة" onClick={() => setModal(null)} />
-            </header>
-            <div className="modal-body">
-              <DocPreview doc={doc} width={Math.min(760, doc.width)} />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {modal === 'help' ? (
-        <div className="modal" role="dialog" aria-modal="true" aria-label="اختصارات لوحة المفاتيح">
-          <div className="modal-panel">
-            <header className="modal-header">
-              <h2>اختصارات لوحة المفاتيح</h2>
-              <IconButton icon="close" label="إغلاق الاختصارات" onClick={() => setModal(null)} />
-            </header>
-            <div className="modal-body">
-              <ul className="shortcut-list">
-                <li>
-                  <span>نسخ / لصق الطبقات</span>
-                  <kbd>Ctrl/Cmd</kbd>
-                  <kbd>C / V</kbd>
-                </li>
-                <li>
-                  <span>تحريك اللوحة</span>
-                  <kbd>Space</kbd>
-                  <span>+ سحب، أو عجلة الفأرة</span>
-                </li>
-                <li>
-                  <span>تحديد مستطيل</span>
-                  <span>سحب في الفراغ، Shift للإضافة</span>
-                </li>
-                <li>
-                  <span>تراجع</span>
-                  <kbd>Ctrl</kbd> <kbd>Z</kbd>
-                </li>
-                <li>
-                  <span>إعادة</span>
-                  <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd>
-                </li>
-                <li>
-                  <span>تكرار التحديد</span>
-                  <kbd>Ctrl</kbd> <kbd>D</kbd>
-                </li>
-                <li>
-                  <span>حذف التحديد</span>
-                  <kbd>Delete</kbd>
-                </li>
-                <li>
-                  <span>تحريك 1px / 10px</span>
-                  <kbd>أسهم</kbd> / <kbd>Shift</kbd> + <kbd>أسهم</kbd>
-                </li>
-                <li>
-                  <span>تكبير / تصغير</span>
-                  <kbd>Ctrl</kbd> <kbd>+</kbd> / <kbd>−</kbd>
-                </li>
-                <li>
-                  <span>ملاءمة اللوحة</span>
-                  <kbd>Ctrl</kbd> <kbd>0</kbd>
-                </li>
-                <li>
-                  <span>إلغاء التحديد</span>
-                  <kbd>Esc</kbd>
-                </li>
-                <li>
-                  <span>حفظ الآن</span>
-                  <kbd>Ctrl</kbd> <kbd>S</kbd>
-                </li>
-                <li>
-                  <span>فتح التصدير</span>
-                  <kbd>Ctrl</kbd> <kbd>E</kbd>
-                </li>
-                <li>
-                  <span>لوحة الاختصارات</span>
-                  <kbd>?</kbd>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
+    </I18nContext.Provider>
   );
 }

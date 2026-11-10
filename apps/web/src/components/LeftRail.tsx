@@ -1,10 +1,10 @@
 import { useRef, type ChangeEvent } from 'react';
 import { LIMITS, type DesignDoc, type Layer } from '@poster/core';
+import { useI18n, type MessageKey } from '../i18n.js';
 import type { AssetEntry } from '../editor/assets.js';
 import { formatBytes } from '../editor/assets.js';
 import {
   ELEMENT_KINDS,
-  ELEMENT_LABELS,
   TEXT_PRESETS,
   layerSummary,
   type ElementKind,
@@ -18,13 +18,32 @@ import { Icon, type IconName } from './icons.js';
 
 export type PanelId = 'templates' | 'elements' | 'text' | 'uploads' | 'layers' | 'ai';
 
-const PANEL_META: Record<PanelId, { title: string; icon: IconName }> = {
-  templates: { title: 'القوالب', icon: 'templates' },
-  elements: { title: 'العناصر', icon: 'elements' },
-  text: { title: 'النصوص', icon: 'text' },
-  uploads: { title: 'الصور', icon: 'uploads' },
-  layers: { title: 'الطبقات', icon: 'layers' },
-  ai: { title: 'المساعد', icon: 'sparkles' },
+const PANEL_META: Record<PanelId, { title: MessageKey; icon: IconName }> = {
+  templates: { title: 'panelTemplates', icon: 'templates' },
+  elements: { title: 'panelElements', icon: 'elements' },
+  text: { title: 'panelText', icon: 'text' },
+  uploads: { title: 'panelUploads', icon: 'uploads' },
+  layers: { title: 'panelLayers', icon: 'layers' },
+  ai: { title: 'panelAi', icon: 'sparkles' },
+};
+
+const ELEMENT_KEYS: Record<ElementKind, MessageKey> = {
+  rectangle: 'elementRectangle',
+  rounded: 'elementRounded',
+  circle: 'elementCircle',
+  line: 'elementLine',
+  ring: 'elementRing',
+  star: 'elementStar',
+  check: 'elementCheck',
+  arrow: 'elementArrow',
+};
+
+const PRESET_KEYS: Record<string, MessageKey> = {
+  heading: 'presetHeading',
+  subheading: 'presetSubheading',
+  body: 'presetBody',
+  quote: 'presetQuote',
+  label: 'presetLabel',
 };
 
 const RAIL_ITEMS: PanelId[] = ['templates', 'elements', 'text', 'uploads', 'layers', 'ai'];
@@ -100,6 +119,7 @@ function LayerRow({
   first: boolean;
   last: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={`layer-row${selected ? ' is-selected' : ''}${layer.hidden ? ' is-hidden' : ''}`}
@@ -128,8 +148,8 @@ function LayerRow({
           <button
             type="button"
             className="mini-button"
-            title="للأمام"
-            aria-label="نقل الطبقة للأمام"
+            title={t('forwardShort')}
+            aria-label={t('moveForward')}
             disabled={last}
             onClick={(event) => {
               event.stopPropagation();
@@ -141,8 +161,8 @@ function LayerRow({
           <button
             type="button"
             className="mini-button"
-            title="للخلف"
-            aria-label="نقل الطبقة للخلف"
+            title={t('backwardShort')}
+            aria-label={t('moveBackward')}
             disabled={first}
             onClick={(event) => {
               event.stopPropagation();
@@ -155,8 +175,8 @@ function LayerRow({
         <button
           type="button"
           className={`mini-button${layer.hidden ? ' is-on' : ''}`}
-          title={layer.hidden ? 'إظهار' : 'إخفاء'}
-          aria-label={layer.hidden ? 'إظهار الطبقة' : 'إخفاء الطبقة'}
+          title={layer.hidden ? t('show') : t('hide')}
+          aria-label={layer.hidden ? t('showLayer') : t('hideLayer')}
           onClick={(event) => {
             event.stopPropagation();
             onToggleHidden(layer.id);
@@ -167,8 +187,8 @@ function LayerRow({
         <button
           type="button"
           className={`mini-button${layer.locked ? ' is-on' : ''}`}
-          title={layer.locked ? 'فتح القفل' : 'قفل'}
-          aria-label={layer.locked ? 'فتح قفل الطبقة' : 'قفل الطبقة'}
+          title={layer.locked ? t('unlock') : t('lock')}
+          aria-label={layer.locked ? t('unlockLayer') : t('lockLayer')}
           onClick={(event) => {
             event.stopPropagation();
             onToggleLocked(layer.id);
@@ -230,6 +250,7 @@ export function LeftRail({
   templates,
   ai,
 }: LeftRailProps) {
+  const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
@@ -240,10 +261,11 @@ export function LeftRail({
   };
 
   const meta = panel ? PANEL_META[panel] : null;
+  const metaTitle = meta ? t(meta.title) : '';
 
   return (
     <>
-      <nav className="rail" aria-label="أدوات المحرر">
+      <nav className="rail" aria-label={t('editorTools')}>
         <div className="rail-top">
           {RAIL_ITEMS.map((item) => {
             const info = PANEL_META[item];
@@ -255,12 +277,12 @@ export function LeftRail({
                 className={`rail-button${active ? ' is-active' : ''}`}
                 onClick={() => onPanelChange(item)}
                 aria-pressed={active}
-                title={info.title}
+                title={t(info.title)}
               >
                 <span className="rail-icon">
                   <Icon name={info.icon} size={21} />
                 </span>
-                <span className="rail-label">{info.title}</span>
+                <span className="rail-label">{t(info.title)}</span>
               </button>
             );
           })}
@@ -271,21 +293,19 @@ export function LeftRail({
       </nav>
 
       {panel && meta ? (
-        <aside className="panel" aria-label={meta.title}>
+        <aside className="panel" aria-label={metaTitle}>
           <header className="panel-header">
             <span className="panel-icon">
               <Icon name={meta.icon} size={17} />
             </span>
-            <h2>{meta.title}</h2>
-            <IconButton icon="close" label="إغلاق اللوحة" size="sm" onClick={onClosePanel} />
+            <h2>{metaTitle}</h2>
+            <IconButton icon="close" label={t('closePanel')} size="sm" onClick={onClosePanel} />
           </header>
 
           <div className="panel-body">
             {panel === 'templates' ? (
               <div className="templates">
-                <p className="panel-hint">
-                  ابدأ من قالب جاهز، ثم عدّل النصوص والألوان. يمكنك التراجع دائماً.
-                </p>
+                <p className="panel-hint">{t('templatesHint')}</p>
                 {templates.map((template) => (
                   <button
                     key={template.id}
@@ -307,31 +327,32 @@ export function LeftRail({
 
             {panel === 'elements' ? (
               <div className="elements">
-                <p className="panel-hint">
-                  أشكال أساسية تُضاف إلى منتصف اللوحة وتبقى قابلة للتحرير.
-                </p>
+                <p className="panel-hint">{t('elementsHint')}</p>
                 <div className="elements-grid">
-                  {ELEMENT_KINDS.map((kind) => (
-                    <button
-                      key={kind}
-                      type="button"
-                      className="element-button"
-                      onClick={() => onAddElement(kind)}
-                      title={`إضافة ${ELEMENT_LABELS[kind]}`}
-                    >
-                      <span className="element-preview">
-                        <ElementThumb kind={kind} />
-                      </span>
-                      <span>{ELEMENT_LABELS[kind]}</span>
-                    </button>
-                  ))}
+                  {ELEMENT_KINDS.map((kind) => {
+                    const label = t(ELEMENT_KEYS[kind]);
+                    return (
+                      <button
+                        key={kind}
+                        type="button"
+                        className="element-button"
+                        onClick={() => onAddElement(kind)}
+                        title={t('addElement', { name: label })}
+                      >
+                        <span className="element-preview">
+                          <ElementThumb kind={kind} />
+                        </span>
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
 
             {panel === 'text' ? (
               <div className="text-presets">
-                <p className="panel-hint">أنماط نصية جاهزة بخطوط عربية ولاتينية مستضافة ذاتياً.</p>
+                <p className="panel-hint">{t('textHint')}</p>
                 {TEXT_PRESETS.map((preset) => (
                   <button
                     key={preset.id}
@@ -351,7 +372,7 @@ export function LeftRail({
                       {preset.content}
                     </span>
                     <span className="text-preset-meta">
-                      <strong>{preset.label}</strong>
+                      <strong>{t(PRESET_KEYS[preset.id] ?? 'presetHeading')}</strong>
                       <small>
                         {preset.fontFamily} · {preset.fontSize}
                       </small>
@@ -377,17 +398,16 @@ export function LeftRail({
                   disabled={uploadBusy}
                   full
                 >
-                  {uploadBusy ? 'جارٍ الرفع…' : 'إضافة صور'}
+                  {uploadBusy ? t('uploading') : t('addImages')}
                 </Button>
                 <p className="panel-hint">
-                  PNG أو JPEG أو WebP، حتى 10 ميغابايت و{LIMITS.assets.maxPerDocument} صورة لكل
-                  تصميم. تُحفظ الصور محليًا وتبقى بعد إعادة تحميل الصفحة.
+                  {t('uploadsHint', { max: LIMITS.assets.maxPerDocument })}
                 </p>
                 {uploadBusy ? <Spinner size={18} /> : null}
                 {assets.length === 0 ? (
                   <div className="empty-state">
                     <Icon name="image" size={28} />
-                    <p>لا توجد صور بعد. أضف صورة لتظهر هنا.</p>
+                    <p>{t('noImages')}</p>
                   </div>
                 ) : (
                   <div className="assets-grid">
@@ -397,7 +417,7 @@ export function LeftRail({
                           type="button"
                           className="asset-add"
                           onClick={() => onAddImage(asset)}
-                          title="إضافة الصورة إلى اللوحة"
+                          title={t('addImageToCanvas')}
                         >
                           <img src={asset.url} alt={asset.name} draggable={false} />
                         </button>
@@ -411,8 +431,8 @@ export function LeftRail({
                           type="button"
                           className="asset-remove"
                           onClick={() => onRemoveAsset(asset)}
-                          aria-label={`حذف ${asset.name}`}
-                          title="حذف الصورة"
+                          aria-label={t('deleteImageNamed', { name: asset.name })}
+                          title={t('deleteImage')}
                         >
                           <Icon name="trash" size={13} />
                         </button>
@@ -425,13 +445,11 @@ export function LeftRail({
 
             {panel === 'layers' ? (
               <div className="layers-panel">
-                <p className="panel-hint">
-                  الطبقة الأعلى تظهر أولاً. انقر لتحديد، Shift لتحديد عدة طبقات.
-                </p>
+                <p className="panel-hint">{t('layersHint')}</p>
                 {doc.layers.length === 0 ? (
                   <div className="empty-state">
                     <Icon name="layers" size={28} />
-                    <p>لا توجد طبقات. أضف نصاً أو عنصراً للبدء.</p>
+                    <p>{t('noLayers')}</p>
                   </div>
                 ) : (
                   <div className="layer-list">
@@ -470,7 +488,7 @@ export function LeftRail({
                     onClick={() => onDuplicate(selection)}
                     disabled={selection.length === 0}
                   >
-                    تكرار
+                    {t('duplicate')}
                   </Button>
                   <Button
                     icon="trash"
@@ -478,7 +496,7 @@ export function LeftRail({
                     onClick={() => onDelete(selection)}
                     disabled={selection.length === 0}
                   >
-                    حذف
+                    {t('delete')}
                   </Button>
                 </div>
               </div>

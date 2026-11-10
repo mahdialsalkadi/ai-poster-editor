@@ -108,6 +108,9 @@ verification record. Do not expose the build until that checklist passes.
 
 - Model-based React rendering, layer selection, Shift-click multi-select,
   move/resize/rotate, snapping, alignment and distribution.
+- Arabic and English editor chrome with an `AR / EN` toggle that persists in
+  `localStorage` and switches the document direction. Design content, templates
+  and text presets keep their authored language.
 - Arabic/English text layers, RTL inference, 11 self-hosted font families,
   native plain-text inline editing, typography, fills, gradients and SVG layers.
 - Undo/redo, duplication, Design HTML copying, and HTML import that converts a
@@ -242,7 +245,8 @@ and pnpm resolves no version published less than a day ago (only the data-only
   fixture; they do not establish print-quality fidelity for all Arabic content.
   Older 2480x3508 documents are not silently resized.
 - **Editor:** the layer clipboard is tab-local and marquee uses rotated bounding
-  boxes. Interface chrome remains fixed Arabic/RTL; a language toggle is undecided.
+  boxes. Chrome switches between Arabic and English, but document content,
+  presets and font sample data are not translated.
 - **Gallery/import:** three English and two Arabic layouts, one retained bilingual
   layout and a blank. Broader HTML/CSS import remains best-effort and lossy.
 - **AI provider:** OpenAI and OpenAI-compatible APIs only; the optional Anthropic

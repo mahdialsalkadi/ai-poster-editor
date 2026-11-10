@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { AuthUser } from '@poster/contracts';
+import { useI18n } from '../i18n.js';
 import { login, logout } from '../editor/api.js';
 import { Button, Field, IconButton, TextInput, Spinner } from './controls.js';
 
@@ -11,6 +12,7 @@ export type AccountDialogProps = {
 };
 
 export function AccountDialog({ user, onClose, onSignedIn, onSignedOut }: AccountDialogProps) {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,11 +47,11 @@ export function AccountDialog({ user, onClose, onSignedIn, onSignedOut }: Accoun
   };
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label="الحساب">
+    <div className="modal" role="dialog" aria-modal="true" aria-label={t('account')}>
       <div className="modal-panel auth-panel">
         <header className="modal-header">
-          <h2>{user ? 'الحساب' : 'تسجيل الدخول'}</h2>
-          <IconButton icon="close" label="إغلاق الحساب" onClick={onClose} disabled={busy} />
+          <h2>{user ? t('account') : t('signIn')}</h2>
+          <IconButton icon="close" label={t('closeAccount')} onClick={onClose} disabled={busy} />
         </header>
         <div className="modal-body">
           {user ? (
@@ -58,23 +60,19 @@ export function AccountDialog({ user, onClose, onSignedIn, onSignedOut }: Accoun
                 {user.email ?? user.id}
               </p>
               <p className="auth-note">
-                {user.method === 'public'
-                  ? 'هذا الخادم يعمل دون تسجيل دخول؛ لا حاجة إلى حساب.'
-                  : 'طلبات الذكاء الاصطناعي والتصدير مرتبطة بهذا الحساب وتُحتسب ضمن حدّه.'}
+                {user.method === 'public' ? t('publicServerNote') : t('accountUsageNote')}
               </p>
               {user.method !== 'public' ? (
                 <Button variant="danger" full onClick={() => void signOut()} disabled={busy}>
                   {busy ? <Spinner size={14} /> : null}
-                  تسجيل الخروج
+                  {t('signOut')}
                 </Button>
               ) : null}
             </div>
           ) : (
             <form className="auth-form" onSubmit={(event) => void submit(event)}>
-              <p className="auth-note">
-                سجّل الدخول بحساب Supabase لاستخدام الذكاء الاصطناعي والتصدير على خادم محمي.
-              </p>
-              <Field label="البريد الإلكتروني">
+              <p className="auth-note">{t('supabaseNote')}</p>
+              <Field label={t('email')}>
                 <TextInput
                   value={email}
                   onChange={setEmail}
@@ -85,7 +83,7 @@ export function AccountDialog({ user, onClose, onSignedIn, onSignedOut }: Accoun
                   required
                 />
               </Field>
-              <Field label="كلمة المرور">
+              <Field label={t('password')}>
                 <TextInput
                   value={password}
                   onChange={setPassword}
@@ -108,7 +106,7 @@ export function AccountDialog({ user, onClose, onSignedIn, onSignedOut }: Accoun
                 disabled={busy || email.trim().length === 0 || password.length === 0}
               >
                 {busy ? <Spinner size={14} /> : null}
-                دخول
+                {t('enter')}
               </Button>
             </form>
           )}

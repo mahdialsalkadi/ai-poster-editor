@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n.js';
 import { Icon } from './icons.js';
 
 export type ToastTone = 'info' | 'success' | 'error';
@@ -15,6 +16,7 @@ export function Toasts({
   toasts: readonly ToastItem[];
   onDismiss: (id: string) => void;
 }) {
+  const { t } = useI18n();
   if (toasts.length === 0) return null;
   return (
     <div className="toasts" role="status" aria-live="polite">
@@ -31,7 +33,7 @@ export function Toasts({
             type="button"
             className="toast-close"
             onClick={() => onDismiss(toast.id)}
-            aria-label="إغلاق التنبيه"
+            aria-label={t('closeToast')}
           >
             <Icon name="close" size={14} />
           </button>

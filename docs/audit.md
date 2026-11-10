@@ -1459,3 +1459,29 @@ commit `47741bc`. Typecheck, lint, formatting, package tests, critical-source
 coverage, build, browser E2E/visual regression and the production dependency
 audit all completed successfully. Local and hosted results agree for this
 commit; staging and release verification remain unapproved.
+
+## Plan v1.2 — Phase 8 execution
+
+### G7 / D6 — Arabic/English editor chrome
+
+`apps/web/src/i18n.ts:3-15,324-641` defines a typed Arabic source dictionary
+and a compile-checked English dictionary (`MessageKey` is derived from the
+Arabic keys). Translation supports named placeholders. `readStoredLang`,
+`writeStoredLang` and `applyDocumentLang` at `i18n.ts:651-673` persist
+`poster.ui.lang` and set document `dir`/`lang`. App state and the context
+provider are at `apps/web/src/App.tsx:312-328,803-1164`.
+
+The `AR / EN` toggle is in `apps/web/src/components/TopBar.tsx:150-169`.
+TopBar, LeftRail, Inspector, ExportDialog, AccountDialog, Toasts and the AI
+panel consume the dictionary; toast messages and account labels are translated
+where produced in `App.tsx`. The English dictionary contains no Arabic
+characters, and placeholder sets must match between languages.
+
+`apps/web/src/i18n.test.ts:30-96` covers key parity, placeholder parity,
+translation, persistence and document direction. `e2e/language.spec.ts:4-52`
+switches the real built editor to English, checks `dir`/`lang`, translated
+TopBar/LeftRail/Inspector/Export/Account chrome, mirrored topbar geometry,
+the save toast, persistence after reload and switching back to Arabic. The
+focused Chromium test passed. Design content, templates, presets and font names
+are intentionally not translated. The browser test uses one viewport and does
+not prove every translated string fits every layout.

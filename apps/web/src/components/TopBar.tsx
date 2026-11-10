@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useI18n, type Lang, type Translator } from '../i18n.js';
 import { Icon } from './icons.js';
 import { IconButton, Spinner } from './controls.js';
 
@@ -26,18 +27,29 @@ export type TopBarProps = {
   onAccount: () => void;
 };
 
-function saveLabel(state: SaveState, lastSavedAt: number | null): string {
-  if (state === 'saving') return 'جارٍ الحفظ…';
-  if (state === 'dirty') return 'تغييرات غير محفوظة';
-  if (state === 'error') return 'تعذر الحفظ';
+function saveLabel(
+  state: SaveState,
+  lastSavedAt: number | null,
+  t: Translator,
+  lang: Lang,
+): string {
+  if (state === 'saving') return t('saveSaving');
+  if (state === 'dirty') return t('saveDirty');
+  if (state === 'error') return t('saveError');
   if (lastSavedAt) {
     const time = new Date(lastSavedAt);
-    return `محفوظ ${time.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}`;
+    return t('saveSavedAt', {
+      time: time.toLocaleTimeString(lang === 'ar' ? 'ar' : 'en', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    });
   }
-  return 'محفوظ';
+  return t('saveSaved');
 }
 
 function EditableTitle({ name, onChange }: { name: string; onChange: (name: string) => void }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState(name);
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +71,7 @@ function EditableTitle({ name, onChange }: { name: string; onChange: (name: stri
         type="button"
         className="doc-title"
         onClick={() => setEditing(true)}
-        title="إعادة تسمية التصميم"
+        title={t('renameDesign')}
       >
         <span>{name}</span>
         <Icon name="more" size={16} />
@@ -73,10 +85,10 @@ function EditableTitle({ name, onChange }: { name: string; onChange: (name: stri
       className="doc-title-input"
       value={draft}
       maxLength={80}
-      aria-label="اسم التصميم"
+      aria-label={t('designName')}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => {
-        const next = draft.trim() || 'ملصق بدون عنوان';
+        const next = draft.trim() || t('untitledDesign');
         onChange(next);
         setEditing(false);
       }}
@@ -113,6 +125,7 @@ export function TopBar({
   accountLabel,
   onAccount,
 }: TopBarProps) {
+  const { lang, setLang, t } = useI18n();
   return (
     <header className="topbar">
       <div className="topbar-brand">
@@ -121,7 +134,7 @@ export function TopBar({
         </span>
         <span className="brand-text">
           <strong>Poster</strong>
-          <small>استوديو الذكاء الاصطناعي</small>
+          <small>{t('tagline')}</small>
         </span>
       </div>
 
@@ -129,26 +142,46 @@ export function TopBar({
         <EditableTitle name={name} onChange={onNameChange} />
         <span className={`save-state save-state--${saveState}`}>
           {saveState === 'saving' ? <Spinner size={11} /> : <span className="save-dot" />}
-          {saveLabel(saveState, lastSavedAt)}
+          {saveLabel(saveState, lastSavedAt, t, lang)}
         </span>
       </div>
 
       <div className="topbar-actions">
-        <div className="topbar-group">
-          <IconButton icon="undo" label="تراجع" onClick={onUndo} disabled={!canUndo} />
-          <IconButton icon="redo" label="إعادة" onClick={onRedo} disabled={!canRedo} />
+        <div className="lang-toggle" role="group" aria-label={t('uiLanguage')}>
+          <button
+            type="button"
+            className={lang === 'ar' ? 'is-active' : ''}
+            aria-label="العربية"
+            aria-pressed={lang === 'ar'}
+            onClick={() => setLang('ar')}
+          >
+            AR
+          </button>
+          <button
+            type="button"
+            className={lang === 'en' ? 'is-active' : ''}
+            aria-label="English"
+            aria-pressed={lang === 'en'}
+            onClick={() => setLang('en')}
+          >
+            EN
+          </button>
         </div>
         <div className="topbar-group">
-          <IconButton icon="import" label="استيراد HTML" onClick={onImport} />
-          <IconButton icon="copy" label="نسخ Design HTML" onClick={onCopyHtml} />
-          <IconButton icon="play" label="معاينة التصميم" onClick={onPreview} />
-          <IconButton icon="more" label="اختصارات لوحة المفاتيح" onClick={onHelp} />
+          <IconButton icon="undo" label={t('undo')} onClick={onUndo} disabled={!canUndo} />
+          <IconButton icon="redo" label={t('redo')} onClick={onRedo} disabled={!canRedo} />
+        </div>
+        <div className="topbar-group">
+          <IconButton icon="import" label={t('importHtml')} onClick={onImport} />
+          <IconButton icon="copy" label={t('copyDesignHtml')} onClick={onCopyHtml} />
+          <IconButton icon="play" label={t('previewDesign')} onClick={onPreview} />
+          <IconButton icon="more" label={t('keyboardShortcuts')} onClick={onHelp} />
         </div>
         <button
           type="button"
           className="button button--account"
           onClick={onAccount}
-          title="الحساب وتسجيل الدخول"
+          title={t('accountTitle')}
         >
           <Icon name="user" size={16} />
           <span>{accountLabel}</span>
@@ -157,23 +190,23 @@ export function TopBar({
           type="button"
           className={`button button--ai${aiActive ? ' is-active' : ''}`}
           onClick={onToggleAi}
-          title="مساعد التصميم بالذكاء الاصطناعي"
+          title={t('aiAssistantTitle')}
         >
           {aiBusy ? <Spinner size={15} /> : <Icon name="sparkles" size={17} />}
-          <span>المساعد</span>
+          <span>{t('assistant')}</span>
         </button>
-        <button type="button" className="button" onClick={onSave} title="حفظ (Ctrl+S)">
+        <button type="button" className="button" onClick={onSave} title={t('saveShortcut')}>
           <Icon name="save" size={16} />
-          <span>حفظ</span>
+          <span>{t('save')}</span>
         </button>
         <button
           type="button"
           className="button button--primary"
           onClick={onExport}
-          title="تصدير PNG أو JPG أو PDF أو HTML (Ctrl+E)"
+          title={t('exportShortcut')}
         >
           <Icon name="download" size={16} />
-          <span>تصدير</span>
+          <span>{t('export')}</span>
         </button>
       </div>
     </header>
