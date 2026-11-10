@@ -192,12 +192,12 @@ pnpm test:e2e
 pnpm audit --prod
 ```
 
-The current package test suite has **438 tests**:
+The current package test suite has **441 tests**:
 
 | Package | Tests | Files | Main coverage                                                                                       |
 | ------- | ----- | ----- | --------------------------------------------------------------------------------------------------- |
 | Core    | 288   | 15    | Parser/security corpus, text/units/colors, canonical round trips, merge, import and performance     |
-| Server  | 107   | 12    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
+| Server  | 110   | 13    | Auth, mock AI/retries/prompts, spend, export formats/A4 vector PDF/assets/cache/isolation and queue |
 | Web     | 43    | 7     | Storage validation, clipboard, marquee geometry, text, templates, snapping, fills and CSP           |
 
 The parser performance test enforces p95 <200 ms for a 200-layer, 200 KiB

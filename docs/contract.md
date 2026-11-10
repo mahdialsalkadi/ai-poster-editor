@@ -714,8 +714,9 @@ transport sends `AI_API_KEY` in an outbound authorization header, not in a promp
 or web response. It reports the configured model name and provider token usage;
 it does not independently resolve provider aliases. Missing token usage becomes
 zero, which can undercount cost. No Anthropic adapter or automatic price lookup
-exists. Explicit log redaction and renderer-environment isolation remain pending;
-do not put shared/provider keys in the public web bundle.
+exists. API and worker logs apply the bounded redaction policy described in
+`docs/security.md`, and the renderer environment is isolated; neither replaces
+deployment verification. Do not put shared/provider keys in the public bundle.
 
 **Untrusted data.** Nothing the model sees is trusted, and nothing the model
 returns is trusted either:

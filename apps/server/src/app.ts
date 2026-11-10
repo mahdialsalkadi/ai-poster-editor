@@ -10,6 +10,7 @@ import { authGuard, rateLimitGuard } from './auth/guard.js';
 import { registerErrorHandler, requestIdOf } from './errors.js';
 import { loggerOptions } from './logging.js';
 import { ExportService } from './export/service.js';
+import { RenderQueue } from './export/queue.js';
 import { aiRoutes } from './routes/ai.js';
 import { assetRoutes } from './routes/assets.js';
 import { authRoutes } from './routes/auth.js';
@@ -56,7 +57,13 @@ export async function buildServer(options: ServerOptions = {}): Promise<FastifyI
 
   const ai = options.ai !== undefined ? options.ai : createAiServiceFromEnv(process.env, app.log);
   if (process.env.AI_DISABLED?.trim() === 'true') app.log.warn('AI is disabled by AI_DISABLED');
-  const exportService = options.exportService ?? new ExportService();
+  const exportService =
+    options.exportService ??
+    new ExportService({
+      queue: new RenderQueue(undefined, undefined, (metrics) =>
+        app.log.info({ event: 'export.queue', scope: 'api', ...metrics }, 'Export queue changed'),
+      ),
+    });
   const auth = options.auth !== undefined ? options.auth : createAuthFromEnv(process.env);
   const guard = authGuard(auth);
   const designLimiter = new SlidingWindowLimiter(

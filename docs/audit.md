@@ -1175,3 +1175,21 @@ and caller-provided request IDs must not contain credentials or private data.
 credential-header redaction, query omission, safe unexpected-error reporting and
 valid structured output. The targeted two-test suite and server typecheck passed.
 No external error-reporting service or dependency was added.
+
+### Spend and export queue metrics
+
+Operational metrics use structured log events instead of a new public metrics
+endpoint. Existing `ai.spend.settlement` events report the UTC day, reservation,
+actual cost, cumulative spend and daily cap per provider attempt. New
+`export.queue` events report active and waiting work, configured capacities and
+process-lifetime rejected count on API and worker queue transitions. They contain
+no design or user data. Events are process-local; worker and API scopes must not
+be summed as independent exports, and a restart resets the rejection counter.
+They require logging and a log collector to be retained and alerted on. Idle
+processes do not periodically publish gauges, and spend events represent accounted
+cost, not independently verified provider invoices.
+
+`apps/server/test/metrics.test.ts` verifies queue admission, handoff, rejection,
+completion, observer failures and a real HTML export's log records; existing spend
+tests verify reservation and settlement accounting. The three targeted suites
+(19 tests) and server typecheck passed. No external provider was contacted.

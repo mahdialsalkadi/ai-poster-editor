@@ -45,7 +45,11 @@ export async function buildWorkerServer(
   });
   const sandbox = options.sandbox ?? process.env.EXPORT_CHROMIUM_SANDBOX !== 'false';
   const token = options.token ?? process.env.EXPORT_WORKER_TOKEN?.trim() ?? undefined;
-  const queue = options.queue ?? new RenderQueue(1, 4);
+  const queue =
+    options.queue ??
+    new RenderQueue(1, 4, (metrics) =>
+      app.log.info({ event: 'export.queue', scope: 'worker', ...metrics }, 'Export queue changed'),
+    );
 
   app.get('/health', async () => ({
     status: 'ok',
