@@ -270,9 +270,8 @@ apps/web/           Vite + React editor
 apps/server/        Fastify API, AI service and Playwright exporter
 docker/             API, worker and web images plus the TLS proxy config
 prompts/            Generator and scoped-edit system prompts
-docs/               Contract, security model, audit and architecture decisions
+docs/               Contract, security model, audit, roadmap and architecture decisions
 .github/workflows/  CI and Dependabot
-screenshots/        Historical manual verification captures, not visual tests
 ```
 
 ## Milestone status

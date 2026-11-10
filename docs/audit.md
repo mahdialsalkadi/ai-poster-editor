@@ -1934,3 +1934,32 @@ element kinds; this run reaches 14 because the plan's enumerated list of the
 remaining twelve is not available in the current session. The six added kinds
 are an interim, coherent vocabulary, not a claim that the 26-item library is
 complete.
+
+### Phase 11 — 1.0.0 release hardening
+
+**What changed:**
+
+- `screenshots/` (23 tracked manual captures) is removed with `git rm -r`; the
+  visual gate remains the reviewed Playwright goldens, never those images. The
+  README directory map no longer lists it and now points at the roadmap.
+- Every manifest is bumped to **1.0.0**: root `package.json`,
+  `apps/web`, `apps/server`, `packages/core` and `packages/contracts`.
+- `docs/roadmap.md` records what shipped through 10G, the six known gaps at
+  1.0.0 (element catalogue at 14/26, template palette, drag-and-drop uploads,
+  the reverted two-column export layout, the untested clipboard path and the
+  unsplit i18n module) and the post-1.0 order of work.
+
+**Release gates (all run locally on this host):**
+
+- `pnpm format:check` — all files formatted.
+- `pnpm typecheck` — core, contracts, server, web and e2e projects clean.
+- `pnpm test` — **502** tests passed (core 288, web 73, server 141).
+- `pnpm build` — web and server built.
+- `pnpm exec playwright test --grep-invert "matches its reviewed golden"` —
+  **21/21** passed. The three reviewed-golden tests were intentionally excluded
+  because host rasterisation differs from the Linux CI baseline; the goldens
+  were not regenerated.
+
+**Verdict: PASS** for the local release checklist. Tag `v1.0.0` marks this
+commit. Deployment hardening (container isolation, TLS, live auth) remains out
+of scope and is called out both in the README and the roadmap.

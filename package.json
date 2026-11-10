@@ -1,6 +1,6 @@
 {
   "name": "ai-poster-editor",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "description": "AI-assisted poster editor built around a strict Design HTML contract",
