@@ -1873,3 +1873,34 @@ E2E tests passed locally.
 was attempted and reverted because it hung Playwright at the 1× scale click, so
 export remains single-column; and clipboard copy is not covered by an automated
 test because the browser test context does not grant clipboard-write.
+
+### Phase 10G (part 1) — Collapsible, searchable left rail
+
+**What changed:**
+
+- `apps/web/src/components/LeftRail.tsx` gains a collapse toggle in
+  `.rail-bottom` (`data-testid="rail-collapse"`) that adds `is-collapsed` to the
+  rail, hides the text labels and version chip, and keeps the icon buttons
+  reachable. State is local to the rail and labels/aria flip between
+  `collapseRail` and `expandRail`.
+- Every non-AI panel now starts with a search field
+  (`data-testid="rail-search"`). One needle filters the active panel: template
+  names, translated element labels plus their kind, translated text-preset
+  labels plus their copy, asset names, and layer names plus their
+  `layerSummary`. Empty matches render `rail-no-results` (“No matching results”)
+  instead of a blank panel, and the assets/layers empty states distinguish “no
+  results” from “nothing uploaded/added yet”.
+- All four new labels exist in Arabic and English.
+
+**Measured contract:** `e2e/canvas.spec.ts:281` opens Templates, records the
+card count, types `Neon`, asserts exactly one card containing “Neon Night”,
+types a guaranteed miss and asserts the no-results message, clears the field and
+asserts the original count returns, then collapses the rail (label hidden,
+`is-collapsed` present) and expands it again.
+
+**Gates:** typecheck, lint and build passed; the new rail E2E test passed
+(1/1 targeted). The rest of the canvas suite was not re-run for this slice.
+
+**Verdict: PASS** for collapse and search. Still outstanding from 10G: the
+26-element/six-text-pairing library, `applyTemplatePalette` via
+`mergeDesignDoc`, drag-and-drop uploads, and `docs/roadmap.md`.

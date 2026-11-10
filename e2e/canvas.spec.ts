@@ -277,3 +277,27 @@ test('the preview modal fits the artboard, switches backdrop and closes on Escap
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('preview-panel')).toHaveCount(0);
 });
+
+test('the rail collapses and searches the active panel', async ({ page }) => {
+  await openEditor(page);
+  await page
+    .getByRole('button', { name: /القوالب|Templates/ })
+    .first()
+    .click();
+  await expect(page.locator('.panel')).toBeVisible();
+  const total = await page.locator('.template-card').count();
+  expect(total).toBeGreaterThan(1);
+  await page.getByTestId('rail-search').fill('Neon');
+  await expect(page.locator('.template-card')).toHaveCount(1);
+  await expect(page.locator('.template-card')).toContainText('Neon Night');
+  await page.getByTestId('rail-search').fill('zzz-no-match');
+  await expect(page.getByTestId('rail-no-results')).toBeVisible();
+  await page.getByTestId('rail-search').fill('');
+  await expect(page.locator('.template-card')).toHaveCount(total);
+
+  await page.getByTestId('rail-collapse').click();
+  await expect(page.locator('.rail')).toHaveClass(/is-collapsed/);
+  await expect(page.locator('.rail').getByText('القوالب')).toBeHidden();
+  await page.getByTestId('rail-collapse').click();
+  await expect(page.locator('.rail')).not.toHaveClass(/is-collapsed/);
+});

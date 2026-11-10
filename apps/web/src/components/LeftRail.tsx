@@ -1,4 +1,4 @@
-import { useRef, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { LIMITS, type DesignDoc, type Layer } from '@poster/core';
 import { useI18n, type MessageKey } from '../i18n.js';
 import type { AssetEntry } from '../editor/assets.js';
@@ -252,6 +252,18 @@ export function LeftRail({
 }: LeftRailProps) {
   const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
+  const needle = query.trim().toLowerCase();
+  const matches = (...values: string[]) =>
+    needle.length === 0 || values.some((value) => value.toLowerCase().includes(needle));
+  const filteredTemplates = templates.filter((template) => matches(template.name));
+  const filteredElements = ELEMENT_KINDS.filter((kind) => matches(t(ELEMENT_KEYS[kind]), kind));
+  const filteredPresets = TEXT_PRESETS.filter((preset) =>
+    matches(t(PRESET_KEYS[preset.id] ?? 'presetHeading'), preset.content),
+  );
+  const filteredAssets = assets.filter((asset) => matches(asset.name));
+  const filteredLayers = doc.layers.filter((layer) => matches(layer.name, layerSummary(layer)));
 
   const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -265,7 +277,7 @@ export function LeftRail({
 
   return (
     <>
-      <nav className="rail" aria-label={t('editorTools')}>
+      <nav className={`rail${collapsed ? ' is-collapsed' : ''}`} aria-label={t('editorTools')}>
         <div className="rail-top">
           {RAIL_ITEMS.map((item) => {
             const info = PANEL_META[item];
@@ -288,6 +300,17 @@ export function LeftRail({
           })}
         </div>
         <div className="rail-bottom">
+          <button
+            type="button"
+            className="rail-collapse"
+            data-testid="rail-collapse"
+            aria-pressed={collapsed}
+            aria-label={collapsed ? t('expandRail') : t('collapseRail')}
+            title={collapsed ? t('expandRail') : t('collapseRail')}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            <span aria-hidden="true">{collapsed ? '›' : '‹'}</span>
+          </button>
           <span className="rail-version">M7</span>
         </div>
       </nav>
@@ -303,10 +326,28 @@ export function LeftRail({
           </header>
 
           <div className="panel-body">
+            {panel !== 'ai' ? (
+              <div className="panel-search-wrap">
+                <input
+                  className="panel-search"
+                  data-testid="rail-search"
+                  type="search"
+                  value={query}
+                  placeholder={t('searchRail')}
+                  aria-label={t('searchRail')}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </div>
+            ) : null}
             {panel === 'templates' ? (
               <div className="templates">
                 <p className="panel-hint">{t('templatesHint')}</p>
-                {templates.map((template) => (
+                {filteredTemplates.length === 0 ? (
+                  <p className="panel-hint" data-testid="rail-no-results">
+                    {t('noResults')}
+                  </p>
+                ) : null}
+                {filteredTemplates.map((template) => (
                   <button
                     key={template.id}
                     type="button"
@@ -329,7 +370,7 @@ export function LeftRail({
               <div className="elements">
                 <p className="panel-hint">{t('elementsHint')}</p>
                 <div className="elements-grid">
-                  {ELEMENT_KINDS.map((kind) => {
+                  {filteredElements.map((kind) => {
                     const label = t(ELEMENT_KEYS[kind]);
                     return (
                       <button
@@ -353,7 +394,12 @@ export function LeftRail({
             {panel === 'text' ? (
               <div className="text-presets">
                 <p className="panel-hint">{t('textHint')}</p>
-                {TEXT_PRESETS.map((preset) => (
+                {filteredPresets.length === 0 ? (
+                  <p className="panel-hint" data-testid="rail-no-results">
+                    {t('noResults')}
+                  </p>
+                ) : null}
+                {filteredPresets.map((preset) => (
                   <button
                     key={preset.id}
                     type="button"
@@ -404,14 +450,14 @@ export function LeftRail({
                   {t('uploadsHint', { max: LIMITS.assets.maxPerDocument })}
                 </p>
                 {uploadBusy ? <Spinner size={18} /> : null}
-                {assets.length === 0 ? (
+                {filteredAssets.length === 0 ? (
                   <div className="empty-state">
                     <Icon name="image" size={28} />
-                    <p>{t('noImages')}</p>
+                    <p>{needle ? t('noResults') : t('noImages')}</p>
                   </div>
                 ) : (
                   <div className="assets-grid">
-                    {assets.map((asset) => (
+                    {filteredAssets.map((asset) => (
                       <div key={asset.id} className="asset-card">
                         <button
                           type="button"
@@ -446,14 +492,14 @@ export function LeftRail({
             {panel === 'layers' ? (
               <div className="layers-panel">
                 <p className="panel-hint">{t('layersHint')}</p>
-                {doc.layers.length === 0 ? (
+                {filteredLayers.length === 0 ? (
                   <div className="empty-state">
                     <Icon name="layers" size={28} />
-                    <p>{t('noLayers')}</p>
+                    <p>{needle ? t('noResults') : t('noLayers')}</p>
                   </div>
                 ) : (
                   <div className="layer-list">
-                    {doc.layers
+                    {filteredLayers
                       .slice()
                       .reverse()
                       .map((layer, index, all) => (
