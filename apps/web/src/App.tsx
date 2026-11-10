@@ -17,7 +17,7 @@ import { AccountDialog } from './components/AccountDialog.js';
 import { Canvas } from './components/Canvas.js';
 import { ContextualToolbar } from './components/ContextualToolbar.js';
 import { IconButton } from './components/controls.js';
-import { DocPreview } from './components/DocPreview.js';
+import { PreviewModal } from './components/PreviewModal.js';
 import { ExportDialog } from './components/ExportDialog.js';
 import { Inspector } from './components/Inspector.js';
 import { LeftRail, type PanelId } from './components/LeftRail.js';
@@ -1064,55 +1064,59 @@ export function App() {
             }}
           />
 
-          <ContextualToolbar
-            layers={doc.layers.filter((layer) => selection.includes(layer.id))}
-            effect={(() => {
-              const selected = doc.layers.find((layer) => layer.id === selection[0]);
-              if (!selected) return 'none';
-              if (doc.layers.some((layer) => layer.id === `${selected.id}__fx2`)) return 'glitch';
-              if (doc.layers.some((layer) => layer.id === `${selected.id}__fx1`)) return 'echo';
-              return selected.type === 'text' && selected.style.shadow ? 'softShadow' : 'none';
-            })()}
-            canPaste={styleClipboard !== null}
-            onTextStyle={(patch) =>
-              history.update((current) =>
-                updateLayers(current, selection, (layer) =>
-                  layer.type === 'text' ? { ...layer, style: { ...layer.style, ...patch } } : layer,
-                ),
-              )
-            }
-            onShapeColor={(color) =>
-              history.update((current) =>
-                updateLayers(current, selection, (layer) =>
-                  layer.type === 'shape' && layer.style.fill.kind === 'solid'
-                    ? { ...layer, style: { ...layer.style, fill: { kind: 'solid', color } } }
-                    : layer,
-                ),
-              )
-            }
-            onAlign={(target) =>
-              history.update((current) => alignLayers(current, selection, target))
-            }
-            onEffect={(preset: TextEffectPreset) => {
-              const id = selection[0];
-              if (id) history.update((current) => applyTextEffectPreset(current, id, preset));
-            }}
-            onCopyStyle={() => {
-              const layer = doc.layers.find((item) => item.id === selection[0]);
-              const copied = layer ? copyLayerStyle(layer) : null;
-              if (!copied) return;
-              setStyleClipboard(copied);
-              notify('success', t('styleCopied'));
-            }}
-            onPasteStyle={() => {
-              if (!styleClipboard) return;
-              history.update((current) =>
-                selection.reduce((next, id) => applyCopiedStyle(next, id, styleClipboard), current),
-              );
-            }}
-          />
-
           <main className="canvas-area">
+            <ContextualToolbar
+              layers={doc.layers.filter((layer) => selection.includes(layer.id))}
+              effect={(() => {
+                const selected = doc.layers.find((layer) => layer.id === selection[0]);
+                if (!selected) return 'none';
+                if (doc.layers.some((layer) => layer.id === `${selected.id}__fx2`)) return 'glitch';
+                if (doc.layers.some((layer) => layer.id === `${selected.id}__fx1`)) return 'echo';
+                return selected.type === 'text' && selected.style.shadow ? 'softShadow' : 'none';
+              })()}
+              canPaste={styleClipboard !== null}
+              onTextStyle={(patch) =>
+                history.update((current) =>
+                  updateLayers(current, selection, (layer) =>
+                    layer.type === 'text'
+                      ? { ...layer, style: { ...layer.style, ...patch } }
+                      : layer,
+                  ),
+                )
+              }
+              onShapeColor={(color) =>
+                history.update((current) =>
+                  updateLayers(current, selection, (layer) =>
+                    layer.type === 'shape' && layer.style.fill.kind === 'solid'
+                      ? { ...layer, style: { ...layer.style, fill: { kind: 'solid', color } } }
+                      : layer,
+                  ),
+                )
+              }
+              onAlign={(target) =>
+                history.update((current) => alignLayers(current, selection, target))
+              }
+              onEffect={(preset: TextEffectPreset) => {
+                const id = selection[0];
+                if (id) history.update((current) => applyTextEffectPreset(current, id, preset));
+              }}
+              onCopyStyle={() => {
+                const layer = doc.layers.find((item) => item.id === selection[0]);
+                const copied = layer ? copyLayerStyle(layer) : null;
+                if (!copied) return;
+                setStyleClipboard(copied);
+                notify('success', t('styleCopied'));
+              }}
+              onPasteStyle={() => {
+                if (!styleClipboard) return;
+                history.update((current) =>
+                  selection.reduce(
+                    (next, id) => applyCopiedStyle(next, id, styleClipboard),
+                    current,
+                  ),
+                );
+              }}
+            />
             <Canvas
               doc={doc}
               scale={scale}
@@ -1322,17 +1326,7 @@ export function App() {
         ) : null}
 
         {modal === 'preview' ? (
-          <div className="modal" role="dialog" aria-modal="true" aria-label="معاينة التصميم">
-            <div className="modal-panel">
-              <header className="modal-header">
-                <h2>معاينة التصميم</h2>
-                <IconButton icon="close" label="إغلاق المعاينة" onClick={() => setModal(null)} />
-              </header>
-              <div className="modal-body">
-                <DocPreview doc={doc} width={Math.min(760, doc.width)} />
-              </div>
-            </div>
-          </div>
+          <PreviewModal doc={doc} assets={assets} onClose={() => setModal(null)} />
         ) : null}
 
         {modal === 'help' ? (

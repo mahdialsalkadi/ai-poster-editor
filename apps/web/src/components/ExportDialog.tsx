@@ -22,6 +22,18 @@ const FORMATS: { value: ExportFormat; label: string; title: MessageKey }[] = [
 
 const SCALES: ExportScale[] = [1, 2, 3];
 
+/** Keeps filenames portable: no spaces, no path separators, no surprises. */
+function slug(value: string): string {
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return cleaned.slice(0, 60) || 'poster';
+}
+
 function createKey(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -45,6 +57,8 @@ export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: Exp
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<ExportOutput | null>(null);
   const idempotencyKey = useRef(createKey());
+  const [fileBase, setFileBase] = useState(() => slug(name));
+  const [copied, setCopied] = useState(false);
 
   // A key identifies one exact request: changing an option must not replay an
   // earlier export from the server cache.
@@ -52,6 +66,7 @@ export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: Exp
     idempotencyKey.current = createKey();
     setOutput(null);
     setError(null);
+    setCopied(false);
   };
 
   const raster = format === 'png' || format === 'jpeg';
@@ -62,6 +77,8 @@ export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: Exp
   const overLimit = raster && pixels > EXPORT_LIMITS.maxOutputPixels;
   const pointWidth = Math.round(doc.width * 0.75);
   const pointHeight = Math.round(doc.height * 0.75);
+  const extension = format === 'jpeg' ? 'jpg' : format;
+  const filename = `${slug(fileBase || name)}.${extension}`;
 
   const sizeLabel = useMemo(() => {
     if (format === 'html') return t('independentHtmlDoc');
@@ -76,7 +93,7 @@ export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: Exp
     const result = await exportDesign({
       doc,
       assets,
-      name,
+      name: slug(fileBase || name),
       format,
       scale,
       quality: quality / 100,
@@ -90,7 +107,23 @@ export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: Exp
       return;
     }
     setOutput(result.data);
-    downloadBlob(result.data.blob, result.data.filename);
+    downloadBlob(result.data.blob, filename);
+  };
+
+  const copy = async () => {
+    if (!output) return;
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ [output.blob.type || 'image/png']: output.blob }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(filename);
+      }
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
@@ -102,6 +135,38 @@ export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: Exp
         </header>
 
         <div className="modal-body export-body">
+          <Field label={t('fileName')} hint={t('fileNameHint')}>
+            <div className="filename-row">
+              <input
+                className="filename-input"
+                data-testid="export-filename"
+                value={fileBase}
+                maxLength={60}
+                aria-label={t('fileName')}
+                onChange={(event) => {
+                  setFileBase(event.target.value);
+                  resetOutput();
+                }}
+              />
+              <span className="filename-ext">.{extension}</span>
+            </div>
+            <div className="filename-presets">
+              {[slug(name), `${slug(name)}-${factor}x`, `${slug(name)}-social`].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className="filename-preset"
+                  onClick={() => {
+                    setFileBase(preset);
+                    resetOutput();
+                  }}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </Field>
+
           <Field label={t('format')}>
             <Segmented
               value={format}
@@ -179,17 +244,22 @@ export function ExportDialog({ doc, assets, name, onUnauthorized, onClose }: Exp
           ) : null}
 
           {output ? (
-            <div className="export-result">
+            <div className="export-result" data-testid="export-receipt">
               <div>
                 <strong>{t('fileCreated')}</strong>
                 <span>
-                  {formatBytes(output.blob.size)} · {output.width} × {output.height}
+                  {filename} · {formatBytes(output.blob.size)} · {output.width} × {output.height}
                   {output.cacheHit ? ` · ${t('fromCache')}` : ` · ${output.durationMs}ms`}
                 </span>
               </div>
-              <Button icon="download" onClick={() => downloadBlob(output.blob, output.filename)}>
-                {t('downloadAgain')}
-              </Button>
+              <div className="export-result-actions">
+                <Button icon="copy" onClick={() => void copy()}>
+                  {copied ? t('copiedToClipboard') : t('copyToClipboard')}
+                </Button>
+                <Button icon="download" onClick={() => downloadBlob(output.blob, filename)}>
+                  {t('downloadAgain')}
+                </Button>
+              </div>
             </div>
           ) : null}
 

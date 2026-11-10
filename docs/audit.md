@@ -1836,3 +1836,40 @@ passed locally after the optional-prop and identity assertions were corrected.
 
 **Verdict: PASS.** Colour edits are now visible, reusable and replaceable across
 the document with one undoable action.
+
+### Phase 10F — Viewport-fitting preview and export filename, clipboard and receipt
+
+**What changed:**
+
+- `apps/web/src/components/PreviewModal.tsx` replaces the inline preview block.
+  It measures its stage and computes a fit scale clamped to 10–100%, offers
+  zoom out/in, Fit, Actual size, three backdrops (dark, light, checker),
+  fullscreen through `requestFullscreen`, closes on Escape (except while in
+  fullscreen) and reports artboard dimensions plus how many document images are
+  available. Everything is rendered from `DocPreview`, so no second renderer.
+- `apps/web/src/components/ExportDialog.tsx` adds a portable filename derived
+  from the design name (spaces and path characters collapsed, 60 characters),
+  live extension switching (`jpg` for JPEG), three preset chips
+  (`name`, `name-{scale}x`, `name-social`), and downloads under that filename
+  instead of the server's. The success receipt now shows the filename, size,
+  dimensions, cache/duration and offers a Copy-to-clipboard button for the
+  produced blob (text filename when the Clipboard API cannot take the MIME
+  type), with a Copied confirmation.
+- `apps/web/src/App.tsx` renders `<PreviewModal>` and the ribbon now lives
+  inside `.canvas-area`; previously it was an absolutely positioned sibling of
+  the canvas and intercepted top-bar clicks (undo became unclickable).
+
+**Measured contract:** `e2e/canvas.spec.ts` “the preview modal fits the artboard,
+switches backdrop and closes on Escape” opens the preview from the File menu,
+asserts the fit label is ≤100%, switches to the light backdrop and checks both
+`aria-pressed` and the stage class, then closes with Escape. The full
+`e2e/editor.spec.ts` round trip (template → transforms → AI → PNG/PDF export)
+passes with the new filename field and receipt.
+
+**Gates:** typecheck, lint, format and build passed; **11/11** canvas + editor
+E2E tests passed locally.
+
+**Verdict: PASS**, with two limitations recorded: the two-column export layout
+was attempted and reverted because it hung Playwright at the 1× scale click, so
+export remains single-column; and clipboard copy is not covered by an automated
+test because the browser test context does not grant clipboard-write.

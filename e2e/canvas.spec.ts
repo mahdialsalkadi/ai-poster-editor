@@ -261,3 +261,19 @@ test('the floating layer bar and layer context menu live inside the overlay', as
   await page.getByTestId('context-duplicate').click();
   await expect(page.locator('.artboard [data-layer-id]')).toHaveCount(before);
 });
+
+test('the preview modal fits the artboard, switches backdrop and closes on Escape', async ({
+  page,
+}) => {
+  await openEditor(page);
+  await page.getByTestId('file-menu').click();
+  await page.getByRole('menuitem', { name: /معاينة|Preview/ }).click();
+  await expect(page.getByTestId('preview-panel')).toBeVisible();
+  const label = (await page.getByTestId('preview-zoom').textContent()) ?? '';
+  expect(Number(label.replace('%', ''))).toBeLessThanOrEqual(100);
+  await page.getByTestId('preview-backdrop-light').click();
+  await expect(page.getByTestId('preview-backdrop-light')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('preview-stage')).toHaveClass(/preview-stage--light/);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('preview-panel')).toHaveCount(0);
+});
