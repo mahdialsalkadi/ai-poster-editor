@@ -1449,3 +1449,13 @@ These results close the local work for G5 and G9. They do not replace the
 unapproved Docker/staging verification, live provider checks or release steps,
 and the 1.5% editor/export tolerance is validated on the single reference
 design only. The historical `screenshots/` directory remains pending D8.
+
+### Phase 7 hosted CI
+
+GitHub Actions run
+[`42791072121`](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42791072121)
+passed both matrix jobs (`Node 22` in 2m13s and latest `node` in 1m36s) for
+commit `47741bc`. Typecheck, lint, formatting, package tests, critical-source
+coverage, build, browser E2E/visual regression and the production dependency
+audit all completed successfully. Local and hosted results agree for this
+commit; staging and release verification remain unapproved.
