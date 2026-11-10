@@ -3,7 +3,7 @@ import { LIMITS, type DesignDoc, type TextLayer } from '@poster/core';
 import { createPaperDoc } from '../sample.js';
 import { copyLayers, pasteLayers } from './clipboard.js';
 import { layersInMarquee, selectionRect } from './selection.js';
-import { replaceTextContent } from './layers.js';
+import { applyTextEffectPreset, magicResizeDoc, replaceTextContent } from './layers.js';
 import { handlesFor, resizeFromHandle, scaleTextFontSize } from './resize.js';
 
 describe('editor interactions', () => {
@@ -56,6 +56,56 @@ describe('editor interactions', () => {
     expect(layersInMarquee(test, selectionRect(160, 70, 145, 60))).toEqual(['visible']);
     expect(layersInMarquee(test, selectionRect(0, 0, 0, 0))).toEqual([]);
   });
+  it('stretches a full-bleed backdrop and pins corner badges during magic resize', () => {
+    const doc = createPaperDoc();
+    const backdrop = doc.layers.find((layer) => layer.type === 'shape')!;
+    const base: DesignDoc = {
+      ...doc,
+      width: 1000,
+      height: 1000,
+      layers: [
+        { ...backdrop, id: 'bleed', left: 0, top: 0, width: 1000, height: 1000 },
+        { ...backdrop, id: 'tl', left: 20, top: 20, width: 80, height: 60 },
+        { ...backdrop, id: 'br', left: 900, top: 900, width: 80, height: 60 },
+      ],
+    };
+    const resized = magicResizeDoc(base, 2000, 2000);
+    const byId = (id: string) => resized.layers.find((layer) => layer.id === id)!;
+    expect(byId('bleed')).toMatchObject({ left: 0, top: 0, width: 2000, height: 2000 });
+    expect(byId('tl')).toMatchObject({ left: 40, top: 40, width: 160, height: 120 });
+    expect(byId('br')).toMatchObject({ left: 1800, top: 1800 });
+    expect(resized).toMatchObject({ width: 2000, height: 2000 });
+  });
+
+  it('rewraps a wide headline inside the safe margin and scales its font', () => {
+    const doc = createPaperDoc();
+    const text = doc.layers.find((layer) => layer.type === 'text') as TextLayer;
+    const base: DesignDoc = {
+      ...doc,
+      width: 1000,
+      height: 1000,
+      layers: [{ ...text, id: 'headline', left: 100, top: 100, width: 800 }],
+    };
+    const resized = magicResizeDoc(base, 2000, 1000);
+    const headline = resized.layers[0] as TextLayer;
+    expect(headline.width).toBe(1720);
+    expect(headline.style.fontSize).toBe(text.style.fontSize);
+  });
+
+  it('adds glitch companions below the primary and removes them for none', () => {
+    const doc = createPaperDoc();
+    const text = doc.layers.find((layer) => layer.type === 'text') as TextLayer;
+    const base: DesignDoc = { ...doc, layers: [{ ...text, id: 'title' }] };
+    const glitched = applyTextEffectPreset(base, 'title', 'glitch');
+    expect(glitched.layers.map((layer) => layer.id)).toEqual(['title__fx1', 'title__fx2', 'title']);
+    const cyan = glitched.layers[0] as TextLayer;
+    expect(cyan.locked).toBe(true);
+    expect(cyan.style.color).toBe('#00ffff');
+    const cleared = applyTextEffectPreset(glitched, 'title', 'none');
+    expect(cleared.layers.map((layer) => layer.id)).toEqual(['title']);
+    expect((cleared.layers[0] as TextLayer).style.shadow).toBeUndefined();
+  });
+
   it('zeroes spacing immediately when Latin editor text becomes Arabic', () => {
     const doc = createPaperDoc();
     const layer = doc.layers.find((item) => item.type === 'text') as TextLayer;

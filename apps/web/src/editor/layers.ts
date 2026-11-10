@@ -1,5 +1,6 @@
 import {
   LIMITS,
+  quantize,
   requiresZeroLetterSpacing,
   type AllowedFont,
   type DesignDoc,
@@ -565,6 +566,272 @@ export function applyFontToTextLayers(
 
 export function replaceTextContent(doc: DesignDoc, id: string, content: InlineNode[]): DesignDoc {
   return updateLayer(doc, id, (layer) => (layer.type === 'text' ? { ...layer, content } : layer));
+}
+
+export function clampArtboardSize(
+  width: number,
+  height: number,
+): { width: number; height: number } {
+  const maxPixels = LIMITS.document.maxArtboardPixels;
+  let w = Math.min(
+    LIMITS.document.maxArtboardSide,
+    Math.max(LIMITS.document.minArtboardSide, Math.round(width)),
+  );
+  let h = Math.min(
+    LIMITS.document.maxArtboardSide,
+    Math.max(LIMITS.document.minArtboardSide, Math.round(height)),
+  );
+  if (w * h > maxPixels) {
+    const ratio = Math.sqrt(maxPixels / (w * h));
+    w = Math.max(LIMITS.document.minArtboardSide, Math.floor(w * ratio));
+    h = Math.max(LIMITS.document.minArtboardSide, Math.floor(h * ratio));
+  }
+  return { width: w, height: h };
+}
+
+type AxisAnchor = 'start' | 'center' | 'end';
+type TextShadow = NonNullable<TextLayer['style']['shadow']>;
+
+export type TextEffectPreset =
+  'none' | 'softShadow' | 'lift' | 'neon' | 'echo' | 'splice' | 'glitch';
+
+function limit(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function anchorAxis(center: number, extent: number): AxisAnchor {
+  const normalized = extent > 0 ? center / extent : 0.5;
+  if (normalized < 1 / 3) return 'start';
+  if (normalized > 2 / 3) return 'end';
+  return 'center';
+}
+
+function anchoredPosition(
+  anchor: AxisAnchor,
+  startMargin: number,
+  endMargin: number,
+  center: number,
+  nextStartExtent: number,
+  size: number,
+): number {
+  if (anchor === 'start') return limit(startMargin, 0, Math.max(0, nextStartExtent - size));
+  if (anchor === 'end') {
+    return limit(nextStartExtent - size - endMargin, 0, Math.max(0, nextStartExtent - size));
+  }
+  return center - size / 2;
+}
+
+/**
+ * Magic Resize with Canva-style anchoring: full-bleed backdrops stretch across
+ * the new artboard, every other layer keeps its 9-zone anchor, text rewraps at a
+ * safe margin and scales its font with the uniform factor. Geometry stays inside
+ * the schema limits because the artboard is clamped first.
+ */
+export function magicResizeDoc(doc: DesignDoc, nextWidth: number, nextHeight: number): DesignDoc {
+  const { width: nextW, height: nextH } = clampArtboardSize(nextWidth, nextHeight);
+  const w0 = doc.width;
+  const h0 = doc.height;
+  if (nextW === w0 && nextH === h0) return doc;
+  if (w0 <= 0 || h0 <= 0) return { ...doc, width: nextW, height: nextH };
+
+  const sx = nextW / w0;
+  const sy = nextH / h0;
+  const su = Math.min(sx, sy);
+  const safeMargin = Math.max(24, Math.round(0.07 * nextW));
+
+  const layers = doc.layers.map((layer): Layer => {
+    const width = layer.width;
+    const height = 'height' in layer ? layer.height : estimatedLayerHeight(layer);
+    const left = layer.left;
+    const top = layer.top;
+
+    const fullBleed =
+      (layer.type === 'shape' || layer.type === 'image') &&
+      width >= 0.85 * w0 &&
+      height >= 0.85 * h0 &&
+      left <= 0.08 * w0 &&
+      top <= 0.08 * h0;
+
+    if (fullBleed) {
+      return {
+        ...layer,
+        left: quantize(left * sx),
+        top: quantize(top * sy),
+        width: quantize(limit(width * sx, 1, 10_000)),
+        ...('height' in layer ? { height: quantize(limit(height * sy, 1, 10_000)) } : {}),
+      } as Layer;
+    }
+
+    const anchorX = anchorAxis(left + width / 2, w0);
+    const anchorY = anchorAxis(top + height / 2, h0);
+    const marginLeft = left * su;
+    const marginRight = (w0 - (left + width)) * su;
+    const marginTop = top * su;
+    const marginBottom = (h0 - (top + height)) * su;
+    const centerX = ((left + width / 2) / w0) * nextW;
+    const centerY = ((top + height / 2) / h0) * nextH;
+
+    if (layer.type === 'text') {
+      const fontSize = quantize(
+        limit(layer.style.fontSize * su, LIMITS.text.minFontSize, LIMITS.text.maxFontSize),
+      );
+      const widest = Math.max(40, nextW - 2 * safeMargin);
+      const rewrap = width >= 0.6 * w0;
+      const width2 = quantize(limit(rewrap ? widest : width * sx, 40, widest));
+      const nextLeft = anchoredPosition(anchorX, marginLeft, marginRight, centerX, nextW, width2);
+      const styled: TextLayer = {
+        ...layer,
+        width: width2,
+        style: { ...layer.style, fontSize },
+      };
+      const wrapped = estimatedLayerHeight(styled);
+      const nextTop = anchoredPosition(anchorY, marginTop, marginBottom, centerY, nextH, wrapped);
+      return { ...styled, left: quantize(nextLeft), top: quantize(nextTop) };
+    }
+
+    const divider = width >= 0.6 * w0 && height <= 16;
+    const width2 = quantize(limit(divider ? width * sx : width * su, 1, 10_000));
+    const height2 = quantize(limit(divider ? height : height * su, 1, 10_000));
+    const nextLeft = anchoredPosition(anchorX, marginLeft, marginRight, centerX, nextW, width2);
+    const nextTop = anchoredPosition(anchorY, marginTop, marginBottom, centerY, nextH, height2);
+    const resized = {
+      ...layer,
+      left: quantize(nextLeft),
+      top: quantize(nextTop),
+      width: width2,
+      ...('height' in layer ? { height: height2 } : {}),
+    } as Layer;
+
+    if ((resized.type === 'shape' || resized.type === 'image') && 'radius' in resized.style) {
+      return {
+        ...resized,
+        style: { ...resized.style, radius: quantize(resized.style.radius * su) },
+      } as Layer;
+    }
+    return resized;
+  });
+
+  return { ...doc, width: nextW, height: nextH, layers };
+}
+
+function textStyleWithShadow(
+  style: TextLayer['style'],
+  shadow: TextShadow | undefined,
+): TextLayer['style'] {
+  const { shadow: _previous, ...rest } = style;
+  return shadow === undefined ? rest : { ...rest, shadow };
+}
+
+/**
+ * Applies one of seven text effects without widening the `Shadow` schema.
+ * Single-shadow presets rewrite `style.shadow`; echo, splice and glitch insert
+ * locked companion text layers (`__fx1`, `__fx2`) directly below the primary so
+ * the stack still round-trips through the HTML serializer.
+ */
+export function applyTextEffectPreset(
+  doc: DesignDoc,
+  id: string,
+  preset: TextEffectPreset,
+): DesignDoc {
+  const source = doc.layers.find((layer) => layer.id === id);
+  if (!source || source.type !== 'text') return doc;
+
+  const companion = new RegExp(`^${id}__fx[12]$`);
+  const layers = doc.layers.filter((layer) => !companion.test(layer.id));
+  const index = layers.findIndex((layer) => layer.id === id);
+  const primary = layers[index];
+  if (!primary || primary.type !== 'text') return doc;
+
+  const shadows: Record<TextEffectPreset, TextShadow | undefined> = {
+    none: undefined,
+    softShadow: { x: 0, y: 12, blur: 28, color: '#00000066' },
+    lift: { x: 0, y: 20, blur: 48, color: '#00000088' },
+    neon: { x: 0, y: 0, blur: 28, color: primary.style.color },
+    echo: { x: -6, y: 6, blur: 0, color: '#00000055' },
+    splice: { x: 6, y: 6, blur: 0, color: '#000000aa' },
+    glitch: undefined,
+  };
+
+  const next: Layer[] = [...layers];
+  next[index] = { ...primary, style: textStyleWithShadow(primary.style, shadows[preset]) };
+
+  const makeCompanion = (suffix: '__fx1' | '__fx2', left: number, top: number): TextLayer => ({
+    ...primary,
+    id: `${id}${suffix}`,
+    name: `${primary.name} fx${suffix === '__fx1' ? '1' : '2'}`,
+    left,
+    top,
+    locked: true,
+    opacity: suffix === '__fx1' && preset === 'splice' ? 0.45 : 0.75,
+    style: textStyleWithShadow(primary.style, undefined),
+  });
+
+  const companions: TextLayer[] = [];
+  if (preset === 'echo') {
+    const copy = makeCompanion('__fx1', primary.left - 12, primary.top + 12);
+    companions.push({ ...copy, opacity: 0.35 });
+  } else if (preset === 'splice') {
+    const copy = makeCompanion('__fx1', primary.left + 10, primary.top + 10);
+    companions.push({ ...copy, style: { ...copy.style, color: '#f5a524' }, opacity: 0.45 });
+  } else if (preset === 'glitch') {
+    const cyan = makeCompanion('__fx1', primary.left - 5, primary.top - 2);
+    const magenta = makeCompanion('__fx2', primary.left + 5, primary.top + 2);
+    companions.push(
+      { ...cyan, style: { ...cyan.style, color: '#00ffff' }, opacity: 0.75 },
+      { ...magenta, style: { ...magenta.style, color: '#ff00ff' }, opacity: 0.75 },
+    );
+  }
+
+  const room = LIMITS.document.maxLayers - next.length;
+  const accepted = companions.slice(0, Math.max(0, room));
+  next.splice(index, 0, ...accepted);
+  return { ...doc, layers: next };
+}
+
+export type CopiedStyle =
+  | { kind: 'text'; style: TextLayer['style']; dir: TextLayer['dir'] }
+  | { kind: 'shape'; style: ShapeLayer['style']; opacity: number }
+  | { kind: 'image'; style: ImageLayer['style']; opacity: number };
+
+export function copyLayerStyle(layer: Layer): CopiedStyle | null {
+  if (layer.type === 'text') return { kind: 'text', style: layer.style, dir: layer.dir };
+  if (layer.type === 'shape') return { kind: 'shape', style: layer.style, opacity: layer.opacity };
+  if (layer.type === 'image') return { kind: 'image', style: layer.style, opacity: layer.opacity };
+  return null;
+}
+
+/**
+ * Applies a copied style to a compatible target, keeping its id, geometry and
+ * content. Arabic text keeps its own font when the source was Latin and any
+ * zero-letter-spacing requirement is re-applied after the copy.
+ */
+export function applyCopiedStyle(doc: DesignDoc, id: string, copied: CopiedStyle): DesignDoc {
+  return updateLayer(doc, id, (layer) => {
+    if (copied.kind === 'text' && layer.type === 'text') {
+      const keepFont = copied.dir !== layer.dir;
+      const style = {
+        ...copied.style,
+        ...(keepFont ? { fontFamily: layer.style.fontFamily } : {}),
+        letterSpacing: copied.style.letterSpacing,
+      };
+      const plain = layer.content.map((node) => (node.kind === 'br' ? '\n' : node.text)).join('');
+      const next: TextLayer = {
+        ...layer,
+        style: {
+          ...style,
+          ...(requiresZeroLetterSpacing(layer.dir, plain) ? { letterSpacing: 0 } : {}),
+        },
+      };
+      return next;
+    }
+    if (copied.kind === 'shape' && layer.type === 'shape') {
+      return { ...layer, style: copied.style, opacity: copied.opacity };
+    }
+    if (copied.kind === 'image' && layer.type === 'image') {
+      return { ...layer, style: copied.style, opacity: copied.opacity };
+    }
+    return layer;
+  });
 }
 
 /** Used by tests and by the AI panel to build a stable layer summary. */
