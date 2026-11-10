@@ -21,7 +21,14 @@ import {
 } from '@poster/core';
 import { useI18n, type MessageKey, type Translator } from '../i18n.js';
 import type { AssetEntry } from '../editor/assets.js';
-import { insertStop, normalizeStops, reverseGradient } from '../editor/fills.js';
+import {
+  colorAlpha,
+  extractDocumentColors,
+  insertStop,
+  normalizeStops,
+  reverseGradient,
+  withAlpha,
+} from '../editor/fills.js';
 import type { UpdateOptions } from '../editor/history.js';
 import {
   estimatedLayerHeight,
@@ -61,6 +68,7 @@ export type InspectorProps = {
   onDistribute: (axis: 'horizontal' | 'vertical') => void;
   onStartEditText: (id: string) => void;
   onReplaceImage: (layerId: string, asset: AssetEntry) => void;
+  onReplaceAllColors?: ((from: string, to: string) => void) | undefined;
 };
 
 function fontGroups(t: Translator) {
@@ -114,7 +122,23 @@ function clampArtboard(width: number, height: number): { width: number; height: 
   return { width: w, height: h };
 }
 
-function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => void }) {
+const GRADIENT_PRESETS: { angle: number; stops: [string, string] }[] = [
+  { angle: 135, stops: ['#f5a524', '#7c3aed'] },
+  { angle: 90, stops: ['#fb7185', '#f59e0b'] },
+  { angle: 45, stops: ['#22d3ee', '#1d4ed8'] },
+];
+
+function FillEditor({
+  fill,
+  onChange,
+  doc,
+  onReplaceAll,
+}: {
+  fill: Fill;
+  onChange: (fill: Fill) => void;
+  doc?: DesignDoc | undefined;
+  onReplaceAll?: ((from: string, to: string) => void) | undefined;
+}) {
   const { t } = useI18n();
   const updateStop = (index: number, patch: { color?: string; pos?: number }) => {
     if (fill.kind !== 'linear') return;
@@ -158,10 +182,87 @@ function FillEditor({ fill, onChange }: { fill: Fill; onChange: (fill: Fill) => 
       />
 
       {fill.kind === 'solid' ? (
-        <ColorInput value={fill.color} onChange={(color) => onChange({ kind: 'solid', color })} />
+        <div className="solid-color">
+          <ColorInput value={fill.color} onChange={(color) => onChange({ kind: 'solid', color })} />
+          <input
+            className="alpha-slider"
+            data-testid="color-alpha"
+            type="range"
+            min={0}
+            max={100}
+            value={Math.round(colorAlpha(fill.color) * 100)}
+            aria-label={t('alpha')}
+            onChange={(event) =>
+              onChange({
+                kind: 'solid',
+                color: withAlpha(fill.color, Number(event.target.value) / 100),
+              })
+            }
+          />
+          {doc ? (
+            <div
+              className="color-swatches"
+              data-testid="document-colors"
+              aria-label={t('documentColors')}
+            >
+              {extractDocumentColors(doc)
+                .slice(0, 10)
+                .map(({ color, count }) => (
+                  <span key={color} className="color-swatch-wrap">
+                    <button
+                      type="button"
+                      className="color-swatch"
+                      style={{ background: color }}
+                      aria-label={color}
+                      onClick={() => onChange({ kind: 'solid', color })}
+                    />
+                    {onReplaceAll && count > 1 ? (
+                      <button
+                        type="button"
+                        className="color-swatch-all"
+                        data-testid="change-all"
+                        title={t('changeAll')}
+                        aria-label={`${t('changeAll')} ${color}`}
+                        onClick={() => onReplaceAll(color, fill.color)}
+                      >
+                        ⇄
+                      </button>
+                    ) : null}
+                  </span>
+                ))}
+            </div>
+          ) : null}
+        </div>
       ) : (
         <div className="gradient-editor">
           <div className="gradient-preview" style={{ background: fillToCss(fill) }} />
+          <div
+            className="gradient-presets"
+            data-testid="gradient-presets"
+            aria-label={t('gradientPresets')}
+          >
+            {GRADIENT_PRESETS.map((preset, index) => (
+              <button
+                key={preset.angle}
+                type="button"
+                className="gradient-preset"
+                style={{
+                  background: `linear-gradient(${preset.angle}deg, ${preset.stops.join(', ')})`,
+                }}
+                aria-label={`${t('gradientPresets')} ${index + 1}`}
+                onClick={() =>
+                  onChange({
+                    kind: 'linear',
+                    angle: preset.angle,
+                    stops: [
+                      { color: preset.stops[0], pos: 0 },
+                      { color: preset.stops[1], pos: 100 },
+                    ],
+                  })
+                }
+              />
+            ))}
+          </div>
           <Row cols={2}>
             <Field label={t('angle')}>
               <NumberInput
@@ -328,8 +429,10 @@ function ShadowEditor({
 function DocumentPanel({
   doc,
   onUpdate,
+  onReplaceAllColors,
 }: {
   doc: DesignDoc;
+  onReplaceAllColors?: ((from: string, to: string) => void) | undefined;
   onUpdate: InspectorProps['onUpdate'];
 }) {
   const { t } = useI18n();
@@ -394,6 +497,8 @@ function DocumentPanel({
       <Section title={t('background')} icon="image">
         <FillEditor
           fill={doc.background}
+          doc={doc}
+          onReplaceAll={onReplaceAllColors}
           onChange={(background) => onUpdate((current) => ({ ...current, background }))}
         />
       </Section>
@@ -1160,6 +1265,7 @@ export function Inspector({
   onDistribute,
   onStartEditText,
   onReplaceImage,
+  onReplaceAllColors,
 }: InspectorProps) {
   const { t } = useI18n();
   const selectedLayers = doc.layers.filter((layer) => selection.includes(layer.id));
@@ -1188,7 +1294,7 @@ export function Inspector({
               onDelete={onDelete}
             />
           ) : (
-            <DocumentPanel doc={doc} onUpdate={onUpdate} />
+            <DocumentPanel doc={doc} onUpdate={onUpdate} onReplaceAllColors={onReplaceAllColors} />
           )
         ) : (
           <>

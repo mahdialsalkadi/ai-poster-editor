@@ -2642,3 +2642,69 @@ kbd {
 .layer-context-menu button:hover {
   background: rgba(245, 165, 36, 0.14);
 }
+
+/* Colour studio: alpha, document swatches and gradient presets */
+.solid-color {
+  display: grid;
+  gap: 8px;
+}
+
+.alpha-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.color-swatch-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.color-swatch-all {
+  position: absolute;
+  inset-inline-end: -6px;
+  inset-block-end: -6px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--line, #223042);
+  border-radius: 999px;
+  background: #111823;
+  color: var(--accent);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.color-swatch-all:hover {
+  background: var(--accent);
+  color: #0b0e12;
+}
+
+.gradient-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.gradient-preset {
+  width: 44px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  cursor: pointer;
+}

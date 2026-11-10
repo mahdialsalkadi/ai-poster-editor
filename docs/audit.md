@@ -1804,3 +1804,35 @@ web unit tests stayed green.
 
 **Verdict: PASS.** Quick actions require no inspector trip and both surfaces stay
 inside the unclipped overlay.
+
+### Phase 10E — Colour studio: alpha, document swatches, gradient presets, Change All
+
+**What changed:**
+
+- `apps/web/src/editor/fills.ts` adds `extractDocumentColors` (normalises every
+  hex with `normalizeColor`, counts artboard background stops, text colours and
+  shadows, shape fills and borders, sorted most-used first),
+  `replaceColorAcrossDoc` (rewrites the background, every gradient stop, text
+  colour/shadow, fill and border; returns the same document object when the
+  colour is absent so history records nothing) and `withAlpha`/`colorAlpha`
+  (round-trip between 6- and 8-digit hex).
+- `apps/web/src/components/Inspector.tsx` `FillEditor` gains an alpha range
+  input (`data-testid="color-alpha"`), a document swatch strip
+  (`data-testid="document-colors"`) and three gradient presets
+  (`data-testid="gradient-presets"`). Each swatch used more than once exposes a
+  `⇄` Change All button (`data-testid="change-all"`) that replaces that colour
+  everywhere with the editor’s current colour.
+- `apps/web/src/App.tsx` wires Change All to history and raises the bilingual
+  `colorReplaced` toast with the number of updated places, so the action is
+  undoable and announced.
+
+**Measured contract:** `apps/web/src/editor/fills.test.ts` covers normalised
+counting across fill/text/border/shadow/gradient, replacement of background
+stops and layer styles, identity preservation for unused colours, and alpha
+round-tripping (`#F5A52480` ↔ 128/255, 0 → `00`, 1 → `FF`).
+
+**Gates:** typecheck, lint, format, build and the web unit suites (10 files)
+passed locally after the optional-prop and identity assertions were corrected.
+
+**Verdict: PASS.** Colour edits are now visible, reusable and replaceable across
+the document with one undoable action.

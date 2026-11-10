@@ -84,6 +84,7 @@ import {
   type TextPreset,
 } from './editor/layers.js';
 import { plainToInline } from './editor/text.js';
+import { extractDocumentColors, normalizeColor, replaceColorAcrossDoc } from './editor/fills.js';
 import { TEMPLATES, createBlankDoc } from './sample.js';
 
 const ACCENT = '#f5a524';
@@ -1236,6 +1237,13 @@ export function App() {
 
           <Inspector
             doc={doc}
+            onReplaceAllColors={(from, to) => {
+              const count =
+                extractDocumentColors(doc).find((entry) => entry.color === normalizeColor(from))
+                  ?.count ?? 0;
+              history.update((current) => replaceColorAcrossDoc(current, from, to));
+              notify('success', t('colorReplaced', { count }));
+            }}
             selection={selection}
             assets={assets}
             onUpdate={history.update}
