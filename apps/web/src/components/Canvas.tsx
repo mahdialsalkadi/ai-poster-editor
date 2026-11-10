@@ -19,7 +19,9 @@ import {
 } from '../editor/snap.js';
 import { plainToInline } from '../editor/text.js';
 import { layersInMarquee, selectionRect, type SelectionRect } from '../editor/selection.js';
-import { LayerView, type Handle } from './LayerView.js';
+import { resizeFromHandle, type Handle } from '../editor/resize.js';
+import { LayerView } from './LayerView.js';
+import { SelectionOverlay } from './SelectionOverlay.js';
 
 type StartBox = { left: number; top: number; width: number; height: number };
 
@@ -46,6 +48,8 @@ type ResizeSession = {
   before: DesignDoc;
   id: string;
   isText: boolean;
+  type: Layer['type'];
+  startFontSize: number | null;
   start: { left: number; top: number; width: number; height: number; rotation: number };
   targets: SnapTargets;
   threshold: number;
@@ -124,6 +128,7 @@ export type CanvasProps = {
   onEditingChange: (id: string | null) => void;
   onUpdate: (updater: (doc: DesignDoc) => DesignDoc, options?: UpdateOptions) => void;
   onCommit: (before: DesignDoc) => void;
+  onDuplicateForDrag?: (ids: string[]) => { ids: string[]; layers: Layer[] } | null;
 };
 
 export function Canvas({
@@ -139,6 +144,7 @@ export function Canvas({
   onEditingChange,
   onUpdate,
   onCommit,
+  onDuplicateForDrag,
 }: CanvasProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const artboardRef = useRef<HTMLDivElement>(null);
@@ -367,44 +373,21 @@ export function Canvas({
         if (current.kind === 'resize') {
           const dx = (event.clientX - current.startX) / current.scale;
           const dy = (event.clientY - current.startY) / current.scale;
-          const { left, top, width, height, rotation } = current.start;
-          const theta = (rotation * Math.PI) / 180;
-          const cos = Math.cos(theta);
-          const sin = Math.sin(theta);
-          const localDx = dx * cos + dy * sin;
-          const localDy = -dx * sin + dy * cos;
-
-          let nextWidth = width;
-          let nextHeight = height;
-          if (current.handle.includes('e')) nextWidth = width + localDx;
-          if (current.handle.includes('w')) nextWidth = width - localDx;
-          if (!current.isText) {
-            if (current.handle.includes('s')) nextHeight = height + localDy;
-            if (current.handle.includes('n')) nextHeight = height - localDy;
-          }
-          nextWidth = Math.min(10_000, Math.max(1, nextWidth));
-          nextHeight = Math.min(10_000, Math.max(1, nextHeight));
-
-          const ax = current.handle.includes('w') ? 1 : current.handle.includes('e') ? 0 : 0.5;
-          const ay = current.handle.includes('n') ? 1 : current.handle.includes('s') ? 0 : 0.5;
-          const oldCenterX = left + width / 2;
-          const oldCenterY = top + height / 2;
-          const oldAnchorX = ax * width - width / 2;
-          const oldAnchorY = ay * height - height / 2;
-          const newAnchorX = ax * nextWidth - nextWidth / 2;
-          const newAnchorY = ay * nextHeight - nextHeight / 2;
-          const rotate = (x: number, y: number) => ({
-            x: x * cos - y * sin,
-            y: x * sin + y * cos,
+          const { rotation } = current.start;
+          const resized = resizeFromHandle({
+            handle: current.handle,
+            start: current.start,
+            dx,
+            dy,
+            type: current.type,
+            ...(current.startFontSize === null ? {} : { startFontSize: current.startFontSize }),
+            shiftKey: event.shiftKey,
+            altKey: event.altKey,
           });
-          const oldRotated = rotate(oldAnchorX, oldAnchorY);
-          const newRotated = rotate(newAnchorX, newAnchorY);
-          const centerX = oldCenterX + oldRotated.x - newRotated.x;
-          const centerY = oldCenterY + oldRotated.y - newRotated.y;
-          let nextLeft = quantize(centerX - nextWidth / 2);
-          let nextTop = quantize(centerY - nextHeight / 2);
-          let nextW = quantize(nextWidth);
-          let nextH = quantize(nextHeight);
+          let nextLeft = resized.left;
+          let nextTop = resized.top;
+          let nextW = resized.width;
+          let nextH = resized.height;
 
           // Snapping only applies to unrotated layers: the handles move along
           // the artboard axes, which keeps the anchored edge fixed.
@@ -447,7 +430,15 @@ export function Canvas({
             (currentDoc) =>
               updateLayers(currentDoc, [current.id], (layer) => {
                 if (layer.type === 'text') {
-                  return { ...layer, left: nextLeft, top: nextTop, width: nextW };
+                  return {
+                    ...layer,
+                    left: nextLeft,
+                    top: nextTop,
+                    width: nextW,
+                    ...(resized.fontSize === undefined
+                      ? {}
+                      : { style: { ...layer.style, fontSize: resized.fontSize } }),
+                  };
                 }
                 return {
                   ...layer,
@@ -499,10 +490,15 @@ export function Canvas({
   );
 
   const startMove = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>, layer: Layer, ids: string[]) => {
+    (
+      event: ReactPointerEvent<HTMLDivElement>,
+      layer: Layer,
+      ids: string[],
+      sourceLayers?: readonly Layer[],
+    ) => {
       const starts = new Map<string, StartBox>();
       for (const id of ids) {
-        const item = doc.layers.find((candidate) => candidate.id === id);
+        const item = (sourceLayers ?? doc.layers).find((candidate) => candidate.id === id);
         if (!item) continue;
         const height =
           'height' in item ? item.height : (textHeights[item.id] ?? estimatedLayerHeight(item));
@@ -543,9 +539,17 @@ export function Canvas({
         onSelectionChange(nextSelection);
       }
       onEditingChange(null);
+      if (event.altKey) {
+        const duplicated = onDuplicateForDrag?.(nextSelection);
+        if (duplicated && duplicated.ids.length > 0) {
+          onSelectionChange(duplicated.ids);
+          startMove(event, layer, duplicated.ids, duplicated.layers);
+          return;
+        }
+      }
       startMove(event, layer, nextSelection);
     },
-    [selection, onSelectionChange, onEditingChange, startMove],
+    [selection, onSelectionChange, onEditingChange, startMove, onDuplicateForDrag],
   );
 
   const handleDoubleClick = useCallback(
@@ -572,6 +576,8 @@ export function Canvas({
         before: doc,
         id: layer.id,
         isText: layer.type === 'text',
+        type: layer.type,
+        startFontSize: layer.type === 'text' ? layer.style.fontSize : null,
         start: {
           left: layer.left,
           top: layer.top,
@@ -701,13 +707,10 @@ export function Canvas({
               layer={layer}
               scale={scale}
               selected={selection.includes(layer.id)}
-              showHandles={selection.length === 1 && selection[0] === layer.id}
               editing={editingId === layer.id}
               assets={assets}
               onPointerDown={handleLayerPointerDown}
               onDoubleClick={handleDoubleClick}
-              onResizeStart={startResize}
-              onRotateStart={startRotate}
               onTextCommit={handleTextCommit}
               onTextCancel={handleTextCancel}
               registerRef={registerRef}
@@ -732,6 +735,15 @@ export function Canvas({
             />
           ) : null}
         </div>
+        <SelectionOverlay
+          layers={doc.layers}
+          selection={selection}
+          scale={scale}
+          textHeights={textHeights}
+          editingId={editingId}
+          onResizeStart={startResize}
+          onRotateStart={startRotate}
+        />
       </div>
     </div>
   );

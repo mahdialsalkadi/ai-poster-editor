@@ -1082,6 +1082,21 @@ button:disabled {
   resize: none;
 }
 
+/* Selection chrome lives in an unclipped sibling of `.artboard`, so handles
+   and the rotation stem stay visible when a layer touches the artboard edge. */
+.artboard-overlays {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.overlay-box {
+  position: absolute;
+  transform-origin: 50% 50%;
+}
+
 .selection-box {
   position: absolute;
   inset: 0;
@@ -1106,6 +1121,8 @@ button:disabled {
 .rotate-stem {
   position: absolute;
   left: 50%;
+  top: -28px;
+  height: 28px;
   background: var(--accent);
   transform: translateX(-50%);
   pointer-events: none;
@@ -1117,26 +1134,97 @@ button:disabled {
   left: 50%;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--accent);
   border-radius: 50%;
   background: #0b1017;
   color: var(--accent);
   transform: translate(-50%, -50%);
+  pointer-events: auto;
   cursor: grab;
 }
 
+/* Corner handles are 12px circles, edge handles 24x6 / 6x24 pills. Every
+   handle carries a >=24x24px hit box through `::after` so the targets stay
+   reachable even when the visible mark is small. */
 .handle {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   padding: 0;
   border: 1.5px solid var(--accent);
-  border-radius: 2px;
+  border-radius: 999px;
   background: #ffffff;
   transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+}
+
+.handle--nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.handle--n {
+  top: 0;
+  left: 50%;
+  width: 24px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.handle--ne {
+  top: 0;
+  left: 100%;
+  cursor: nesw-resize;
+}
+
+.handle--e {
+  top: 50%;
+  left: 100%;
+  width: 6px;
+  height: 24px;
+  cursor: ew-resize;
+}
+
+.handle--se {
+  top: 100%;
+  left: 100%;
+  cursor: nwse-resize;
+}
+
+.handle--s {
+  top: 100%;
+  left: 50%;
+  width: 24px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.handle--sw {
+  top: 100%;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.handle--w {
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 24px;
+  cursor: ew-resize;
 }
 
 .handle--n,

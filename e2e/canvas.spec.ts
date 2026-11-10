@@ -61,6 +61,83 @@ test('trusted input exercises Shift selection, marquee, layer clipboard and view
     .toBe('120px');
 });
 
+test('selection chrome is unclipped and text corners scale the font while edges reflow', async ({
+  page,
+}) => {
+  const doc = qualityDoc();
+  const text = doc.layers.find((item) => item.type === 'text')!;
+  doc.layers = [{ ...text, id: 'headline', left: 0, top: 0, width: 400, rotation: 0 }];
+  await openEditor(page);
+  await page.locator('input[type="file"][accept^=".html"]').setInputFiles({
+    name: 'overlay.html',
+    mimeType: 'text/html',
+    buffer: Buffer.from(serializeDesignDoc(doc)),
+  });
+  await expect(layer(page, 'headline')).toBeVisible();
+  await layer(page, 'headline').click();
+
+  const artboard = page.locator('.artboard');
+  const box = (await artboard.boundingBox())!;
+  const scale = box.width / doc.width;
+
+  // The north-west handle sits on the artboard corner, so half of it must be
+  // painted outside the artboard bounds instead of being clipped away.
+  const nw = page.locator('.artboard-overlays .handle--nw');
+  await expect(nw).toBeVisible();
+  const nwBox = (await nw.boundingBox())!;
+  expect(nwBox.x).toBeLessThan(box.x);
+  expect(nwBox.y).toBeLessThan(box.y);
+  await expect(page.locator('.artboard .handle')).toHaveCount(0);
+
+  const fontSize = () =>
+    page
+      .locator('[data-layer-id="headline"] .text-content')
+      .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+  const before = await fontSize();
+
+  async function drag(selector: string, dx: number, dy: number) {
+    const handle = page.locator(selector);
+    const handleBox = (await handle.boundingBox())!;
+    const x = handleBox.x + handleBox.width / 2;
+    const y = handleBox.y + handleBox.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx, y + dy, { steps: 8 });
+    await page.mouse.up();
+  }
+
+  await drag('.artboard-overlays .handle--e', 80 * scale, 0);
+  expect(await fontSize()).toBe(before);
+
+  await drag('.artboard-overlays .handle--se', 60 * scale, 60 * scale);
+  expect(await fontSize()).toBeGreaterThan(before);
+});
+
+test('single-key insertions add centered text, rectangle, circle and line layers', async ({
+  page,
+}) => {
+  await openEditor(page);
+  const artboard = page.locator('.artboard');
+  const before = {
+    all: await artboard.locator('.layer').count(),
+    text: await artboard.locator('.layer--text').count(),
+    shape: await artboard.locator('.layer--shape').count(),
+    svg: await artboard.locator('.layer--svg').count(),
+  };
+  for (const key of ['t', 'r', 'c', 'l']) {
+    await page.keyboard.press(key);
+  }
+  await expect(artboard.locator('.layer')).toHaveCount(before.all + 4);
+  expect(await artboard.locator('.layer--text').count()).toBe(before.text + 1);
+  expect(await artboard.locator('.layer--shape').count()).toBe(before.shape + 3);
+  expect(await artboard.locator('.layer--svg').count()).toBe(before.svg);
+
+  const box = (await artboard.boundingBox())!;
+  const inserted = (await artboard.locator('.layer--text').last().boundingBox())!;
+  expect(Math.abs(inserted.x + inserted.width / 2 - (box.x + box.width / 2))).toBeLessThan(2);
+  expect(Math.abs(inserted.y + inserted.height / 2 - (box.y + box.height / 2))).toBeLessThan(2);
+});
+
 test('the built editor blocks inline scripts and external image requests with CSP', async ({
   page,
 }) => {

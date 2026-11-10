@@ -24,27 +24,15 @@ import { scopeSvgNodes, svgAttrToProps } from '../editor/svg.js';
 import { borderToCss, fillToCss, fontFamilyCss, shadowToCss } from '../editor/render.js';
 import { Icon } from './icons.js';
 
-export type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
-
-const ALL_HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-const TEXT_HANDLES: Handle[] = ['w', 'e'];
-
 export type LayerViewProps = {
   layer: Layer;
   scale: number;
   selected: boolean;
-  showHandles: boolean;
   editing: boolean;
   assets: Record<string, string>;
   interactive?: boolean;
   onPointerDown?: (event: ReactPointerEvent<HTMLDivElement>, layer: Layer) => void;
   onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>, layer: Layer) => void;
-  onResizeStart?: (
-    event: ReactPointerEvent<HTMLButtonElement>,
-    handle: Handle,
-    layer: Layer,
-  ) => void;
-  onRotateStart?: (event: ReactPointerEvent<HTMLButtonElement>, layer: Layer) => void;
   onTextCommit?: (id: string, text: string) => void;
   onTextCancel?: () => void;
   registerRef?: (id: string, element: HTMLDivElement | null) => void;
@@ -275,32 +263,15 @@ function InlineTextEditor({
   );
 }
 
-function handleStyle(handle: Handle, scale: number): CSSProperties {
-  return {
-    width: Math.max(6, 10 / scale),
-    height: Math.max(6, 10 / scale),
-    borderWidth: Math.max(1, 1.5 / scale),
-    ...(handle.includes('n') ? { top: 0 } : {}),
-    ...(handle.includes('s') ? { top: '100%' } : {}),
-    ...(!handle.includes('n') && !handle.includes('s') ? { top: '50%' } : {}),
-    ...(handle.includes('w') ? { left: 0 } : {}),
-    ...(handle.includes('e') ? { left: '100%' } : {}),
-    ...(!handle.includes('w') && !handle.includes('e') ? { left: '50%' } : {}),
-  };
-}
-
 export function LayerView({
   layer,
   scale,
   selected,
-  showHandles,
   editing,
   assets,
   interactive = true,
   onPointerDown,
   onDoubleClick,
-  onResizeStart,
-  onRotateStart,
   onTextCommit,
   onTextCancel,
   registerRef,
@@ -317,8 +288,6 @@ export function LayerView({
     ...(layer.rotation === 0 ? {} : { transform: `rotate(${layer.rotation}deg)` }),
     pointerEvents: interactive && !layer.locked ? undefined : 'none',
   };
-
-  const handles = layer.type === 'text' ? TEXT_HANDLES : ALL_HANDLES;
 
   return (
     <div
@@ -362,66 +331,12 @@ export function LayerView({
         <SvgContent layer={layer} />
       )}
 
-      {selected ? (
-        <span
-          className="selection-box"
-          style={{ borderWidth: Math.max(1, 1.5 / scale) }}
-          aria-hidden="true"
-        />
-      ) : interactive ? (
+      {interactive && !selected ? (
         <span
           className="layer-hover"
           style={{ borderWidth: Math.max(1, 1 / scale) }}
           aria-hidden="true"
         />
-      ) : null}
-
-      {selected && showHandles && !layer.locked && !editing && interactive ? (
-        <>
-          <span
-            className="rotate-stem"
-            style={{
-              width: Math.max(1, 1.5 / scale),
-              height: 28 / scale,
-              top: -28 / scale,
-            }}
-            aria-hidden="true"
-          />
-          <button
-            type="button"
-            className="rotate-handle"
-            aria-label="Rotate layer"
-            title="Rotate layer"
-            style={{
-              width: 24 / scale,
-              height: 24 / scale,
-              borderWidth: Math.max(1, 1.5 / scale),
-              top: -28 / scale,
-            }}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              event.preventDefault();
-              onRotateStart?.(event, layer);
-            }}
-          >
-            <Icon name="rotate" size={12 / scale} />
-          </button>
-          {handles.map((handle) => (
-            <button
-              key={handle}
-              type="button"
-              className={`handle handle--${handle}`}
-              aria-label={`Resize ${handle}`}
-              title={`Resize ${handle}`}
-              style={handleStyle(handle, scale)}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                event.preventDefault();
-                onResizeStart?.(event, handle, layer);
-              }}
-            />
-          ))}
-        </>
       ) : null}
     </div>
   );

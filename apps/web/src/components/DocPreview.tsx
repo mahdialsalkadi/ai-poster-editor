@@ -44,7 +44,6 @@ export function DocPreview({
             layer={layer}
             scale={scale}
             selected={false}
-            showHandles={false}
             editing={false}
             assets={assets}
             interactive={false}

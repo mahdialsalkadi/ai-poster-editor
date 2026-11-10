@@ -60,6 +60,7 @@ import {
 } from './editor/storage.js';
 import {
   ELEMENT_LABELS,
+  TEXT_PRESETS,
   addLayer,
   alignLayers,
   canAddLayer,
@@ -81,6 +82,14 @@ import { TEMPLATES, createBlankDoc } from './sample.js';
 const ACCENT = '#f5a524';
 
 const BASE_LAYER = { rotation: 0, opacity: 1, hidden: false, locked: false } as const;
+
+/** Single-key insertions, active only when no modifier is held. */
+const QUICK_INSERT: Record<string, 'text' | ElementKind> = {
+  t: 'text',
+  r: 'rectangle',
+  c: 'circle',
+  l: 'line',
+};
 
 const SVG_ELEMENTS: Record<'star' | 'check' | 'arrow', SvgNode[]> = {
   star: [
@@ -149,6 +158,15 @@ function remapImportedAssets(doc: DesignDoc, idMap: ReadonlyMap<string, string>)
       const mapped = idMap.get(layer.src.slice('asset:'.length));
       return mapped ? { ...layer, src: `asset:${mapped}` } : layer;
     }),
+  };
+}
+
+function centeredLayer(doc: DesignDoc, layer: Layer): Layer {
+  const height = 'height' in layer ? layer.height : estimatedLayerHeight(layer);
+  return {
+    ...layer,
+    left: Math.round((doc.width - layer.width) / 2),
+    top: Math.round((doc.height - height) / 2),
   };
 }
 
@@ -472,6 +490,22 @@ export function App() {
     if (nextIds.length > 0) setSelection(nextIds);
   }, [history, selection]);
 
+  // `Alt + Drag` duplicates before the move starts: the gesture then moves the
+  // copies, and the single history entry recorded by the canvas covers both.
+  const duplicateForDrag = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return null;
+      const result = duplicateLayers(doc, ids);
+      if (result.ids.length === 0) return null;
+      history.update(() => result.doc);
+      return {
+        ids: result.ids,
+        layers: result.doc.layers.filter((candidate) => result.ids.includes(candidate.id)),
+      };
+    },
+    [doc, history],
+  );
+
   const addText = useCallback(
     (preset: TextPreset) => {
       if (!canAddLayer(doc)) {
@@ -493,6 +527,28 @@ export function App() {
         return;
       }
       const layer = elementLayerFor(doc, kind);
+      history.update((current) => addLayer(current, layer));
+      setSelection([layer.id]);
+    },
+    [doc, history, notify, t],
+  );
+
+  const addQuickLayer = useCallback(
+    (kind: 'text' | ElementKind) => {
+      if (!canAddLayer(doc)) {
+        notify('error', t('toastMaxLayers'));
+        return;
+      }
+      const layer = centeredLayer(
+        doc,
+        kind === 'text'
+          ? textLayerFor(
+              doc,
+              TEXT_PRESETS.find((preset) => preset.id === 'body') ?? TEXT_PRESETS[0]!,
+              doc.layers.length,
+            )
+          : elementLayerFor(doc, kind),
+      );
       history.update((current) => addLayer(current, layer));
       setSelection([layer.id]);
     },
@@ -749,6 +805,29 @@ export function App() {
         setZoom(1);
         return;
       }
+      if (mod && (event.key === '[' || event.key === ']')) {
+        event.preventDefault();
+        const move: ReorderMove =
+          event.key === ']'
+            ? event.shiftKey
+              ? 'front'
+              : 'forward'
+            : event.shiftKey
+              ? 'back'
+              : 'backward';
+        history.update((current) =>
+          selection.reduce((next, id) => reorderLayer(next, id, move), current),
+        );
+        return;
+      }
+      if (!mod && !event.shiftKey && !event.altKey) {
+        const quick = QUICK_INSERT[key];
+        if (quick) {
+          event.preventDefault();
+          addQuickLayer(quick);
+          return;
+        }
+      }
       if (event.key === 'Escape') {
         setSelection([]);
         setEditingId(null);
@@ -790,6 +869,7 @@ export function App() {
     selection,
     deleteSelection,
     duplicateSelection,
+    addQuickLayer,
     doc,
     saveNow,
     modal,
@@ -956,6 +1036,7 @@ export function App() {
               onEditingChange={setEditingId}
               onUpdate={history.update}
               onCommit={history.commit}
+              onDuplicateForDrag={duplicateForDrag}
             />
 
             <div className="zoom-bar">

@@ -24,14 +24,17 @@ test('template → transforms → Arabic/English paste → history → reload �
   await page.mouse.move(box.x + 55, box.y + 35, { steps: 8 });
   await page.mouse.up();
   await expect.poll(() => shape.evaluate((element) => element.style.left)).not.toBe(before.left);
-  const resize = await shape.getByRole('button', { name: 'Resize se', exact: true }).boundingBox();
+  const overlay = page.locator('.artboard-overlays [data-overlay-layer="glow"]');
+  const resize = await overlay
+    .getByRole('button', { name: 'Resize se', exact: true })
+    .boundingBox();
   if (!resize) throw new Error('Missing resize handle');
   await page.mouse.move(resize.x + resize.width / 2, resize.y + resize.height / 2);
   await page.mouse.down();
   await page.mouse.move(resize.x + 35, resize.y + 25, { steps: 8 });
   await page.mouse.up();
   await expect.poll(() => shape.evaluate((element) => element.style.width)).not.toBe(before.width);
-  const rotate = await shape.getByRole('button', { name: 'Rotate layer' }).boundingBox();
+  const rotate = await overlay.getByRole('button', { name: 'Rotate layer' }).boundingBox();
   const current = await shape.boundingBox();
   if (!rotate || !current) throw new Error('Missing rotate handle');
   await page.mouse.move(rotate.x + rotate.width / 2, rotate.y + rotate.height / 2);

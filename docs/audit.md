@@ -1621,3 +1621,61 @@ not require pixel comparison is asserted locally and mirrored into the
 **Verdict: PASS.** `main` matches `origin/main`, the toolchain is green,
 Playwright executes on this host, and the local-vs-CI E2E split is recorded
 above.
+
+### Phase 10A — Unclipped overlay, 8-point handles, text corner scaling & quick keys
+
+**What changed:**
+
+- `apps/web/src/editor/resize.ts` (new) holds the pure resize geometry:
+  `TEXT_HANDLES` exposes six handles (`resize.ts:13`), `handlesFor` picks them
+  per layer type (`resize.ts:16`), `isCornerHandle` (`resize.ts:49`),
+  `locksAspectRatio` (`resize.ts:58`), `scaleTextFontSize` (`resize.ts:67`) and
+  `resizeFromHandle` (`resize.ts:84`), which projects the pointer delta into the
+  layer's rotated local space and supports the `Alt` centre anchor.
+- `apps/web/src/components/SelectionOverlay.tsx` (new) renders selection boxes,
+  handles and the rotation stem inside `.artboard-overlays` (`:42`), tags each
+  box with `data-overlay-layer` (`:53`) and emits per-type handles (`:87`).
+- `apps/web/src/components/Canvas.tsx`: the resize gesture delegates to
+  `resizeFromHandle` (`Canvas.tsx:377`), text corners persist the scaled
+  `fontSize`, `Alt + Drag` duplicates through `onDuplicateForDrag`
+  (`Canvas.tsx:543`), and the overlay mounts outside the clipped artboard
+  (`Canvas.tsx:738`).
+- `apps/web/src/components/LayerView.tsx` now renders artwork only: the
+  selection box, handles and rotate stem left the layer, so `.artboard`'s
+  `overflow: hidden` can no longer cut chrome off.
+- `apps/web/src/styles.css:1087` adds `.artboard-overlays`
+  (`overflow: visible`, `pointer-events: none`), `:1152` gives 12px circular
+  corner handles and 24×6 / 6×24 pill edges, and `:1164` adds the `::after`
+  24×24 hit box for every handle.
+- `apps/web/src/App.tsx`: `QUICK_INSERT` (`:87`), `centeredLayer` (`:164`),
+  `duplicateForDrag` (`:495`), the single-key handler behind the existing
+  input/modal guards (`:824`), the new canvas prop (`:1039`), plus
+  `Ctrl/Cmd + [` / `]` reordering with `Shift` for front/back.
+
+**Measured contract (all run locally on this host):**
+
+- `apps/web/src/editor/interactions.test.ts` — six text handles vs eight for
+  other types; edge drag `400 → 600` keeps `fontSize: 48` (`:80`); corner drag
+  `400 → 600` yields `72` (`:94`); image `400×200 → 500×250` locks aspect while a
+  shape stays `500×200` and locks only with `Shift` (`:112`); `Alt` resizes
+  symmetrically to `500×300` at `left: 50, top: 100` (`:142`); font scaling
+  clamps to `[1, 1000]`.
+- `e2e/canvas.spec.ts:64` — with a text layer at `left: 0, top: 0`, `.handle--nw`
+  paints outside the artboard (`nwBox.x < box.x` and `nwBox.y < box.y`),
+  `.artboard .handle` count is 0, an east-edge drag leaves the font untouched and
+  a south-east corner drag increases it.
+- `e2e/canvas.spec.ts:116` — `T`/`R`/`C`/`L` add exactly one text layer and three
+  shape layers (no svg), and the new text is centred within 2px of the artboard.
+- `e2e/editor.spec.ts:27` — the existing drag/rotate/reload/snapshot flow now
+  addresses the handle through `[data-overlay-layer="glow"]` and still passes.
+
+**Gates:** `pnpm typecheck` passed (workspace and E2E project), `pnpm lint`
+passed, `pnpm format:check` passed, `pnpm test` passed **491** tests (core 288,
+web 62, server 141), `pnpm build` passed, `pnpm exec playwright test
+e2e/editor.spec.ts e2e/canvas.spec.ts` passed **7/7**, and `pnpm exec playwright
+test --grep-invert "matches its reviewed golden"` passed **16/16**. The English
+golden remains the host-rasterisation deviation recorded in Phase 0; it was not
+regenerated.
+
+**Verdict: PASS.** Handles are no longer clipped, text scales from corners while
+edge drags reflow, and quick insertions land centred.

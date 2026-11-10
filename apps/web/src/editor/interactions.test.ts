@@ -4,6 +4,7 @@ import { createPaperDoc } from '../sample.js';
 import { copyLayers, pasteLayers } from './clipboard.js';
 import { layersInMarquee, selectionRect } from './selection.js';
 import { replaceTextContent } from './layers.js';
+import { handlesFor, resizeFromHandle, scaleTextFontSize } from './resize.js';
 
 describe('editor interactions', () => {
   it('copies a deep snapshot, preserves stacking order, offsets and allocates unique IDs', () => {
@@ -63,5 +64,89 @@ describe('editor interactions', () => {
     expect(
       (next.layers.find((item) => item.id === layer.id) as TextLayer).style.letterSpacing,
     ).toBe(0);
+  });
+});
+
+describe('resize geometry', () => {
+  const textStart = { left: 100, top: 100, width: 400, height: 200, rotation: 0 };
+
+  it('exposes six handles for text and eight for other layer types', () => {
+    expect([...handlesFor('text')]).toEqual(['nw', 'ne', 'se', 'sw', 'w', 'e']);
+    expect([...handlesFor('shape')]).toHaveLength(8);
+    expect([...handlesFor('image')]).toHaveLength(8);
+  });
+
+  it('reflows a text layer from an edge handle without touching its font size', () => {
+    const result = resizeFromHandle({
+      handle: 'e',
+      start: textStart,
+      dx: 200,
+      dy: 0,
+      type: 'text',
+      startFontSize: 48,
+    });
+    expect(result.width).toBe(600);
+    expect(result.left).toBe(100);
+    expect(result.fontSize).toBeUndefined();
+  });
+
+  it('scales the font proportionally when a text corner handle is dragged', () => {
+    const result = resizeFromHandle({
+      handle: 'se',
+      start: textStart,
+      dx: 200,
+      dy: 0,
+      type: 'text',
+      startFontSize: 48,
+    });
+    expect(result.width).toBe(600);
+    expect(result.fontSize).toBe(72);
+  });
+
+  it('clamps the scaled font to the schema limits', () => {
+    expect(scaleTextFontSize(900, 800, 400)).toBe(1000);
+    expect(scaleTextFontSize(2, 100, 400)).toBe(1);
+  });
+
+  it('locks the aspect ratio on image and svg corners only', () => {
+    const image = resizeFromHandle({
+      handle: 'se',
+      start: { left: 0, top: 0, width: 400, height: 200, rotation: 0 },
+      dx: 100,
+      dy: 0,
+      type: 'image',
+    });
+    expect(image).toMatchObject({ width: 500, height: 250 });
+
+    const shape = resizeFromHandle({
+      handle: 'se',
+      start: { left: 0, top: 0, width: 400, height: 200, rotation: 0 },
+      dx: 100,
+      dy: 0,
+      type: 'shape',
+    });
+    expect(shape).toMatchObject({ width: 500, height: 200 });
+
+    const shifted = resizeFromHandle({
+      handle: 'se',
+      start: { left: 0, top: 0, width: 400, height: 200, rotation: 0 },
+      dx: 100,
+      dy: 0,
+      type: 'shape',
+      shiftKey: true,
+    });
+    expect(shifted).toMatchObject({ width: 500, height: 250 });
+  });
+
+  it('resizes symmetrically around the centre while Alt is held', () => {
+    const result = resizeFromHandle({
+      handle: 'se',
+      start: { left: 100, top: 150, width: 400, height: 200, rotation: 0 },
+      dx: 100,
+      dy: 100,
+      type: 'shape',
+      altKey: true,
+    });
+    expect(result).toMatchObject({ width: 500, height: 300, left: 50, top: 100 });
   });
 });
