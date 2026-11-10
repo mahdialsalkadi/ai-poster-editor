@@ -1193,3 +1193,14 @@ cost, not independently verified provider invoices.
 completion, observer failures and a real HTML export's log records; existing spend
 tests verify reservation and settlement accounting. The three targeted suites
 (19 tests) and server typecheck passed. No external provider was contacted.
+
+### Operations runbook
+
+`docs/runbook.md` documents the proposed single-replica topology, health and
+log-based signals, the AI kill switch and container recreation, ledger failure
+and recovery safeguards, and a staging smoke checklist. It explicitly separates
+mock-provider tests from real billing and requires authorization for staging,
+paid calls and release. Written verdict: reviewed against `docker-compose.yml`,
+`.env.example`, the spend ledger and route implementation; the operational
+commands, backup/restore and deployed-origin checklist have not been exercised
+on a deployment host and remain open verification items.

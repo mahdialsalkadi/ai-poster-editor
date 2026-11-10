@@ -100,8 +100,9 @@ network access.
 These images and the proxy configuration have not been started on the machine
 that prepared them (Docker was unavailable), so container startup, the sandbox
 and TLS are **not verified** yet. See [docs/security.md](docs/security.md) for
-the threat model and deployment checklist, and [docs/audit.md](docs/audit.md) for
-the verification record. Do not expose the build until that checklist passes.
+the threat model and deployment checklist, [docs/runbook.md](docs/runbook.md) for
+operations and incident response, and [docs/audit.md](docs/audit.md) for the
+verification record. Do not expose the build until that checklist passes.
 
 ## What works
 
