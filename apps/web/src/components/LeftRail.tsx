@@ -5,6 +5,7 @@ import type { AssetEntry } from '../editor/assets.js';
 import { formatBytes } from '../editor/assets.js';
 import {
   ELEMENT_KINDS,
+  ELEMENT_PATHS,
   TEXT_PRESETS,
   layerSummary,
   type ElementKind,
@@ -36,6 +37,12 @@ const ELEMENT_KEYS: Record<ElementKind, MessageKey> = {
   star: 'elementStar',
   check: 'elementCheck',
   arrow: 'elementArrow',
+  triangle: 'elementTriangle',
+  diamond: 'elementDiamond',
+  hexagon: 'elementHexagon',
+  cross: 'elementCross',
+  plus: 'elementPlus',
+  heart: 'elementHeart',
 };
 
 const PRESET_KEYS: Record<string, MessageKey> = {
@@ -44,6 +51,7 @@ const PRESET_KEYS: Record<string, MessageKey> = {
   body: 'presetBody',
   quote: 'presetQuote',
   label: 'presetLabel',
+  caption: 'presetCaption',
 };
 
 const RAIL_ITEMS: PanelId[] = ['templates', 'elements', 'text', 'uploads', 'layers', 'ai'];
@@ -92,6 +100,14 @@ function ElementThumb({ kind }: { kind: ElementKind }) {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+      </svg>
+    );
+  }
+  const path = ELEMENT_PATHS[kind];
+  if (path) {
+    return (
+      <svg viewBox="0 0 100 100" className="el-svg" aria-hidden="true">
+        <path d={path} fill="currentColor" />
       </svg>
     );
   }

@@ -1904,3 +1904,33 @@ asserts the original count returns, then collapses the rail (label hidden,
 **Verdict: PASS** for collapse and search. Still outstanding from 10G: the
 26-element/six-text-pairing library, `applyTemplatePalette` via
 `mergeDesignDoc`, drag-and-drop uploads, and `docs/roadmap.md`.
+
+### Phase 10G (part 2) — Element and text library expansion
+
+**What changed:**
+
+- `apps/web/src/editor/layers.ts` extends `ElementKind` to 14 kinds, adding
+  triangle, diamond, hexagon, cross, plus and heart. Their 100×100 glyphs live in
+  the exported `ELEMENT_PATHS` map, which both `createElementLayer` and the rail
+  thumbnail use, so the picker and the inserted SVG cannot drift. The Arabic
+  labels are added to `ELEMENT_LABELS`.
+- `TEXT_PRESETS` gains a sixth preset, `caption` (18px, muted, right-aligned
+  Arabic), so the text panel now offers heading, subheading, body, quote, label
+  and caption.
+- `apps/web/src/components/LeftRail.tsx` maps the six new kinds and the caption
+  preset to bilingual `MessageKey`s; the new element thumbs render from
+  `ELEMENT_PATHS`, and the rail search already matches the new labels.
+
+**Measured contract:** `apps/web/src/editor/library.test.ts` asserts 14 unique
+element kinds and 6 unique text presets, then inserts every element into one
+document, checking a kind-prefixed unique id, positive width, positive estimated
+height and non-empty SVG nodes, and builds every text preset checking type, font
+size and content.
+
+**Gates:** typecheck, lint, build and all web unit suites (**11 files**) passed.
+
+**Verdict: PASS for what shipped, with a scope caveat:** the plan targets 26
+element kinds; this run reaches 14 because the plan's enumerated list of the
+remaining twelve is not available in the current session. The six added kinds
+are an interim, coherent vocabulary, not a claim that the 26-item library is
+complete.

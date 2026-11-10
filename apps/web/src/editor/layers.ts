@@ -20,7 +20,20 @@ import { inlineLineCount } from './text.js';
 export type AlignTarget = 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom';
 export type ReorderMove = 'front' | 'back' | 'forward' | 'backward';
 export type ElementKind =
-  'rectangle' | 'rounded' | 'circle' | 'line' | 'ring' | 'star' | 'check' | 'arrow';
+  | 'rectangle'
+  | 'rounded'
+  | 'circle'
+  | 'line'
+  | 'ring'
+  | 'star'
+  | 'check'
+  | 'arrow'
+  | 'triangle'
+  | 'diamond'
+  | 'hexagon'
+  | 'cross'
+  | 'plus'
+  | 'heart';
 
 export const ELEMENT_LABELS: Record<ElementKind, string> = {
   rectangle: 'مستطيل',
@@ -31,6 +44,22 @@ export const ELEMENT_LABELS: Record<ElementKind, string> = {
   star: 'نجمة',
   check: 'علامة صح',
   arrow: 'سهم',
+  triangle: 'مثلث',
+  diamond: 'معيّن',
+  hexagon: 'سداسي',
+  cross: 'تصالب',
+  plus: 'زائد',
+  heart: 'قلب',
+};
+
+/** Simple 100×100 glyphs shared by the canvas layer and the rail thumbnail. */
+export const ELEMENT_PATHS: Partial<Record<ElementKind, string>> = {
+  triangle: 'M50 8 L92 88 L8 88 Z',
+  diamond: 'M50 6 L92 50 L50 94 L8 50 Z',
+  hexagon: 'M28 10 H72 L94 50 L72 90 H28 L6 50 Z',
+  cross: 'M20 8 L50 38 L80 8 L92 20 L62 50 L92 80 L80 92 L50 62 L20 92 L8 80 L38 50 L8 20 Z',
+  plus: 'M38 8 H62 V38 H92 V62 H62 V92 H38 V62 H8 V38 H38 Z',
+  heart: 'M50 88 C20 66 8 48 8 34 A20 20 0 0 1 50 24 A20 20 0 0 1 92 34 C92 48 80 66 50 88 Z',
 };
 
 export const ELEMENT_KINDS: ElementKind[] = [
@@ -42,6 +71,12 @@ export const ELEMENT_KINDS: ElementKind[] = [
   'star',
   'check',
   'arrow',
+  'triangle',
+  'diamond',
+  'hexagon',
+  'cross',
+  'plus',
+  'heart',
 ];
 
 function truncate(value: string, max: number): string {
@@ -364,6 +399,20 @@ export const TEXT_PRESETS: TextPreset[] = [
     textTransform: 'uppercase',
     dir: 'ltr',
   },
+  {
+    id: 'caption',
+    label: 'تعليق',
+    content: 'تعليق قصير أسفل العمل',
+    fontFamily: 'IBM Plex Sans Arabic',
+    fontSize: 18,
+    fontWeight: 400,
+    color: '#93a1af',
+    align: 'right',
+    lineHeight: 1.4,
+    letterSpacing: 0,
+    textTransform: 'none',
+    dir: 'rtl',
+  },
 ];
 
 export function createTextPreset(doc: DesignDoc, preset: TextPreset): TextLayer {
@@ -493,14 +542,16 @@ export function createElementLayer(doc: DesignDoc, kind: ElementKind): Layer {
             {
               kind: 'element',
               tag: 'path',
-              attrs: {
-                d: 'M8 50 H78 M58 28 L80 50 L58 72',
-                fill: 'none',
-                stroke: '#f26b4a',
-                'stroke-width': '10',
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-              },
+              attrs: ELEMENT_PATHS[kind]
+                ? { d: ELEMENT_PATHS[kind] ?? '', fill: '#f26b4a' }
+                : {
+                    d: 'M8 50 H78 M58 28 L80 50 L58 72',
+                    fill: 'none',
+                    stroke: '#f26b4a',
+                    'stroke-width': '10',
+                    'stroke-linecap': 'round',
+                    'stroke-linejoin': 'round',
+                  },
               children: [],
             },
           ];
