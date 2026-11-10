@@ -1363,8 +1363,11 @@ Local verification passed `pnpm typecheck`, `pnpm lint`, `pnpm test` (470 tests)
 vulnerabilities). The 200 KiB performance test measured p95 27.24 ms on this
 host. The build still emits Zod annotation and large-chunk warnings. Local
 `pnpm format:check` reports only the unrelated untracked
-`yemen-cultural-day.html`; it was not modified. These are local results; hosted
-CI for the Phase 6 commit must be checked separately.
+`yemen-cultural-day.html`; it was not modified. Hosted
+[CI run 42786946973](https://github.com/mahdialsalkadi/ai-poster-editor/actions/runs/42786946973)
+passed both Node 22 and latest Node for commit
+`d0432376d7221a0798a4ff6ef45af278e4b38389`, including formatting, tests,
+coverage, build, browser E2E/visual checks and production dependency audit.
 
 **Verdict:** G1–G4 and the specified G6 overrides have implementation and test
 evidence, subject to the documented response-deadline, in-memory limiter,
